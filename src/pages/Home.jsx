@@ -65,6 +65,14 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col px-5 pt-14 pb-10 max-w-lg mx-auto">
+      {/* Brand */}
+      <div className="flex items-center gap-2 mb-8">
+        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+          <ScanLine className="w-4 h-4 text-white" />
+        </div>
+        <span className="font-heading font-bold text-white text-lg tracking-wide">DoorMan</span>
+      </div>
+
       {/* Header */}
       <div className="mb-10">
         <div className="flex items-center gap-2 mb-2">
