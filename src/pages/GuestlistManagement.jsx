@@ -22,10 +22,25 @@ export default function GuestlistManagement() {
   const [addOpen, setAddOpen] = useState(false);
   const [newGuest, setNewGuest] = useState({ name: "", email: "", phone: "" });
   const [adding, setAdding] = useState(false);
+  const [friends, setFriends] = useState([]);
+  const [me, setMe] = useState(null);
 
   useEffect(() => {
     loadData();
+    loadFriends();
   }, [id]);
+
+  async function loadFriends() {
+    const user = await base44.auth.me();
+    setMe(user);
+    const sent = await base44.entities.FriendRequest.filter({ sender_email: user.email, status: "accepted" });
+    const received = await base44.entities.FriendRequest.filter({ receiver_email: user.email, status: "accepted" });
+    const friendList = [
+      ...sent.map((r) => ({ name: r.receiver_name, email: r.receiver_email, picture: r.receiver_picture })),
+      ...received.map((r) => ({ name: r.sender_name, email: r.sender_email, picture: r.sender_picture })),
+    ];
+    setFriends(friendList);
+  }
 
   async function loadData() {
     const events = await base44.entities.Event.filter({ id });
@@ -42,6 +57,25 @@ export default function GuestlistManagement() {
     }
     await base44.entities.GuestlistEntry.update(guest.id, updates);
     toast({ title: `Guest ${status}` });
+    loadData();
+  }
+
+  async function addFriendToGuestlist(friend) {
+    const existing = guests.find((g) => g.guest_email === friend.email);
+    if (existing) {
+      toast({ title: "Already on guestlist", variant: "destructive" });
+      return;
+    }
+    await base44.entities.GuestlistEntry.create({
+      event_id: id,
+      guest_email: friend.email,
+      guest_name: friend.name,
+      guest_phone: "",
+      status: "invited",
+      source: "manual",
+      qr_secret: crypto.randomUUID(),
+    });
+    toast({ title: `${friend.name} invited!` });
     loadData();
   }
 
@@ -126,6 +160,41 @@ export default function GuestlistManagement() {
               <DialogTitle className="font-heading">Add Guest</DialogTitle>
             </DialogHeader>
             <div className="space-y-3 pt-2">
+              {friends.length > 0 && (
+                <div>
+                  <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-2">Quick Add from Friends</p>
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                    {friends.map((f) => {
+                      const alreadyAdded = guests.some((g) => g.guest_email === f.email);
+                      return (
+                        <div key={f.email} className="flex items-center gap-3 bg-secondary/50 rounded-xl px-3 py-2 border border-border/50">
+                          {f.picture ? (
+                            <img src={f.picture} className="w-7 h-7 rounded-full object-cover" />
+                          ) : (
+                            <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
+                              {(f.name || f.email)[0].toUpperCase()}
+                            </div>
+                          )}
+                          <span className="flex-1 text-sm font-medium text-foreground truncate">{f.name || f.email}</span>
+                          <button
+                            onClick={() => addFriendToGuestlist(f)}
+                            disabled={alreadyAdded}
+                            className={`text-xs font-semibold px-3 py-1 rounded-lg transition-colors ${
+                              alreadyAdded
+                                ? "text-muted-foreground bg-muted cursor-not-allowed"
+                                : "text-primary-foreground bg-primary hover:bg-primary/80"
+                            }`}
+                          >
+                            {alreadyAdded ? "Added" : "Invite"}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="border-t border-border/50 my-3" />
+                  <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-2">Add Manually</p>
+                </div>
+              )}
               <Input
                 placeholder="Name"
                 value={newGuest.name}
