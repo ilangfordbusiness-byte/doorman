@@ -1,153 +1,89 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { Plus, Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import EventCard from "../components/EventCard";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Mic2, Users, ScanLine, UserCircle, ChevronRight, Sparkles } from "lucide-react";
+
+const roles = [
+  {
+    to: "/host",
+    icon: Mic2,
+    label: "Host",
+    sublabel: "Create & manage your events",
+    gradient: "from-violet-600/20 to-violet-900/10",
+    border: "border-violet-500/20 hover:border-violet-500/50",
+    iconColor: "text-violet-400",
+    iconBg: "bg-violet-500/15",
+  },
+  {
+    to: "/guest",
+    icon: Users,
+    label: "Guest",
+    sublabel: "View your invites & passes",
+    gradient: "from-amber-500/20 to-amber-900/10",
+    border: "border-amber-500/20 hover:border-amber-500/50",
+    iconColor: "text-amber-400",
+    iconBg: "bg-amber-500/15",
+  },
+  {
+    to: "/scanner",
+    icon: ScanLine,
+    label: "Doorman / Staff",
+    sublabel: "Scan QR codes & check guests in",
+    gradient: "from-emerald-600/20 to-emerald-900/10",
+    border: "border-emerald-500/20 hover:border-emerald-500/50",
+    iconColor: "text-emerald-400",
+    iconBg: "bg-emerald-500/15",
+  },
+  {
+    to: "/profile",
+    icon: UserCircle,
+    label: "Account",
+    sublabel: "Profile & settings",
+    gradient: "from-sky-600/20 to-sky-900/10",
+    border: "border-sky-500/20 hover:border-sky-500/50",
+    iconColor: "text-sky-400",
+    iconBg: "bg-sky-500/15",
+  },
+];
 
 export default function Home() {
-  const [user, setUser] = useState(null);
-  const [myEvents, setMyEvents] = useState([]);
-  const [myInvites, setMyInvites] = useState([]);
-  const [allEvents, setAllEvents] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [userName, setUserName] = useState("");
 
   useEffect(() => {
-    loadData();
+    base44.auth.me().then((me) => setUserName(me?.full_name?.split(" ")[0] || ""));
   }, []);
 
-  async function loadData() {
-    const me = await base44.auth.me();
-    setUser(me);
-
-    const [events, guestEntries, publicEvents] = await Promise.all([
-      base44.entities.Event.filter({ host_email: me.email }, "-date"),
-      base44.entities.GuestlistEntry.filter({ guest_email: me.email }, "-created_date"),
-      base44.entities.Event.filter({ status: "published", is_public: true }, "-date", 20),
-    ]);
-
-    setMyEvents(events);
-    setAllEvents(publicEvents);
-
-    // For invites, fetch the related events
-    if (guestEntries.length > 0) {
-      const eventIds = [...new Set(guestEntries.map((g) => g.event_id))];
-      const inviteEvents = await Promise.all(
-        eventIds.map(async (id) => {
-          const evts = await base44.entities.Event.filter({ id });
-          const evt = evts[0];
-          const entry = guestEntries.find((g) => g.event_id === id);
-          return evt ? { ...evt, guestStatus: entry?.status, entryId: entry?.id } : null;
-        })
-      );
-      setMyInvites(inviteEvents.filter(Boolean));
-    }
-
-    setLoading(false);
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   return (
-    <div className="max-w-lg mx-auto px-4 pt-6 pb-4">
+    <div className="min-h-screen flex flex-col px-5 pt-14 pb-10 max-w-lg mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="font-heading font-bold text-2xl text-foreground">
-            Hey, {user?.full_name?.split(" ")[0] || "there"} ✨
-          </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Your events & invites</p>
+      <div className="mb-10">
+        <div className="flex items-center gap-2 mb-2">
+          <Sparkles className="w-5 h-5 text-primary" />
+          <span className="text-xs text-primary font-semibold uppercase tracking-widest">Welcome</span>
         </div>
-        <Link to="/create-event">
-          <Button size="sm" className="rounded-full gap-1.5 bg-primary hover:bg-primary/90">
-            <Plus className="w-4 h-4" />
-            New
-          </Button>
-        </Link>
+        <h1 className="font-heading font-bold text-3xl text-foreground leading-tight">
+          {userName ? `Hey ${userName}` : "Hey there"} 👋
+        </h1>
+        <p className="text-muted-foreground mt-1 text-sm">What are you here for today?</p>
       </div>
 
-      <Tabs defaultValue="invites" className="w-full">
-        <TabsList className="w-full bg-secondary/50 border border-border rounded-xl p-1 mb-4">
-          <TabsTrigger value="invites" className="flex-1 rounded-lg text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            My Invites
-          </TabsTrigger>
-          <TabsTrigger value="hosting" className="flex-1 rounded-lg text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            Hosting
-          </TabsTrigger>
-          <TabsTrigger value="discover" className="flex-1 rounded-lg text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            Discover
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="invites" className="space-y-3">
-          {myInvites.length === 0 ? (
-            <EmptyState
-              icon={<Sparkles className="w-8 h-8 text-primary" />}
-              title="No invites yet"
-              subtitle="When you get invited to events, they'll show up here"
-            />
-          ) : (
-            myInvites.map((event) => (
-              <EventCard key={event.id} event={event} />
-            ))
-          )}
-        </TabsContent>
-
-        <TabsContent value="hosting" className="space-y-3">
-          {myEvents.length === 0 ? (
-            <EmptyState
-              icon={<Plus className="w-8 h-8 text-primary" />}
-              title="No events yet"
-              subtitle="Create your first event and start inviting"
-              action={
-                <Link to="/create-event">
-                  <Button variant="outline" size="sm" className="mt-3 rounded-full">
-                    Create Event
-                  </Button>
-                </Link>
-              }
-            />
-          ) : (
-            myEvents.map((event) => (
-              <EventCard key={event.id} event={event} />
-            ))
-          )}
-        </TabsContent>
-
-        <TabsContent value="discover" className="space-y-3">
-          {allEvents.length === 0 ? (
-            <EmptyState
-              icon={<Sparkles className="w-8 h-8 text-primary" />}
-              title="No public events"
-              subtitle="Check back later for upcoming events"
-            />
-          ) : (
-            allEvents.map((event) => (
-              <EventCard key={event.id} event={event} />
-            ))
-          )}
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
-}
-
-function EmptyState({ icon, title, subtitle, action }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-16 text-center">
-      <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
-        {icon}
+      {/* Role cards */}
+      <div className="flex flex-col gap-3 flex-1">
+        {roles.map((role) => (
+          <Link key={role.to} to={role.to} className="block group">
+            <div className={`relative rounded-2xl border bg-gradient-to-br ${role.gradient} ${role.border} p-5 flex items-center gap-4 transition-all duration-200 active:scale-[0.98]`}>
+              <div className={`w-12 h-12 rounded-xl ${role.iconBg} flex items-center justify-center flex-shrink-0`}>
+                <role.icon className={`w-6 h-6 ${role.iconColor}`} />
+              </div>
+              <div className="flex-1">
+                <p className="font-heading font-bold text-base text-foreground">{role.label}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{role.sublabel}</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+            </div>
+          </Link>
+        ))}
       </div>
-      <h3 className="font-heading font-semibold text-foreground">{title}</h3>
-      <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
-      {action}
     </div>
   );
 }

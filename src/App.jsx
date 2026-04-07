@@ -14,6 +14,8 @@ import GuestPass from './pages/GuestPass';
 import DoormanScanner from './pages/DoormanScanner';
 import InvitePage from './pages/InvitePage';
 import Profile from './pages/Profile';
+import HostHub from './pages/HostHub';
+import GuestHub from './pages/GuestHub';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -46,6 +48,8 @@ const AuthenticatedApp = () => {
         <Route path="/create-event" element={<CreateEvent />} />
         <Route path="/event/:id" element={<EventDetails />} />
         <Route path="/event/:id/guestlist" element={<GuestlistManagement />} />
+        <Route path="/host" element={<HostHub />} />
+        <Route path="/guest" element={<GuestHub />} />
         <Route path="/invite/:code" element={<InvitePage />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="*" element={<PageNotFound />} />

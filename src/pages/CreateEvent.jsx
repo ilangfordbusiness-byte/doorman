@@ -13,6 +13,7 @@ export default function CreateEvent() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const [coverFile, setCoverFile] = useState(null);
   const [coverPreview, setCoverPreview] = useState(null);
   const [form, setForm] = useState({
@@ -33,6 +34,7 @@ export default function CreateEvent() {
 
   function updateForm(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }));
+    if (error) setError("");
   }
 
   function handleCoverChange(e) {
@@ -45,7 +47,7 @@ export default function CreateEvent() {
 
   async function handleSubmit(status) {
     if (!form.title || !form.date || !form.start_time) {
-      toast({ title: "Missing fields", description: "Please fill in title, date, and start time", variant: "destructive" });
+      setError("Please fill in the event name, date, and start time before continuing.");
       return;
     }
 
@@ -85,6 +87,13 @@ export default function CreateEvent() {
       </div>
 
       <div className="space-y-5">
+        {/* Validation error */}
+        {error && (
+          <div className="bg-destructive/10 border border-destructive/30 rounded-xl px-4 py-3">
+            <p className="text-sm text-destructive font-medium">{error}</p>
+          </div>
+        )}
+
         {/* Cover Image */}
         <label className="block cursor-pointer">
           <div className={`relative h-44 rounded-2xl overflow-hidden border-2 border-dashed transition-colors ${
