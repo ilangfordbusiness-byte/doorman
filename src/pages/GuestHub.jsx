@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { ArrowLeft, Sparkles, QrCode, Clock, CheckCircle2, Link as LinkIcon } from "lucide-react";
+import { ArrowLeft, Sparkles, QrCode, Clock, CheckCircle2, Link as LinkIcon, Compass } from "lucide-react";
+import Discover from "./Discover";
 import { Button } from "@/components/ui/button";
 import EventCard from "../components/EventCard";
 
 export default function GuestHub() {
+  const [tab, setTab] = useState("invites");
   const [inviteEvents, setInviteEvents] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -37,19 +39,40 @@ export default function GuestHub() {
 
   return (
     <div className="max-w-lg mx-auto px-4 pt-4 pb-8">
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex items-center gap-3 mb-4">
         <Link to="/">
           <Button variant="ghost" size="icon" className="rounded-full">
             <ArrowLeft className="w-5 h-5" />
           </Button>
         </Link>
         <div className="flex-1">
-          <h1 className="font-heading font-bold text-xl">My Invites</h1>
-          <p className="text-xs text-muted-foreground">Events you're attending</p>
+          <h1 className="font-heading font-bold text-xl">Guest</h1>
         </div>
       </div>
 
-      {loading ? (
+      {/* Tabs */}
+      <div className="flex gap-1 bg-secondary/50 rounded-xl p-1 mb-5">
+        <button
+          onClick={() => setTab("invites")}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-colors ${
+            tab === "invites" ? "bg-card text-foreground shadow" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <QrCode className="w-3.5 h-3.5" /> My Invites
+        </button>
+        <button
+          onClick={() => setTab("discover")}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-colors ${
+            tab === "discover" ? "bg-card text-foreground shadow" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Compass className="w-3.5 h-3.5" /> Discover
+        </button>
+      </div>
+
+      {tab === "discover" ? (
+        <Discover />
+      ) : loading ? (
         <div className="flex justify-center py-16">
           <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
         </div>
