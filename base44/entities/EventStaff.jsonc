@@ -1,0 +1,31 @@
+{
+  "name": "EventStaff",
+  "type": "object",
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "description": "Reference to event"
+    },
+    "staff_email": {
+      "type": "string",
+      "description": "Staff user email"
+    },
+    "staff_name": {
+      "type": "string",
+      "description": "Staff display name"
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "doorman",
+        "manager"
+      ],
+      "default": "doorman"
+    }
+  },
+  "required": [
+    "event_id",
+    "staff_email",
+    "role"
+  ]
+}

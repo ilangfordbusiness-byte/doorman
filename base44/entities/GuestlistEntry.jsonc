@@ -1,0 +1,72 @@
+{
+  "name": "GuestlistEntry",
+  "type": "object",
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "description": "Reference to event"
+    },
+    "guest_email": {
+      "type": "string",
+      "description": "Guest user email"
+    },
+    "guest_name": {
+      "type": "string",
+      "description": "Guest display name"
+    },
+    "guest_phone": {
+      "type": "string",
+      "description": "Guest phone number"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "invited",
+        "requested",
+        "approved",
+        "denied",
+        "waitlist",
+        "checked_in",
+        "revoked"
+      ],
+      "default": "invited"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "invite_link",
+        "request"
+      ],
+      "default": "manual"
+    },
+    "plus_one": {
+      "type": "boolean",
+      "default": false
+    },
+    "plus_one_name": {
+      "type": "string"
+    },
+    "checked_in_at": {
+      "type": "string",
+      "description": "Timestamp when checked in"
+    },
+    "checked_in_by": {
+      "type": "string",
+      "description": "Doorman email who checked them in"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Host/staff notes about this guest"
+    },
+    "qr_secret": {
+      "type": "string",
+      "description": "Secret key for QR token generation"
+    }
+  },
+  "required": [
+    "event_id",
+    "guest_email",
+    "status"
+  ]
+}

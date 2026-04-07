@@ -5,7 +5,15 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
-// Add page imports here
+import Layout from './components/Layout';
+import Home from './pages/Home';
+import CreateEvent from './pages/CreateEvent';
+import EventDetails from './pages/EventDetails';
+import GuestlistManagement from './pages/GuestlistManagement';
+import GuestPass from './pages/GuestPass';
+import DoormanScanner from './pages/DoormanScanner';
+import InvitePage from './pages/InvitePage';
+import Profile from './pages/Profile';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -33,8 +41,17 @@ const AuthenticatedApp = () => {
   // Render the main app
   return (
     <Routes>
-      {/* Add your page Route elements here */}
-      <Route path="*" element={<PageNotFound />} />
+      <Route element={<Layout />}>
+        <Route path="/" element={<Home />} />
+        <Route path="/create-event" element={<CreateEvent />} />
+        <Route path="/event/:id" element={<EventDetails />} />
+        <Route path="/event/:id/guestlist" element={<GuestlistManagement />} />
+        <Route path="/invite/:code" element={<InvitePage />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="*" element={<PageNotFound />} />
+      </Route>
+      <Route path="/pass/:id" element={<GuestPass />} />
+      <Route path="/scanner" element={<DoormanScanner />} />
     </Routes>
   );
 };
