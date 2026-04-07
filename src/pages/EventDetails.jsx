@@ -69,14 +69,18 @@ export default function EventDetails() {
 
   async function handleShare() {
     const url = `${window.location.origin}/invite/${event.invite_code}`;
-    if (navigator.share) {
-      navigator.share({ title: event.title, text: `You're invited to ${event.title}!`, url });
-    } else {
-      navigator.clipboard.writeText(url);
-      setCopied(true);
-      toast({ title: "Link copied!" });
-      setTimeout(() => setCopied(false), 2000);
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: event.title, text: `You're invited to ${event.title}!`, url });
+        return;
+      }
+    } catch {
+      // Fall through to clipboard
     }
+    navigator.clipboard.writeText(url);
+    setCopied(true);
+    toast({ title: "Link copied!" });
+    setTimeout(() => setCopied(false), 2000);
   }
 
   if (loading) {
