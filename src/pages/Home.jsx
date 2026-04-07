@@ -67,8 +67,8 @@ export default function Home() {
     <div className="min-h-screen flex flex-col px-5 pt-5 pb-10 max-w-lg mx-auto">
       {/* Brand */}
       <div className="flex items-center gap-2 mb-3">
-        <img src="https://media.base44.com/images/public/69d556d1ae7f4cada8ab83ef/b225b5ab2_doormanapplogo.png" alt="DoorMan" className="w-6 h-6 rounded-md object-cover" />
-        <span className="font-heading font-bold text-white text-sm tracking-wide">DoorMan</span>
+        <img src="https://media.base44.com/images/public/69d556d1ae7f4cada8ab83ef/b225b5ab2_doormanapplogo.png" alt="DoorMan" className="w-8 h-8 object-contain" />
+        <span className="font-heading font-bold text-white text-2xl tracking-wide">DoorMan</span>
       </div>
 
       {/* Header */}
