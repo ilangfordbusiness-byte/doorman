@@ -76,7 +76,7 @@ export default function GuestPass() {
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <div className="px-4 pt-4 pb-2 flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="rounded-full" onClick={() => navigate(`/event/${id}`)}>
+        <Button variant="ghost" size="icon" className="rounded-full" onClick={() => navigate("/guest")}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <h1 className="font-heading font-bold text-lg">Your Pass</h1>

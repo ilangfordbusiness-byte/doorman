@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { Calendar, Clock, MapPin, Shirt, UserPlus, Sparkles } from "lucide-react";
+import { Calendar, Clock, MapPin, Shirt, UserPlus, Sparkles, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import StatusBadge from "../components/StatusBadge";
@@ -84,7 +84,14 @@ export default function InvitePage() {
   const eventDate = moment(event.date);
 
   return (
-    <div className="max-w-lg mx-auto px-4 pt-8 pb-8">
+    <div className="max-w-lg mx-auto px-4 pt-4 pb-8">
+      {/* Back button */}
+      <button
+        onClick={() => navigate("/guest")}
+        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4" /> Back
+      </button>
       {/* Event Preview */}
       <div className="text-center mb-6">
         <p className="text-xs text-primary uppercase tracking-widest font-semibold mb-2">You're Invited</p>
