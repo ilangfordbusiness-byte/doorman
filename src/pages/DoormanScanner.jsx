@@ -233,8 +233,23 @@ export default function DoormanScanner() {
             </div>
           </div>
 
+          {/* Tips */}
+          <div className="px-4 pt-3">
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              {[
+                { emoji: "📲", text: "Ask guest to show QR pass" },
+                { emoji: "🔍", text: "Point camera at the code" },
+                { emoji: "✅", text: "Tap Check In to confirm" },
+              ].map((tip, i) => (
+                <div key={i} className="bg-zinc-900 rounded-xl p-2.5 text-center border border-zinc-800">
+                  <p className="text-lg mb-1">{tip.emoji}</p>
+                  <p className="text-[10px] text-zinc-400 leading-tight">{tip.text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
           {/* Manual entry */}
-          <div className="p-4 space-y-3">
+          <div className="px-4 pb-4 space-y-3">
             <p className="text-xs text-zinc-500 text-center">Or enter code manually</p>
             <div className="flex gap-2">
               <Input

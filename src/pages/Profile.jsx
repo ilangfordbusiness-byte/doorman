@@ -1,12 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import { LogOut, User, Mail, Shield, ChevronRight, Calendar } from "lucide-react";
+import { LogOut, User, Shield, ChevronRight, Calendar, Camera, ArrowLeft } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
 export default function Profile() {
   const [user, setUser] = useState(null);
   const [stats, setStats] = useState({ hosted: 0, attended: 0 });
   const [loading, setLoading] = useState(true);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     loadProfile();
@@ -29,6 +32,16 @@ export default function Profile() {
     setLoading(false);
   }
 
+  async function handlePhotoChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingPhoto(true);
+    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    await base44.auth.updateMe({ profile_picture: file_url });
+    setUser((prev) => ({ ...prev, profile_picture: file_url }));
+    setUploadingPhoto(false);
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -38,16 +51,41 @@ export default function Profile() {
   }
 
   return (
-    <div className="max-w-lg mx-auto px-4 pt-6 pb-8">
-      <h1 className="font-heading font-bold text-2xl mb-6">Profile</h1>
+    <div className="max-w-lg mx-auto px-4 pt-4 pb-8">
+      <div className="flex items-center gap-3 mb-6">
+        <Link to="/">
+          <button className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-secondary transition-colors">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+        </Link>
+        <h1 className="font-heading font-bold text-xl">Account</h1>
+      </div>
 
       {/* User Card */}
       <div className="bg-card rounded-2xl border border-border p-6 mb-6">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
-            <span className="text-2xl font-bold text-primary font-heading">
-              {(user?.full_name || "?")[0].toUpperCase()}
-            </span>
+          <div className="relative">
+            <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden">
+              {user?.profile_picture ? (
+                <img src={user.profile_picture} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-2xl font-bold text-primary font-heading">
+                  {(user?.full_name || "?")[0].toUpperCase()}
+                </span>
+              )}
+            </div>
+            <button
+              className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-primary flex items-center justify-center border-2 border-card"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingPhoto}
+            >
+              {uploadingPhoto ? (
+                <div className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+              ) : (
+                <Camera className="w-3 h-3 text-white" />
+              )}
+            </button>
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
           </div>
           <div>
             <h2 className="font-heading font-bold text-lg">{user?.full_name}</h2>
