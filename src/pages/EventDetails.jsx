@@ -37,7 +37,15 @@ export default function EventDetails() {
 
     const events = await base44.entities.Event.filter({ id });
     if (!events.length) return navigate("/");
-    const evt = events[0];
+    let evt = events[0];
+
+    // Generate staff_code if missing
+    if (!evt.staff_code && evt.host_email === me.email) {
+      const code = String(Math.floor(1000 + Math.random() * 9000));
+      await base44.entities.Event.update(id, { staff_code: code });
+      evt = { ...evt, staff_code: code };
+    }
+
     setEvent(evt);
 
     const entries = await base44.entities.GuestlistEntry.filter({ event_id: id });
@@ -51,7 +59,6 @@ export default function EventDetails() {
       checked_in: entries.filter((e) => e.status === "checked_in").length,
     });
 
-    // Load staff
     const staffList = await base44.entities.EventStaff.filter({ event_id: id });
     setStaff(staffList);
 
@@ -208,6 +215,15 @@ export default function EventDetails() {
             {/* Staff Management */}
             <div>
               <h3 className="font-heading font-semibold text-sm mb-3">Door Staff</h3>
+              {event.staff_code && (
+                <div className="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 mb-3">
+                  <div>
+                    <p className="text-[10px] text-emerald-400 uppercase tracking-widest font-semibold mb-0.5">Staff Entry Code</p>
+                    <p className="text-3xl font-bold font-heading tracking-[0.3em] text-foreground">{event.staff_code}</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground text-right max-w-[100px] leading-tight">Share with doormen to let them join</p>
+                </div>
+              )}
               {staff.length > 0 && (
                 <div className="space-y-2 mb-3">
                   {staff.map((s) => (
