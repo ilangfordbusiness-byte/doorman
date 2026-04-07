@@ -83,8 +83,15 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    -webkit-tap-highlight-color: transparent;
   }
   body {
     @apply bg-background text-foreground font-body;
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  button, a, [role="button"] {
+    user-select: none;
+    -webkit-user-select: none;
   }
 }

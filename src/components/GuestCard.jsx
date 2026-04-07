@@ -40,30 +40,30 @@ export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, showAc
               <Button
                 size="icon"
                 variant="ghost"
-                className="h-8 w-8 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300"
+                className="h-11 w-11 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300"
                 onClick={(e) => { e.stopPropagation(); onApprove?.(guest); }}
               >
-                <Check className="w-4 h-4" />
+                <Check className="w-5 h-5" />
               </Button>
             )}
             {canWaitlist && (
               <Button
                 size="icon"
                 variant="ghost"
-                className="h-8 w-8 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300"
+                className="h-11 w-11 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300"
                 onClick={(e) => { e.stopPropagation(); onWaitlist?.(guest); }}
               >
-                <Clock className="w-4 h-4" />
+                <Clock className="w-5 h-5" />
               </Button>
             )}
             {canDeny && (
               <Button
                 size="icon"
                 variant="ghost"
-                className="h-8 w-8 text-red-400 hover:bg-red-500/20 hover:text-red-300"
+                className="h-11 w-11 text-red-400 hover:bg-red-500/20 hover:text-red-300"
                 onClick={(e) => { e.stopPropagation(); onDeny?.(guest); }}
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </Button>
             )}
           </div>

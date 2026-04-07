@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import { LogOut, User, Calendar, Camera, ArrowLeft, Pencil, Check, X, Shield } from "lucide-react";
+import { LogOut, User, Calendar, Camera, ArrowLeft, Pencil, Check, X, Shield, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,15 @@ export default function Profile() {
   const [adminTapCount, setAdminTapCount] = useState(0);
   const [showAdminPin, setShowAdminPin] = useState(false);
   const [adminPin, setAdminPin] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const fileInputRef = useRef(null);
+
+  async function handleDeleteAccount() {
+    if (deleteConfirmText !== "DELETE") return;
+    await base44.auth.updateMe({ deleted: true, email: `deleted_${Date.now()}@deleted.com` });
+    base44.auth.logout();
+  }
 
   useEffect(() => {
     loadProfile();
@@ -235,10 +243,18 @@ export default function Profile() {
 
       <Button
         variant="outline"
-        className="w-full h-12 rounded-xl font-semibold text-destructive border-destructive/30 hover:bg-destructive/10"
+        className="w-full h-12 rounded-xl font-semibold text-destructive border-destructive/30 hover:bg-destructive/10 mb-3"
         onClick={() => base44.auth.logout()}
       >
         <LogOut className="w-4 h-4 mr-2" /> Sign Out
+      </Button>
+
+      <Button
+        variant="ghost"
+        className="w-full h-12 rounded-xl font-semibold text-destructive/60 hover:text-destructive hover:bg-destructive/10"
+        onClick={() => setShowDeleteConfirm(true)}
+      >
+        <Trash2 className="w-4 h-4 mr-2" /> Delete Account
       </Button>
 
       {/* Hidden admin unlock */}
@@ -247,6 +263,34 @@ export default function Profile() {
           v1.0.0
         </button>
       </div>
+
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/70 flex items-end justify-center z-50 px-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}>
+          <div className="bg-card rounded-2xl border border-border p-6 w-full max-w-sm">
+            <p className="font-heading font-bold text-lg mb-1">Delete Account</p>
+            <p className="text-sm text-muted-foreground mb-4">This permanently deletes your account, events, and guestlist data. Type <strong>DELETE</strong> to confirm.</p>
+            <Input
+              placeholder="Type DELETE"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              className="bg-secondary/50 border-border h-11 rounded-xl mb-3"
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1 rounded-xl" onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(""); }}>
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 rounded-xl bg-destructive hover:bg-destructive/90"
+                disabled={deleteConfirmText !== "DELETE"}
+                onClick={handleDeleteAccount}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAdminPin && (
         <div className="fixed inset-0 bg-black/70 flex items-end justify-center z-50 pb-8 px-4">

@@ -2,22 +2,30 @@ import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import Layout from './components/Layout';
-import Home from './pages/Home';
-import CreateEvent from './pages/CreateEvent';
-import EventDetails from './pages/EventDetails';
-import GuestlistManagement from './pages/GuestlistManagement';
-import GuestPass from './pages/GuestPass';
-import DoormanScanner from './pages/DoormanScanner';
-import InvitePage from './pages/InvitePage';
-import Profile from './pages/Profile';
-import HostHub from './pages/HostHub';
-import GuestHub from './pages/GuestHub';
-import StaffHub from './pages/StaffHub';
-import Friends from './pages/Friends';
+
+const Home = lazy(() => import('./pages/Home'));
+const CreateEvent = lazy(() => import('./pages/CreateEvent'));
+const EventDetails = lazy(() => import('./pages/EventDetails'));
+const GuestlistManagement = lazy(() => import('./pages/GuestlistManagement'));
+const GuestPass = lazy(() => import('./pages/GuestPass'));
+const DoormanScanner = lazy(() => import('./pages/DoormanScanner'));
+const InvitePage = lazy(() => import('./pages/InvitePage'));
+const Profile = lazy(() => import('./pages/Profile'));
+const HostHub = lazy(() => import('./pages/HostHub'));
+const GuestHub = lazy(() => import('./pages/GuestHub'));
+const StaffHub = lazy(() => import('./pages/StaffHub'));
+const Friends = lazy(() => import('./pages/Friends'));
+
+const PageLoader = () => (
+  <div className="fixed inset-0 flex items-center justify-center bg-background">
+    <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+  </div>
+);
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -44,6 +52,7 @@ const AuthenticatedApp = () => {
 
   // Render the main app
   return (
+    <Suspense fallback={<PageLoader />}>
     <Routes>
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />
@@ -61,6 +70,7 @@ const AuthenticatedApp = () => {
       <Route path="/pass/:id" element={<GuestPass />} />
       <Route path="/scanner" element={<DoormanScanner />} />
     </Routes>
+    </Suspense>
   );
 };
 
