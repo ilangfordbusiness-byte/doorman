@@ -25,7 +25,7 @@ const roles = [
     iconBg: "bg-amber-500/15",
   },
   {
-    to: "/scanner",
+    to: "/staff",
     icon: ScanLine,
     label: "Doorman / Staff",
     sublabel: "Scan QR codes & check guests in",

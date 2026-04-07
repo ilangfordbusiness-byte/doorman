@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import {
   ArrowLeft, Calendar, Clock, MapPin, Shirt, Users, Share2,
-  QrCode, Shield, Edit, Trash2, UserPlus, Copy, Check
+  QrCode, Shield, Edit, Trash2, UserPlus, Copy, Check, Plus, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -21,6 +21,9 @@ export default function EventDetails() {
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [staff, setStaff] = useState([]);
+  const [newStaffEmail, setNewStaffEmail] = useState("");
+  const [addingStaff, setAddingStaff] = useState(false);
 
   const isHost = user && event && event.host_email === user.email;
 
@@ -48,23 +51,32 @@ export default function EventDetails() {
       checked_in: entries.filter((e) => e.status === "checked_in").length,
     });
 
+    // Load staff
+    const staffList = await base44.entities.EventStaff.filter({ event_id: id });
+    setStaff(staffList);
+
     setLoading(false);
   }
 
-  async function handleRequestJoin() {
-    setRequesting(true);
-    const qr_secret = crypto.randomUUID();
-    await base44.entities.GuestlistEntry.create({
+  async function handleAddStaff() {
+    if (!newStaffEmail.trim()) return;
+    setAddingStaff(true);
+    await base44.entities.EventStaff.create({
       event_id: id,
-      guest_email: user.email,
-      guest_name: user.full_name,
-      status: "requested",
-      source: "request",
-      qr_secret,
+      staff_email: newStaffEmail.trim().toLowerCase(),
+      staff_name: newStaffEmail.trim().toLowerCase(),
+      role: "doorman",
     });
-    toast({ title: "Request sent!", description: "The host will review your request" });
-    loadEvent();
-    setRequesting(false);
+    const staffList = await base44.entities.EventStaff.filter({ event_id: id });
+    setStaff(staffList);
+    setNewStaffEmail("");
+    setAddingStaff(false);
+    toast({ title: "Staff added!" });
+  }
+
+  async function handleRemoveStaff(staffId) {
+    await base44.entities.EventStaff.delete(staffId);
+    setStaff((prev) => prev.filter((s) => s.id !== staffId));
   }
 
   async function handleShare() {
@@ -191,6 +203,38 @@ export default function EventDetails() {
               <Button variant="outline" className="h-12 rounded-xl gap-2 font-semibold" onClick={handleShare}>
                 <Share2 className="w-4 h-4" /> Share
               </Button>
+            </div>
+
+            {/* Staff Management */}
+            <div>
+              <h3 className="font-heading font-semibold text-sm mb-3">Door Staff</h3>
+              {staff.length > 0 && (
+                <div className="space-y-2 mb-3">
+                  {staff.map((s) => (
+                    <div key={s.id} className="flex items-center justify-between bg-secondary/50 rounded-xl px-3 py-2.5 border border-border/50">
+                      <div>
+                        <p className="text-sm font-medium">{s.staff_email}</p>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{s.role}</p>
+                      </div>
+                      <button onClick={() => handleRemoveStaff(s.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input
+                  value={newStaffEmail}
+                  onChange={(e) => setNewStaffEmail(e.target.value)}
+                  placeholder="Add doorman by email..."
+                  className="flex-1 h-10 px-3 text-sm bg-secondary/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                  onKeyDown={(e) => e.key === "Enter" && handleAddStaff()}
+                />
+                <Button size="sm" className="h-10 rounded-xl" onClick={handleAddStaff} disabled={addingStaff}>
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
           </div>
         )}

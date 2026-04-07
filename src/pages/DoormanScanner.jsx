@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 
 export default function DoormanScanner() {
   const navigate = useNavigate();
+  const urlParams = new URLSearchParams(window.location.search);
+  const eventId = urlParams.get("event_id");
   const [mode, setMode] = useState("scan"); // scan, result
   const [result, setResult] = useState(null);
   const [processing, setProcessing] = useState(false);
