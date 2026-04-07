@@ -17,6 +17,7 @@ import Profile from './pages/Profile';
 import HostHub from './pages/HostHub';
 import GuestHub from './pages/GuestHub';
 import StaffHub from './pages/StaffHub';
+import Friends from './pages/Friends';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -52,6 +53,7 @@ const AuthenticatedApp = () => {
         <Route path="/host" element={<HostHub />} />
         <Route path="/guest" element={<GuestHub />} />
         <Route path="/staff" element={<StaffHub />} />
+        <Route path="/friends" element={<Friends />} />
         <Route path="/invite/:code" element={<InvitePage />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="*" element={<PageNotFound />} />

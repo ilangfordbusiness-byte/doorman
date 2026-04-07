@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { Mic2, Users, ScanLine, UserCircle, ChevronRight, Sparkles } from "lucide-react";
+import { Mic2, Users, ScanLine, UserCircle, ChevronRight, Sparkles, HeartHandshake } from "lucide-react";
 
 const roles = [
   {
@@ -33,6 +33,16 @@ const roles = [
     border: "border-emerald-500/20 hover:border-emerald-500/50",
     iconColor: "text-emerald-400",
     iconBg: "bg-emerald-500/15",
+  },
+  {
+    to: "/friends",
+    icon: HeartHandshake,
+    label: "Friends",
+    sublabel: "Suggestions, requests & connections",
+    gradient: "from-pink-600/20 to-pink-900/10",
+    border: "border-pink-500/20 hover:border-pink-500/50",
+    iconColor: "text-pink-400",
+    iconBg: "bg-pink-500/15",
   },
   {
     to: "/profile",

@@ -8,6 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import StatusBadge from "../components/StatusBadge";
+import WhoIsGoing from "../components/WhoIsGoing";
 import moment from "moment";
 
 export default function EventDetails() {
@@ -271,7 +272,11 @@ export default function EventDetails() {
                 {requesting ? "Requesting..." : "Request to Join"}
               </Button>
             )}
-            {myEntry && (
+            {myEntry && ["approved", "invited", "checked_in"].includes(myEntry.status) && (
+          <WhoIsGoing eventId={id} myEmail={user?.email} />
+        )}
+
+        {myEntry && (
               <div className="space-y-3">
                 <div className="bg-secondary/50 rounded-xl p-4 border border-border/50 text-center">
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Your Status</p>
