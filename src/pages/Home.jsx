@@ -64,15 +64,15 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen flex flex-col px-5 pt-5 pb-10 max-w-lg mx-auto">
+    <div className="min-h-screen flex flex-col px-5 pt-2 pb-6 max-w-lg mx-auto">
       {/* Brand */}
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-1 mb-1">
         <img src="https://media.base44.com/images/public/69d556d1ae7f4cada8ab83ef/e327a8610_logotransparent.png" alt="DoorMan" className="w-36 h-36 object-contain" />
         <span className="font-heading font-bold text-white text-4xl tracking-wide">DoorMan</span>
       </div>
 
       {/* Header */}
-      <div className="mb-4">
+      <div className="mb-3">
         <div className="flex items-center gap-2 mb-2">
           <Sparkles className="w-5 h-5 text-primary" />
           <span className="text-xs text-primary font-semibold uppercase tracking-widest">Welcome</span>
