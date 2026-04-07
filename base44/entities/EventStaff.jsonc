@@ -10,6 +10,10 @@
       "type": "string",
       "description": "Staff user email"
     },
+    "staff_phone": {
+      "type": "string",
+      "description": "Staff user phone (alternative to email)"
+    },
     "staff_name": {
       "type": "string",
       "description": "Staff display name"
@@ -25,7 +29,6 @@
   },
   "required": [
     "event_id",
-    "staff_email",
     "role"
   ]
 }

@@ -68,10 +68,13 @@ export default function EventDetails() {
   async function handleAddStaff() {
     if (!newStaffEmail.trim()) return;
     setAddingStaff(true);
+    const val = newStaffEmail.trim();
+    const isPhone = /^[\+\d][\d\s\-().]{5,}$/.test(val);
     await base44.entities.EventStaff.create({
       event_id: id,
-      staff_email: newStaffEmail.trim().toLowerCase(),
-      staff_name: newStaffEmail.trim().toLowerCase(),
+      staff_email: isPhone ? "" : val.toLowerCase(),
+      staff_phone: isPhone ? val : "",
+      staff_name: val,
       role: "doorman",
     });
     const staffList = await base44.entities.EventStaff.filter({ event_id: id });
@@ -243,7 +246,7 @@ export default function EventDetails() {
                 <input
                   value={newStaffEmail}
                   onChange={(e) => setNewStaffEmail(e.target.value)}
-                  placeholder="Add doorman by email..."
+                  placeholder="Add doorman by email or phone..."
                   className="flex-1 h-10 px-3 text-sm bg-secondary/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                   onKeyDown={(e) => e.key === "Enter" && handleAddStaff()}
                 />

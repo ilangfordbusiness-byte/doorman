@@ -46,13 +46,17 @@ export default function GuestlistManagement() {
   }
 
   async function addGuest() {
-    if (!newGuest.email) {
-      toast({ title: "Email required", variant: "destructive" });
+    if (!newGuest.email && !newGuest.phone) {
+      toast({ title: "Email or phone required", variant: "destructive" });
       return;
     }
     setAdding(true);
 
-    const existing = guests.find((g) => g.guest_email === newGuest.email);
+    const existing = guests.find(
+      (g) =>
+        (newGuest.email && g.guest_email === newGuest.email) ||
+        (newGuest.phone && g.guest_phone === newGuest.phone)
+    );
     if (existing) {
       toast({ title: "Guest already on list", variant: "destructive" });
       setAdding(false);
@@ -61,9 +65,9 @@ export default function GuestlistManagement() {
 
     await base44.entities.GuestlistEntry.create({
       event_id: id,
-      guest_email: newGuest.email,
+      guest_email: newGuest.email || "",
       guest_name: newGuest.name,
-      guest_phone: newGuest.phone,
+      guest_phone: newGuest.phone || "",
       status: "invited",
       source: "manual",
       qr_secret: crypto.randomUUID(),
@@ -129,18 +133,19 @@ export default function GuestlistManagement() {
                 className="bg-secondary/50 border-border h-11 rounded-xl"
               />
               <Input
-                placeholder="Email"
+                placeholder="Email (or leave blank)"
                 type="email"
                 value={newGuest.email}
                 onChange={(e) => setNewGuest((p) => ({ ...p, email: e.target.value }))}
                 className="bg-secondary/50 border-border h-11 rounded-xl"
               />
               <Input
-                placeholder="Phone (optional)"
+                placeholder="Phone (or leave blank)"
                 value={newGuest.phone}
                 onChange={(e) => setNewGuest((p) => ({ ...p, phone: e.target.value }))}
                 className="bg-secondary/50 border-border h-11 rounded-xl"
               />
+              <p className="text-xs text-muted-foreground text-center">At least one of email or phone is required</p>
               <Button className="w-full h-11 rounded-xl bg-primary" onClick={addGuest} disabled={adding}>
                 {adding ? "Adding..." : "Add to Guestlist"}
               </Button>

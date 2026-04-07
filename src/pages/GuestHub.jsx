@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import PhonePrompt from "../components/PhonePrompt";
 import { base44 } from "@/api/base44Client";
 import { ArrowLeft, Sparkles, QrCode, Clock, CheckCircle2, Link as LinkIcon, Compass } from "lucide-react";
 import Discover from "./Discover";
@@ -10,6 +11,7 @@ export default function GuestHub() {
   const [tab, setTab] = useState("invites");
   const [inviteEvents, setInviteEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [myPhone, setMyPhone] = useState("");
 
   useEffect(() => {
     loadInvites();
@@ -17,7 +19,18 @@ export default function GuestHub() {
 
   async function loadInvites() {
     const me = await base44.auth.me();
-    const entries = await base44.entities.GuestlistEntry.filter({ guest_email: me.email }, "-created_date");
+    setMyPhone(me.phone || "");
+
+    const byEmail = await base44.entities.GuestlistEntry.filter({ guest_email: me.email }, "-created_date");
+    const byPhone = me.phone
+      ? await base44.entities.GuestlistEntry.filter({ guest_phone: me.phone }, "-created_date")
+      : [];
+    const seen = new Set();
+    const entries = [...byEmail, ...byPhone].filter((e) => {
+      if (seen.has(e.id)) return false;
+      seen.add(e.id);
+      return true;
+    });
 
     if (entries.length === 0) {
       setLoading(false);
@@ -69,6 +82,8 @@ export default function GuestHub() {
           <Compass className="w-3.5 h-3.5" /> Discover
         </button>
       </div>
+
+      {tab === "invites" && !myPhone && <PhonePrompt onSaved={(p) => { setMyPhone(p); loadInvites(); }} />}
 
       {tab === "discover" ? (
         <Discover />

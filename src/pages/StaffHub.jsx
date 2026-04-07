@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
+import PhonePrompt from "../components/PhonePrompt";
 import { base44 } from "@/api/base44Client";
 import { ArrowLeft, ScanLine, Calendar, MapPin, Clock, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ export default function StaffHub() {
   const [loading, setLoading] = useState(true);
   const [code, setCode] = useState("");
   const [joining, setJoining] = useState(false);
+  const [myPhone, setMyPhone] = useState("");
 
   useEffect(() => {
     load();
@@ -21,7 +23,19 @@ export default function StaffHub() {
 
   async function load() {
     const me = await base44.auth.me();
-    const staffEntries = await base44.entities.EventStaff.filter({ staff_email: me.email });
+    setMyPhone(me.phone || "");
+
+    // Fetch by email and by phone, merge
+    const byEmail = await base44.entities.EventStaff.filter({ staff_email: me.email });
+    const byPhone = me.phone
+      ? await base44.entities.EventStaff.filter({ staff_phone: me.phone })
+      : [];
+    const seen = new Set();
+    const staffEntries = [...byEmail, ...byPhone].filter((s) => {
+      if (seen.has(s.id)) return false;
+      seen.add(s.id);
+      return true;
+    });
 
     if (!staffEntries.length) {
       setLoading(false);
@@ -137,6 +151,8 @@ export default function StaffHub() {
           </div>
         </div>
       )}
+
+      {!myPhone && <PhonePrompt onSaved={(p) => { setMyPhone(p); load(); }} />}
 
       {tab === "events" && (
         loading ? (
