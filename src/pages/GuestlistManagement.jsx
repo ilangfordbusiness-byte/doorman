@@ -160,9 +160,11 @@ export default function GuestlistManagement() {
               <DialogTitle className="font-heading">Add Guest</DialogTitle>
             </DialogHeader>
             <div className="space-y-3 pt-2">
-              {friends.length > 0 && (
-                <div>
+              <div>
                   <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-2">Quick Add from Friends</p>
+                  {friends.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-3 bg-secondary/40 rounded-xl border border-border/50">No friends on the app yet — add friends from the Friends tab</p>
+                  ) : (
                   <div className="space-y-1.5 max-h-40 overflow-y-auto">
                     {friends.map((f) => {
                       const alreadyAdded = guests.some((g) => g.guest_email === f.email);
@@ -191,10 +193,10 @@ export default function GuestlistManagement() {
                       );
                     })}
                   </div>
+                  )}
                   <div className="border-t border-border/50 my-3" />
                   <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-2">Add Manually</p>
                 </div>
-              )}
               <Input
                 placeholder="Name"
                 value={newGuest.name}
