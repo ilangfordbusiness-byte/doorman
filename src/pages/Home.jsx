@@ -64,23 +64,23 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen flex flex-col px-5 pt-14 pb-10 max-w-lg mx-auto">
+    <div className="min-h-screen flex flex-col px-5 pt-5 pb-10 max-w-lg mx-auto">
       {/* Brand */}
       <div className="flex items-center gap-2 mb-3">
-        <img src="https://media.base44.com/images/public/69d556d1ae7f4cada8ab83ef/b225b5ab2_doormanapplogo.png" alt="DoorMan" className="w-8 h-8 rounded-lg object-cover" />
-        <span className="font-heading font-bold text-white text-lg tracking-wide">DoorMan</span>
+        <img src="https://media.base44.com/images/public/69d556d1ae7f4cada8ab83ef/b225b5ab2_doormanapplogo.png" alt="DoorMan" className="w-6 h-6 rounded-md object-cover" />
+        <span className="font-heading font-bold text-white text-sm tracking-wide">DoorMan</span>
       </div>
 
       {/* Header */}
-      <div className="mb-10">
+      <div className="mb-4">
         <div className="flex items-center gap-2 mb-2">
           <Sparkles className="w-5 h-5 text-primary" />
           <span className="text-xs text-primary font-semibold uppercase tracking-widest">Welcome</span>
         </div>
-        <h1 className="font-heading font-bold text-3xl text-foreground leading-tight">
+        <h1 className="font-heading font-bold text-xl text-foreground leading-tight">
           {userName ? `Hey ${userName}` : "Hey there"} 👋
         </h1>
-        <p className="text-muted-foreground mt-1 text-sm">What are you here for today?</p>
+        <p className="text-muted-foreground mt-0.5 text-xs">What are you here for today?</p>
       </div>
 
       {/* Role cards */}
