@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import jsQR from "jsqr";
@@ -8,76 +8,109 @@ import { Input } from "@/components/ui/input";
 
 export default function DoormanScanner() {
   const navigate = useNavigate();
-  const urlParams = new URLSearchParams(window.location.search);
-  const eventId = urlParams.get("event_id");
-  const [mode, setMode] = useState("scan"); // scan, result
+  const [mode, setMode] = useState("scan");
   const [result, setResult] = useState(null);
   const [processing, setProcessing] = useState(false);
   const [manualCode, setManualCode] = useState("");
+  const [cameraStatus, setCameraStatus] = useState("starting"); // starting, active, error
+  const [debugMsg, setDebugMsg] = useState("");
+
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
-  const scanIntervalRef = useRef(null);
-
-  const lastQrData = useRef("");
+  const rafRef = useRef(null);
   const processingRef = useRef(false);
+  const lastQrData = useRef("");
 
-  useEffect(() => {
-    if (mode === "scan") {
-      startCamera();
+  const stopEverything = useCallback(() => {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
     }
-    return () => stopCamera();
-  }, [mode]);
-
-  async function startCamera() {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
-      });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-      scanIntervalRef.current = setInterval(scanFrame, 300);
-    } catch (e) {
-      console.error("Camera error:", e);
-    }
-  }
-
-  function stopCamera() {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     }
-    if (scanIntervalRef.current) {
-      clearInterval(scanIntervalRef.current);
-      scanIntervalRef.current = null;
-    }
-  }
+  }, []);
 
-  function scanFrame() {
-    if (!videoRef.current || !canvasRef.current || processingRef.current) return;
-    const video = videoRef.current;
-    if (video.readyState < 2 || video.videoWidth === 0) return;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0);
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "attemptBoth" });
-    if (code && code.data) {
-      handleScannedData(code.data);
+  useEffect(() => {
+    if (mode !== "scan") return;
+
+    let active = true;
+
+    async function init() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" } },
+          audio: false,
+        });
+
+        if (!active) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+
+        streamRef.current = stream;
+        const video = videoRef.current;
+        video.srcObject = stream;
+        video.setAttribute("playsinline", true);
+        video.setAttribute("muted", true);
+
+        await new Promise((resolve) => {
+          video.onloadedmetadata = resolve;
+        });
+        await video.play();
+        setCameraStatus("active");
+        setDebugMsg(`Camera: ${video.videoWidth}x${video.videoHeight}`);
+
+        function tick() {
+          if (!active || processingRef.current) {
+            rafRef.current = requestAnimationFrame(tick);
+            return;
+          }
+          if (video.readyState >= 2 && video.videoWidth > 0) {
+            const canvas = canvasRef.current;
+            if (canvas) {
+              canvas.width = video.videoWidth;
+              canvas.height = video.videoHeight;
+              const ctx = canvas.getContext("2d", { willReadFrequently: true });
+              ctx.drawImage(video, 0, 0);
+              const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+              const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts: "attemptBoth",
+              });
+              if (code && code.data) {
+                setDebugMsg(`Found: ${code.data.substring(0, 20)}...`);
+                handleScannedData(code.data);
+                return; // stop ticking
+              }
+            }
+          }
+          rafRef.current = requestAnimationFrame(tick);
+        }
+
+        rafRef.current = requestAnimationFrame(tick);
+      } catch (err) {
+        setCameraStatus("error");
+        setDebugMsg(`Camera error: ${err.message}`);
+      }
     }
-  }
+
+    init();
+
+    return () => {
+      active = false;
+      stopEverything();
+    };
+  }, [mode]);
 
   async function handleScannedData(data) {
     if (processingRef.current) return;
     processingRef.current = true;
     setProcessing(true);
     lastQrData.current = data;
-    stopCamera();
+    stopEverything();
+
     try {
       const response = await base44.functions.invoke("validateQR", { qr_data: data });
       setResult(response.data);
@@ -110,12 +143,14 @@ export default function DoormanScanner() {
     setProcessing(false);
   }
 
-
   function resetScanner() {
     setResult(null);
     setMode("scan");
     setManualCode("");
     lastQrData.current = "";
+    processingRef.current = false;
+    setCameraStatus("starting");
+    setDebugMsg("");
   }
 
   return (
@@ -131,29 +166,47 @@ export default function DoormanScanner() {
       {mode === "scan" && (
         <div className="flex-1 flex flex-col">
           {/* Camera View */}
-          <div className="relative flex-1 mx-4 rounded-2xl overflow-hidden bg-zinc-900">
-            <video ref={videoRef} className="w-full h-full object-cover" playsInline muted autoPlay />
+          <div className="relative mx-4 rounded-2xl overflow-hidden bg-zinc-900" style={{ height: "55vw", maxHeight: 360 }}>
+            <video
+              ref={videoRef}
+              className="w-full h-full object-cover"
+              playsInline
+              muted
+              autoPlay
+            />
             <canvas ref={canvasRef} className="hidden" />
+
+            {cameraStatus === "error" && (
+              <div className="absolute inset-0 flex items-center justify-center bg-zinc-900">
+                <p className="text-red-400 text-sm px-4 text-center">Camera access denied or unavailable</p>
+              </div>
+            )}
 
             {/* Scanning overlay */}
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-64 h-64 border-2 border-white/30 rounded-3xl relative">
+              <div className="w-56 h-56 border-2 border-white/30 rounded-3xl relative">
                 <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-primary rounded-tl-xl" />
                 <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-primary rounded-tr-xl" />
                 <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-primary rounded-bl-xl" />
                 <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-primary rounded-br-xl" />
-                {/* Scan line animation */}
                 <div className="absolute inset-x-4 h-0.5 bg-primary/60 top-1/2 animate-pulse" />
               </div>
             </div>
 
-            <div className="absolute bottom-4 left-0 right-0 text-center">
-              <p className="text-sm text-white/70">Point at guest's QR code</p>
+            <div className="absolute bottom-2 left-0 right-0 text-center">
+              <p className="text-xs text-white/60">Point at guest's QR code</p>
             </div>
           </div>
 
+          {/* Debug status */}
+          {debugMsg ? (
+            <p className="text-center text-[10px] text-zinc-600 mt-1 px-4 truncate">{debugMsg}</p>
+          ) : (
+            <p className="text-center text-[10px] text-zinc-600 mt-1">Initializing camera...</p>
+          )}
+
           {/* Tips */}
-          <div className="px-4 pt-3">
+          <div className="px-4 pt-2">
             <div className="grid grid-cols-3 gap-2 mb-3">
               {[
                 { emoji: "📲", text: "Ask guest to show QR pass" },
@@ -167,9 +220,10 @@ export default function DoormanScanner() {
               ))}
             </div>
           </div>
+
           {/* Manual entry */}
           <div className="px-4 pb-4 space-y-3">
-            <p className="text-xs text-zinc-500 text-center">Or enter code manually</p>
+            <p className="text-xs text-zinc-500 text-center">Or paste QR data manually</p>
             <div className="flex gap-2">
               <Input
                 placeholder="Paste QR data..."
@@ -177,7 +231,7 @@ export default function DoormanScanner() {
                 onChange={(e) => setManualCode(e.target.value)}
                 className="bg-zinc-900 border-zinc-800 text-white h-11 rounded-xl"
               />
-              <Button className="h-11 rounded-xl bg-primary" onClick={handleManualSubmit}>
+              <Button className="h-11 rounded-xl bg-primary" onClick={handleManualSubmit} disabled={processing}>
                 <Search className="w-4 h-4" />
               </Button>
             </div>
@@ -187,12 +241,9 @@ export default function DoormanScanner() {
 
       {mode === "result" && result && (
         <div className="flex-1 flex flex-col items-center justify-center px-6 pb-8">
-          {/* Result Card */}
           <div className={`w-full max-w-sm rounded-3xl p-8 text-center border-2 ${
             result.valid
-              ? result.checked_in
-                ? "bg-emerald-500/10 border-emerald-500/30"
-                : "bg-emerald-500/10 border-emerald-500/30"
+              ? "bg-emerald-500/10 border-emerald-500/30"
               : "bg-red-500/10 border-red-500/30"
           }`}>
             {result.valid ? (
@@ -226,7 +277,6 @@ export default function DoormanScanner() {
             )}
           </div>
 
-          {/* Actions */}
           <div className="w-full max-w-sm mt-6 space-y-3">
             {result.valid && !result.checked_in && (
               <Button
