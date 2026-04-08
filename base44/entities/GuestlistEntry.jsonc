@@ -55,6 +55,10 @@
       "type": "string",
       "description": "Doorman email who checked them in"
     },
+    "checked_out_at": {
+      "type": "string",
+      "description": "Timestamp when guest left the event"
+    },
     "notes": {
       "type": "string",
       "description": "Host/staff notes about this guest"

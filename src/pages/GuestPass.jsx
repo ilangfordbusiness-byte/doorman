@@ -43,6 +43,13 @@ export default function GuestPass() {
     setLoading(false);
   }
 
+  async function handleCheckOut() {
+    await base44.entities.GuestlistEntry.update(entry.id, {
+      checked_out_at: new Date().toISOString(),
+    });
+    setEntry((prev) => ({ ...prev, checked_out_at: new Date().toISOString() }));
+  }
+
   function generateQR(entry) {
     const timestamp = Date.now();
     const nonce = Math.random().toString(36).substring(2, 10);
@@ -124,6 +131,18 @@ export default function GuestPass() {
                 </div>
                 <p className="font-heading font-bold text-lg text-emerald-400">Checked In</p>
                 <p className="text-sm text-muted-foreground mt-1">You're inside! Enjoy the event.</p>
+                {!entry.checked_out_at ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-4 rounded-full border-border text-muted-foreground"
+                    onClick={handleCheckOut}
+                  >
+                    Leaving? Check Out
+                  </Button>
+                ) : (
+                  <p className="text-xs text-muted-foreground mt-3">Checked out ✓</p>
+                )}
               </div>
             )}
 

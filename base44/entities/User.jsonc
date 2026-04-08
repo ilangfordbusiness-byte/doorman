@@ -1,0 +1,24 @@
+{
+  "name": "User",
+  "type": "object",
+  "properties": {
+    "role": {
+      "type": "string",
+      "enum": [
+        "admin",
+        "user"
+      ],
+      "default": "user"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "profile_picture": {
+      "type": "string"
+    },
+    "instagram": {
+      "type": "string",
+      "description": "Instagram handle (without @)"
+    }
+  }
+}

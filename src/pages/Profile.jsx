@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import { LogOut, User, Calendar, Camera, ArrowLeft, Pencil, Check, X, Shield, Trash2 } from "lucide-react";
+import { LogOut, User, Calendar, Camera, ArrowLeft, Pencil, Check, X, Shield, Trash2, AtSign, Clock, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,10 +9,10 @@ import { useToast } from "@/components/ui/use-toast";
 export default function Profile() {
   const { toast } = useToast();
   const [user, setUser] = useState(null);
-  const [stats, setStats] = useState({ hosted: 0, attended: 0 });
+  const [stats, setStats] = useState({ hosted: 0, attended: 0, hoursPartied: 0, guestsEntertained: 0 });
   const [loading, setLoading] = useState(true);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [editing, setEditing] = useState(null); // "name" | "phone"
+  const [editing, setEditing] = useState(null); // "name" | "phone" | "instagram"
   const [editValue, setEditValue] = useState("");
   const [saving, setSaving] = useState(false);
   const [adminTapCount, setAdminTapCount] = useState(0);
@@ -35,13 +35,31 @@ export default function Profile() {
   async function loadProfile() {
     const me = await base44.auth.me();
     setUser(me);
-    const [events, entries] = await Promise.all([
+    const [events, entries, hostedEntries] = await Promise.all([
       base44.entities.Event.filter({ host_email: me.email }),
       base44.entities.GuestlistEntry.filter({ guest_email: me.email }),
+      base44.entities.GuestlistEntry.filter({ checked_in_by: me.email }),
     ]);
+
+    // Hours partied: sum duration of attended events with check-in + check-out
+    let hoursPartied = 0;
+    entries.forEach((e) => {
+      if (e.checked_in_at && e.checked_out_at) {
+        hoursPartied += (new Date(e.checked_out_at) - new Date(e.checked_in_at)) / 3600000;
+      }
+    });
+
+    // Guests entertained: unique guests checked in across hosted events
+    const hostedEventIds = new Set(events.map((ev) => ev.id));
+    const guestsEntertained = new Set(
+      hostedEntries.filter((e) => hostedEventIds.has(e.event_id)).map((e) => e.guest_email)
+    ).size;
+
     setStats({
       hosted: events.length,
-      attended: entries.filter((e) => e.status === "checked_in").length,
+      attended: entries.filter((e) => ["checked_in", "checked_out"].includes(e.status) || e.checked_in_at).length,
+      hoursPartied: Math.round(hoursPartied * 10) / 10,
+      guestsEntertained,
     });
     setLoading(false);
   }
@@ -58,13 +76,13 @@ export default function Profile() {
 
   function startEdit(field) {
     setEditing(field);
-    setEditValue(field === "name" ? user?.full_name || "" : user?.phone || "");
+    setEditValue(field === "name" ? user?.full_name || "" : field === "phone" ? user?.phone || "" : user?.instagram || "");
   }
 
   async function saveEdit() {
     if (!editValue.trim()) return;
     setSaving(true);
-    const update = editing === "name" ? { full_name: editValue.trim() } : { phone: editValue.trim() };
+    const update = editing === "name" ? { full_name: editValue.trim() } : editing === "phone" ? { phone: editValue.trim() } : { instagram: editValue.trim().replace(/^@/, "") };
     await base44.auth.updateMe(update);
     setUser((prev) => ({ ...prev, ...update }));
     setEditing(null);
@@ -154,6 +172,16 @@ export default function Profile() {
             <p className="text-xl font-bold font-heading text-accent">{stats.attended}</p>
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Events Attended</p>
           </div>
+          <div className="bg-secondary/50 rounded-xl p-3 text-center border border-border/50">
+            <p className="text-xl font-bold font-heading text-emerald-400">{stats.hoursPartied}h</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Hours Partied</p>
+          </div>
+          {stats.guestsEntertained > 0 && (
+            <div className="bg-secondary/50 rounded-xl p-3 text-center border border-border/50">
+              <p className="text-xl font-bold font-heading text-pink-400">{stats.guestsEntertained}</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Guests Entertained</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -201,7 +229,7 @@ export default function Profile() {
         </div>
 
         {/* Phone */}
-        <div className="flex items-center gap-3 px-4 py-3.5">
+        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-border/50">
           <Calendar className="w-5 h-5 text-muted-foreground" />
           <div className="flex-1">
             <p className="text-xs text-muted-foreground mb-0.5">Phone</p>
@@ -228,6 +256,45 @@ export default function Profile() {
           </div>
           {editing !== "phone" && (
             <button onClick={() => startEdit("phone")} className="text-muted-foreground hover:text-foreground">
+              <Pencil className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Instagram */}
+        <div className="flex items-center gap-3 px-4 py-3.5">
+          <AtSign className="w-5 h-5 text-muted-foreground" />
+          <div className="flex-1">
+            <p className="text-xs text-muted-foreground mb-0.5">Instagram</p>
+            {editing === "instagram" ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  placeholder="yourhandle"
+                  className="h-8 text-sm bg-secondary/50 border-border rounded-lg flex-1"
+                  autoFocus
+                  onKeyDown={(e) => e.key === "Enter" && saveEdit()}
+                />
+                <button onClick={saveEdit} disabled={saving} className="text-emerald-400 hover:text-emerald-300">
+                  <Check className="w-4 h-4" />
+                </button>
+                <button onClick={() => setEditing(null)} className="text-muted-foreground hover:text-foreground">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <p className="text-sm font-medium">
+                {user?.instagram ? (
+                  <a href={`https://instagram.com/${user.instagram}`} target="_blank" rel="noopener noreferrer" className="text-pink-400 hover:underline">@{user.instagram}</a>
+                ) : (
+                  <span className="text-muted-foreground">Add Instagram</span>
+                )}
+              </p>
+            )}
+          </div>
+          {editing !== "instagram" && (
+            <button onClick={() => startEdit("instagram")} className="text-muted-foreground hover:text-foreground">
               <Pencil className="w-4 h-4" />
             </button>
           )}
