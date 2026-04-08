@@ -1,4 +1,5 @@
 import { useState } from "react";
+import CoverPicker, { COVERS } from "../components/CoverPicker";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { ArrowLeft, Upload, Calendar, Clock, MapPin, Users, Shirt, FileText, Eye, Lock, Plus } from "lucide-react";
@@ -15,6 +16,7 @@ export default function CreateEvent() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [coverFile, setCoverFile] = useState(null);
+  const [coverId, setCoverId] = useState("");
   const [coverPreview, setCoverPreview] = useState(null);
   const [form, setForm] = useState({
     title: "",
@@ -57,6 +59,8 @@ export default function CreateEvent() {
     if (coverFile) {
       const { file_url } = await base44.integrations.Core.UploadFile({ file: coverFile });
       cover_image = file_url;
+    } else if (coverId) {
+      cover_image = `__cover__${coverId}`;
     }
 
     const me = await base44.auth.me();
@@ -110,20 +114,23 @@ export default function CreateEvent() {
         )}
 
         {/* Cover Image */}
+        <CoverPicker
+          value={coverId}
+          onChange={(id) => { setCoverId(id); setCoverFile(null); setCoverPreview(null); }}
+          title={form.title}
+        />
+        {/* Or upload custom photo */}
         <label className="block cursor-pointer">
-          <div className={`relative h-44 rounded-2xl overflow-hidden border-2 border-dashed transition-colors ${
-            coverPreview ? "border-transparent" : "border-border hover:border-primary/50"
+          <div className={`relative h-12 rounded-xl overflow-hidden border-2 border-dashed transition-colors flex items-center justify-center gap-2 text-muted-foreground ${
+            coverPreview ? "border-primary/50" : "border-border hover:border-primary/50"
           }`}>
-            {coverPreview ? (
-              <img src={coverPreview} alt="Cover" className="w-full h-full object-cover" />
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
-                <Upload className="w-6 h-6" />
-                <span className="text-sm font-medium">Add cover photo</span>
-              </div>
-            )}
+            <Upload className="w-4 h-4" />
+            <span className="text-sm font-medium">{coverPreview ? "Custom photo selected ✓" : "Or upload a custom photo"}</span>
           </div>
-          <input type="file" accept="image/*" className="hidden" onChange={handleCoverChange} />
+          <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) { setCoverFile(file); setCoverPreview(URL.createObjectURL(file)); setCoverId(""); }
+          }} />
         </label>
 
         {/* Title */}

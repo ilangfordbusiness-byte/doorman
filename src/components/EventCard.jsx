@@ -1,4 +1,13 @@
 import { Link } from "react-router-dom";
+import { COVERS } from "./CoverPicker";
+
+function getCoverStyle(cover_image) {
+  if (cover_image?.startsWith("__cover__")) {
+    const id = cover_image.replace("__cover__", "");
+    return COVERS.find((c) => c.id === id)?.style || null;
+  }
+  return null;
+}
 import { Clock, MapPin } from "lucide-react";
 import moment from "moment";
 
@@ -16,16 +25,20 @@ export default function EventCard({ event, variant = "default" }) {
           <div className="h-px w-full bg-gradient-to-r from-transparent via-primary/50 to-transparent group-hover:via-primary transition-all" />
         )}
 
-        <div className="relative h-44 overflow-hidden">
-          {event.cover_image ? (
-            <img
-              src={event.cover_image}
-              alt={event.title}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-            />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-br from-primary/20 via-card to-accent/10" />
-          )}
+        <div className="relative h-44 overflow-hidden">{
+          (() => {
+            const coverStyle = getCoverStyle(event.cover_image);
+            return coverStyle ? (
+              <div className="w-full h-full" style={coverStyle}>
+                <div className="absolute inset-0 opacity-[0.05]" style={{ backgroundImage: "repeating-linear-gradient(0deg, rgba(255,255,255,1) 0px, rgba(255,255,255,1) 1px, transparent 1px, transparent 3px)" }} />
+              </div>
+            ) : event.cover_image && !event.cover_image.startsWith("__cover__") ? (
+              <img src={event.cover_image} alt={event.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-primary/20 via-card to-accent/10" />
+            );
+          })()
+        }
           <div className="absolute inset-0 bg-gradient-to-t from-card via-card/20 to-transparent" />
 
           <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md rounded-xl px-3 py-1.5 border border-white/10">

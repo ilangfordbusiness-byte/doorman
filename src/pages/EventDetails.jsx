@@ -1,4 +1,13 @@
 import { useState, useEffect } from "react";
+import { COVERS } from "../components/CoverPicker";
+
+function getCoverStyle(cover_image) {
+  if (cover_image?.startsWith("__cover__")) {
+    const id = cover_image.replace("__cover__", "");
+    return COVERS.find((c) => c.id === id)?.style || null;
+  }
+  return null;
+}
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import {
@@ -140,12 +149,20 @@ export default function EventDetails() {
   return (
     <div className="max-w-lg mx-auto">
       {/* Cover */}
-      <div className="relative h-56">
-        {event.cover_image ? (
-          <img src={event.cover_image} alt={event.title} className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-primary/40 via-primary/20 to-accent/20" />
-        )}
+      <div className="relative h-56">{
+        (() => {
+          const coverStyle = getCoverStyle(event.cover_image);
+          return coverStyle ? (
+            <div className="w-full h-full" style={coverStyle}>
+              <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: "repeating-linear-gradient(0deg, rgba(255,255,255,0.8) 0px, rgba(255,255,255,0.8) 1px, transparent 1px, transparent 3px)" }} />
+            </div>
+          ) : event.cover_image && !event.cover_image.startsWith("__cover__") ? (
+            <img src={event.cover_image} alt={event.title} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-primary/40 via-primary/20 to-accent/20" />
+          );
+        })()
+      }
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
         <div className="absolute top-4 left-4 right-4 flex justify-between">
           <Button variant="ghost" size="icon" className="rounded-full bg-card/60 backdrop-blur-sm" onClick={() => navigate(-1)}>
