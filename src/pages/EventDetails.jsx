@@ -237,6 +237,13 @@ export default function EventDetails() {
             )}
 
             <div className="flex gap-2">
+              <Link to={`/event/${id}/edit`} className="flex-1">
+                <Button variant="outline" className="w-full h-12 rounded-xl gap-2 font-semibold">
+                  <Edit className="w-4 h-4" /> Edit Event
+                </Button>
+              </Link>
+            </div>
+            <div className="flex gap-2">
               <Link to={`/event/${id}/guestlist`} className="flex-1">
                 <Button variant="outline" className="w-full h-12 rounded-xl gap-2 font-semibold">
                   <Users className="w-4 h-4" /> Guestlist

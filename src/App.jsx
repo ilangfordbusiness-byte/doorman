@@ -20,6 +20,7 @@ const HostHub = lazy(() => import('./pages/HostHub'));
 const GuestHub = lazy(() => import('./pages/GuestHub'));
 const StaffHub = lazy(() => import('./pages/StaffHub'));
 const Friends = lazy(() => import('./pages/Friends'));
+const EditEvent = lazy(() => import('./pages/EditEvent'));
 
 const PageLoader = () => (
   <div className="fixed inset-0 flex items-center justify-center bg-background">
@@ -68,6 +69,7 @@ const AuthenticatedApp = () => {
         <Route path="/create-event" element={<CreateEvent />} />
         <Route path="/event/:id" element={<EventDetails />} />
         <Route path="/event/:id/guestlist" element={<GuestlistManagement />} />
+        <Route path="/event/:id/edit" element={<EditEvent />} />
         <Route path="/host" element={<HostHub />} />
         <Route path="/guest" element={<GuestHub />} />
         <Route path="/staff" element={<StaffHub />} />
