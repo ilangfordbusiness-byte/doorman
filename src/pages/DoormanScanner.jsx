@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { ArrowLeft, Camera, Search, CheckCircle2, XCircle, AlertTriangle, RotateCcw } from "lucide-react";
+import jsQR from "jsqr";
+import { ArrowLeft, Search, CheckCircle2, XCircle, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -18,6 +19,9 @@ export default function DoormanScanner() {
   const streamRef = useRef(null);
   const scanIntervalRef = useRef(null);
 
+  const lastQrData = useRef("");
+  const processingRef = useRef(false);
+
   useEffect(() => {
     if (mode === "scan") {
       startCamera();
@@ -33,15 +37,11 @@ export default function DoormanScanner() {
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.play();
+        await videoRef.current.play();
       }
-
-      // Start scanning
-      scanIntervalRef.current = setInterval(() => {
-        scanFrame();
-      }, 500);
-    } catch {
-      // Camera not available
+      scanIntervalRef.current = setInterval(scanFrame, 300);
+    } catch (e) {
+      console.error("Camera error:", e);
     }
   }
 
@@ -56,80 +56,28 @@ export default function DoormanScanner() {
     }
   }
 
-  async function scanFrame() {
-    if (!videoRef.current || !canvasRef.current || processing) return;
-
+  function scanFrame() {
+    if (!videoRef.current || !canvasRef.current || processingRef.current) return;
     const video = videoRef.current;
+    if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
-
-    if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
-
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0);
-
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-    // Use BarcodeDetector API if available
-    if ("BarcodeDetector" in window) {
-      try {
-        const detector = new BarcodeDetector({ formats: ["qr_code"] });
-        const codes = await detector.detect(imageData);
-        if (codes.length > 0) {
-          handleScannedData(codes[0].rawValue);
-        }
-      } catch {
-        // Detection failed, continue scanning
-      }
+    const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
+    if (code && code.data) {
+      handleScannedData(code.data);
     }
   }
 
   async function handleScannedData(data) {
-    if (processing) return;
+    if (processingRef.current) return;
+    processingRef.current = true;
     setProcessing(true);
-    stopCamera();
-
-    try {
-      const response = await base44.functions.invoke("validateQR", { qr_data: data });
-      setResult(response.data);
-      setMode("result");
-    } catch (err) {
-      setResult({ valid: false, error: "Failed to validate QR code" });
-      setMode("result");
-    }
-    setProcessing(false);
-  }
-
-  async function handleCheckIn() {
-    if (!result || processing) return;
-    setProcessing(true);
-
-    // Re-validate with check_in action using the same QR data
-    // We need to re-scan or use stored data
-    // For simplicity, we'll directly update via the result info
-    try {
-      // We need the original QR data, so let's store it
-      const response = await base44.functions.invoke("validateQR", {
-        qr_data: lastQrData.current,
-        action: "check_in",
-      });
-      setResult(response.data);
-    } catch {
-      setResult({ valid: false, error: "Check-in failed" });
-    }
-    setProcessing(false);
-  }
-
-  const lastQrData = useRef("");
-
-  // Override handleScannedData to store the QR data
-  const originalHandleScanned = async (data) => {
-    if (processing) return;
     lastQrData.current = data;
-    setProcessing(true);
     stopCamera();
-
     try {
       const response = await base44.functions.invoke("validateQR", { qr_data: data });
       setResult(response.data);
@@ -139,44 +87,12 @@ export default function DoormanScanner() {
       setMode("result");
     }
     setProcessing(false);
-  };
-
-  // Replace the scan frame handler
-  useEffect(() => {
-    const handler = async () => {
-      if (!videoRef.current || !canvasRef.current || processing) return;
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext("2d");
-      if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      ctx.drawImage(video, 0, 0);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      if ("BarcodeDetector" in window) {
-        try {
-          const detector = new BarcodeDetector({ formats: ["qr_code"] });
-          const codes = await detector.detect(imageData);
-          if (codes.length > 0) {
-            originalHandleScanned(codes[0].rawValue);
-          }
-        } catch {}
-      }
-    };
-
-    if (mode === "scan") {
-      if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
-      scanIntervalRef.current = setInterval(handler, 500);
-    }
-
-    return () => {
-      if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
-    };
-  }, [mode, processing]);
+    processingRef.current = false;
+  }
 
   async function handleManualSubmit() {
     if (!manualCode.trim()) return;
-    originalHandleScanned(manualCode.trim());
+    handleScannedData(manualCode.trim());
   }
 
   async function handleCheckInAction() {
@@ -193,6 +109,7 @@ export default function DoormanScanner() {
     }
     setProcessing(false);
   }
+
 
   function resetScanner() {
     setResult(null);
