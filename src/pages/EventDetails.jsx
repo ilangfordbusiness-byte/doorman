@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import StatusBadge from "../components/StatusBadge";
 import WhoIsGoing from "../components/WhoIsGoing";
+import EventChat from "../components/EventChat";
 import moment from "moment";
 
 export default function EventDetails() {
@@ -257,6 +258,11 @@ export default function EventDetails() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Chat — visible to host and approved/checked-in guests */}
+        {(isHost || (myEntry && ["approved", "invited", "checked_in"].includes(myEntry.status))) && (
+          <EventChat eventId={id} user={user} isHost={isHost} />
         )}
 
         {/* Guest Actions */}
