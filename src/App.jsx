@@ -23,7 +23,16 @@ const Friends = lazy(() => import('./pages/Friends'));
 
 const PageLoader = () => (
   <div className="fixed inset-0 flex items-center justify-center bg-background">
-    <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+    <div className="relative w-16 h-16">
+      <div className="absolute inset-0 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+      <div className="absolute inset-0 flex items-center justify-center">
+        <img
+          src="https://media.base44.com/images/public/69d556d1ae7f4cada8ab83ef/e327a8610_logotransparent.png"
+          alt="DoorMan"
+          className="w-8 h-8 object-contain animate-pulse"
+        />
+      </div>
+    </div>
   </div>
 );
 
