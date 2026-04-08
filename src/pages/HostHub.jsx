@@ -4,6 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { Plus, ArrowLeft, Mic2, Users, QrCode, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import EventCard from "../components/EventCard";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 export default function HostHub() {
   const [events, setEvents] = useState([]);
@@ -40,9 +41,7 @@ export default function HostHub() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-        </div>
+        <LoadingSpinner />
       ) : events.length === 0 ? (
         <div className="flex flex-col items-center pt-4 pb-8 text-center">
           <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">

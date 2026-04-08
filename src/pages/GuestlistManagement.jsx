@@ -10,6 +10,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger
 } from "@/components/ui/dialog";
 import GuestCard from "../components/GuestCard";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 export default function GuestlistManagement() {
   const { id } = useParams();
@@ -130,13 +131,7 @@ export default function GuestlistManagement() {
   const denied = [...byStatus("denied"), ...byStatus("revoked")];
   const waitlist = byStatus("waitlist");
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
-  }
+  if (loading) return <LoadingSpinner fullScreen />;
 
   return (
     <div className="max-w-lg mx-auto px-4 pt-4 pb-8">

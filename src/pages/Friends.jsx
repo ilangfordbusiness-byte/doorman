@@ -4,6 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { ArrowLeft, UserPlus, Users, Check, X, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 export default function Friends() {
   const { toast } = useToast();
@@ -130,9 +131,7 @@ export default function Friends() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-        </div>
+        <LoadingSpinner />
       ) : (
         <>
           {tab === "suggestions" && (

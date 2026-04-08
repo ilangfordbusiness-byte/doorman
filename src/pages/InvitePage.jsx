@@ -5,6 +5,7 @@ import { Calendar, Clock, MapPin, Shirt, UserPlus, Sparkles, ArrowLeft } from "l
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import StatusBadge from "../components/StatusBadge";
+import LoadingSpinner from "../components/LoadingSpinner";
 import moment from "moment";
 
 export default function InvitePage() {
@@ -60,13 +61,7 @@ export default function InvitePage() {
     setRequesting(false);
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
-  }
+  if (loading) return <LoadingSpinner fullScreen />;
 
   if (!event) {
     return (

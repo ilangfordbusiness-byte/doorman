@@ -4,6 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { Search, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import EventCard from "./EventCard";
+import LoadingSpinner from "./LoadingSpinner";
 
 export default function DiscoverEvents() {
   const [events, setEvents] = useState([]);
@@ -35,9 +36,7 @@ export default function DiscoverEvents() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="w-7 h-7 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-        </div>
+        <LoadingSpinner />
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center py-12 text-center">
           <Sparkles className="w-10 h-10 text-amber-400 mb-3" />

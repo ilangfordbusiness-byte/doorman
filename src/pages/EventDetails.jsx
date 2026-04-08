@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { COVERS } from "../components/CoverPicker";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 function getCoverStyle(cover_image) {
   if (cover_image?.startsWith("__cover__")) {
@@ -134,13 +135,7 @@ export default function EventDetails() {
     setTimeout(() => setCopied(false), 2000);
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
-  }
+  if (loading) return <LoadingSpinner fullScreen />;
 
   if (!event) return null;
 

@@ -5,6 +5,7 @@ import PhonePrompt from "../components/PhonePrompt";
 import { base44 } from "@/api/base44Client";
 import { ArrowLeft, ScanLine, Calendar, MapPin, Clock, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import LoadingSpinner from "../components/LoadingSpinner";
 import moment from "moment";
 
 export default function StaffHub() {
@@ -156,9 +157,7 @@ export default function StaffHub() {
 
       {tab === "events" && (
         loading ? (
-          <div className="flex justify-center py-16">
-            <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-          </div>
+          <LoadingSpinner />
         ) : events.length === 0 ? (
           <div className="flex flex-col items-center pt-8 pb-8 text-center">
             <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center mb-4">
