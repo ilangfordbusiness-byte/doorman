@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import PhonePrompt from "../components/PhonePrompt";
 import { base44 } from "@/api/base44Client";
 import { ArrowLeft, Sparkles, QrCode, Clock, CheckCircle2, Link as LinkIcon, Compass } from "lucide-react";
-import Discover from "./Discover";
+import DiscoverEvents from "../components/DiscoverEvents";
 import { Button } from "@/components/ui/button";
 import EventCard from "../components/EventCard";
 
@@ -86,7 +86,7 @@ export default function GuestHub() {
       {tab === "invites" && !myPhone && <PhonePrompt onSaved={(p) => { setMyPhone(p); loadInvites(); }} />}
 
       {tab === "discover" ? (
-        <Discover />
+        <DiscoverEvents />
       ) : loading ? (
         <div className="flex justify-center py-16">
           <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
