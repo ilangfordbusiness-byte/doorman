@@ -24,10 +24,9 @@ export default function Friends() {
     setMe(user);
 
     // All friend requests involving me
-    const [sent, received, allUsers, myEntries] = await Promise.all([
+    const [sent, received, myEntries] = await Promise.all([
       base44.entities.FriendRequest.filter({ sender_email: user.email }),
       base44.entities.FriendRequest.filter({ receiver_email: user.email }),
-      base44.entities.User.list(),
       base44.entities.GuestlistEntry.filter({ guest_email: user.email }),
     ]);
 
@@ -48,33 +47,28 @@ export default function Friends() {
       ...received.map((r) => r.sender_email),
     ]);
 
-    // Suggestion pool: people from same events first, then others
+    // Suggestions from co-attendees only (no User.list() needed)
     const myEventIds = [...new Set(myEntries.map((e) => e.event_id))];
-    let suggestedEmails = new Set();
-    let suggestedUsers = [];
+    const suggestedEmails = new Set();
+    const suggestedUsers = [];
 
     if (myEventIds.length > 0) {
       const coAttendees = await Promise.all(
-        myEventIds.map((eid) =>
-          base44.entities.GuestlistEntry.filter({ event_id: eid })
-        )
+        myEventIds.map((eid) => base44.entities.GuestlistEntry.filter({ event_id: eid }))
       );
       const flat = coAttendees.flat().filter((e) => e.guest_email && !connectedEmails.has(e.guest_email));
       flat.forEach((e) => {
         if (!suggestedEmails.has(e.guest_email)) {
           suggestedEmails.add(e.guest_email);
-          const u = allUsers.find((u) => u.email === e.guest_email);
-          if (u) suggestedUsers.push({ ...u, reason: "Attended same event" });
+          suggestedUsers.push({
+            email: e.guest_email,
+            full_name: e.guest_name || e.guest_email,
+            profile_picture: "",
+            reason: "Attended same event",
+          });
         }
       });
     }
-
-    // Fill with other users
-    allUsers.forEach((u) => {
-      if (!connectedEmails.has(u.email) && !suggestedEmails.has(u.email)) {
-        suggestedUsers.push({ ...u, reason: "On the app" });
-      }
-    });
 
     setSuggestions(suggestedUsers.slice(0, 20));
     setLoading(false);
