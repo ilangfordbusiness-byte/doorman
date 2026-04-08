@@ -31,6 +31,14 @@
       "type": "string",
       "description": "Full address"
     },
+    "venue_lat": {
+      "type": "number",
+      "description": "Venue latitude (geocoded)"
+    },
+    "venue_lng": {
+      "type": "number",
+      "description": "Venue longitude (geocoded)"
+    },
     "dress_code": {
       "type": "string",
       "description": "Dress code"

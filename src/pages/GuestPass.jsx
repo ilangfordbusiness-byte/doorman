@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { ArrowLeft, Calendar, Clock, MapPin, Shirt, Shield } from "lucide-react";
@@ -13,7 +13,10 @@ export default function GuestPass() {
   const [entry, setEntry] = useState(null);
   const [qrData, setQrData] = useState("");
   const [loading, setLoading] = useState(true);
+  const [locationTracking, setLocationTracking] = useState(false);
+  const [autoCheckedOut, setAutoCheckedOut] = useState(false);
   const intervalRef = useRef(null);
+  const watchIdRef = useRef(null);
 
   useEffect(() => {
     loadPass();
@@ -41,13 +44,59 @@ export default function GuestPass() {
     }
 
     setLoading(false);
+
+    // Start location watch if already checked in
+    if (entries[0].status === "checked_in" && !entries[0].checked_out_at) {
+      startLocationWatch(entries[0], events[0]);
+    }
   }
 
-  async function handleCheckOut() {
-    await base44.entities.GuestlistEntry.update(entry.id, {
-      checked_out_at: new Date().toISOString(),
-    });
-    setEntry((prev) => ({ ...prev, checked_out_at: new Date().toISOString() }));
+  useEffect(() => {
+    return () => stopLocationWatch();
+  }, []);
+
+  async function handleCheckOut(auto = false) {
+    const now = new Date().toISOString();
+    await base44.entities.GuestlistEntry.update(entry.id, { checked_out_at: now });
+    setEntry((prev) => ({ ...prev, checked_out_at: now }));
+    if (auto) setAutoCheckedOut(true);
+    stopLocationWatch();
+  }
+
+  function stopLocationWatch() {
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    setLocationTracking(false);
+  }
+
+  const startLocationWatch = useCallback((currentEntry, currentEvent) => {
+    if (!currentEvent.venue_lat || !currentEvent.venue_lng) return;
+    if (!navigator.geolocation) return;
+    if (currentEntry.checked_out_at) return;
+
+    setLocationTracking(true);
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const dist = getDistanceMeters(latitude, longitude, currentEvent.venue_lat, currentEvent.venue_lng);
+        // Auto-checkout if more than 300m from venue
+        if (dist > 300) {
+          handleCheckOut(true);
+        }
+      },
+      () => setLocationTracking(false),
+      { enableHighAccuracy: true, timeout: 30000, maximumAge: 30000 }
+    );
+  }, []);
+
+  function getDistanceMeters(lat1, lng1, lat2, lng2) {
+    const R = 6371000;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLng = ((lng2 - lng1) * Math.PI) / 180;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
   function generateQR(entry) {
@@ -125,25 +174,45 @@ export default function GuestPass() {
             )}
 
             {isCheckedIn && (
-              <div className="py-8 text-center">
-                <div className="w-20 h-20 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-4">
-                  <span className="text-4xl">✓</span>
-                </div>
-                <p className="font-heading font-bold text-lg text-emerald-400">Checked In</p>
-                <p className="text-sm text-muted-foreground mt-1">You're inside! Enjoy the event.</p>
-                {!entry.checked_out_at ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-4 rounded-full border-border text-muted-foreground"
-                    onClick={handleCheckOut}
-                  >
-                    Leaving? Check Out
-                  </Button>
-                ) : (
-                  <p className="text-xs text-muted-foreground mt-3">Checked out ✓</p>
+            <div className="py-8 text-center">
+            <div className="w-20 h-20 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-4">
+              <span className="text-4xl">✓</span>
+            </div>
+            <p className="font-heading font-bold text-lg text-emerald-400">Checked In</p>
+            <p className="text-sm text-muted-foreground mt-1">You're inside! Enjoy the event.</p>
+            {autoCheckedOut ? (
+              <p className="text-xs text-emerald-600 mt-3">Auto checked out when you left 👋</p>
+            ) : !entry.checked_out_at ? (
+              <>
+                {locationTracking && (
+                  <div className="flex items-center justify-center gap-1.5 mt-3">
+                    <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+                    <span className="text-[10px] text-muted-foreground">Auto-checkout active</span>
+                  </div>
                 )}
-              </div>
+                {!locationTracking && event?.venue_lat && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-3 rounded-full text-xs text-muted-foreground"
+                    onClick={() => startLocationWatch(entry, event)}
+                  >
+                    📍 Enable auto-checkout
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 rounded-full border-border text-muted-foreground"
+                  onClick={() => handleCheckOut(false)}
+                >
+                  Leaving? Check Out
+                </Button>
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground mt-3">Checked out ✓</p>
+            )}
+            </div>
             )}
 
             {isDenied && (

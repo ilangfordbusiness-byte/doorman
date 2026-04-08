@@ -62,6 +62,20 @@ export default function CreateEvent() {
     const me = await base44.auth.me();
     const invite_code = Math.random().toString(36).substring(2, 10).toUpperCase();
 
+    // Geocode address for location-based auto-checkout
+    let venue_lat = null;
+    let venue_lng = null;
+    if (form.address) {
+      try {
+        const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(form.address)}&limit=1`);
+        const geoData = await geoRes.json();
+        if (geoData[0]) {
+          venue_lat = parseFloat(geoData[0].lat);
+          venue_lng = parseFloat(geoData[0].lon);
+        }
+      } catch {}
+    }
+
     const event = await base44.entities.Event.create({
       ...form,
       cover_image,
@@ -70,6 +84,7 @@ export default function CreateEvent() {
       host_name: me.full_name,
       status,
       invite_code,
+      ...(venue_lat && venue_lng ? { venue_lat, venue_lng } : {}),
     });
 
     toast({ title: status === "published" ? "Event published!" : "Draft saved" });
