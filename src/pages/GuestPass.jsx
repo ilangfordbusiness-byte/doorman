@@ -37,7 +37,7 @@ export default function GuestPass() {
 
     if (["approved", "invited"].includes(entries[0].status)) {
       generateQR(entries[0]);
-      intervalRef.current = setInterval(() => generateQR(entries[0]), 8000);
+      intervalRef.current = setInterval(() => generateQR(entries[0]), 60000);
     }
 
     setLoading(false);

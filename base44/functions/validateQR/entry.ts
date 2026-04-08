@@ -28,9 +28,9 @@ Deno.serve(async (req) => {
       return Response.json({ valid: false, error: 'Incomplete QR data' });
     }
 
-    // Check timestamp - QR valid for 15 seconds
+    // Check timestamp - QR valid for 90 seconds to allow for scan → review → check-in flow
     const age = Date.now() - ts;
-    if (age > 15000 || age < -5000) {
+    if (age > 90000 || age < -10000) {
       return Response.json({ valid: false, error: 'QR code expired. Ask guest to refresh their pass.' });
     }
 
