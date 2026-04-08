@@ -39,10 +39,10 @@ export default function GuestHub() {
 
     const eventIds = [...new Set(entries.map((g) => g.event_id))];
     const events = await Promise.all(
-      eventIds.map(async (id) => {
-        const evts = await base44.entities.Event.filter({ id });
+      eventIds.map(async (eid) => {
+        const evts = await base44.entities.Event.filter({ id: eid });
         const evt = evts[0];
-        const entry = entries.find((g) => g.event_id === id);
+        const entry = entries.find((g) => g.event_id === eid);
         return evt ? { ...evt, guestStatus: entry?.status, entryId: entry?.id } : null;
       })
     );
