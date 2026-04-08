@@ -91,6 +91,24 @@ export default function EventDetails() {
     setStaff((prev) => prev.filter((s) => s.id !== staffId));
   }
 
+  async function handleRequestJoin() {
+    setRequesting(true);
+    const me = await base44.auth.me();
+    const qr_secret = Math.random().toString(36).substring(2, 18);
+    const entry = await base44.entities.GuestlistEntry.create({
+      event_id: id,
+      guest_email: me.email,
+      guest_name: me.full_name,
+      guest_phone: me.phone || "",
+      status: "requested",
+      source: "request",
+      qr_secret,
+    });
+    setMyEntry(entry);
+    setRequesting(false);
+    toast({ title: "Request sent!" });
+  }
+
   async function handleShare() {
     const url = `${window.location.origin}/invite/${event.invite_code}`;
     try {
