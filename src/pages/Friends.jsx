@@ -5,6 +5,7 @@ import { ArrowLeft, UserPlus, Users, Check, X, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import LoadingSpinner from "../components/LoadingSpinner";
+import FriendProfile from "../components/FriendProfile";
 
 export default function Friends() {
   const { toast } = useToast();
@@ -15,6 +16,7 @@ export default function Friends() {
   const [friends, setFriends] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sentSet, setSentSet] = useState(new Set());
+  const [viewingFriend, setViewingFriend] = useState(null);
 
   useEffect(() => {
     load();
@@ -130,6 +132,15 @@ export default function Friends() {
         ))}
       </div>
 
+      {viewingFriend && (
+        <FriendProfile
+          friend={viewingFriend}
+          myEmail={me?.email}
+          myFriends={friends}
+          onClose={() => setViewingFriend(null)}
+        />
+      )}
+
       {loading ? (
         <LoadingSpinner />
       ) : (
@@ -173,7 +184,12 @@ export default function Friends() {
             <div className="space-y-2">
               {friends.length === 0 && <Empty message="No friends yet — check Suggestions!" />}
               {friends.map((f) => (
-                <UserRow key={f.email} user={{ full_name: f.name, email: f.email, profile_picture: f.picture }} reason="Friend">
+                <UserRow
+                  key={f.email}
+                  user={{ full_name: f.name, email: f.email, profile_picture: f.picture }}
+                  reason="Friend"
+                  onClick={() => setViewingFriend(f)}
+                >
                   <UserCheck className="w-4 h-4 text-emerald-400" />
                 </UserRow>
               ))}
@@ -185,9 +201,12 @@ export default function Friends() {
   );
 }
 
-function UserRow({ user, reason, children }) {
+function UserRow({ user, reason, children, onClick }) {
   return (
-    <div className="flex items-center gap-3 bg-secondary/40 rounded-xl px-4 py-3 border border-border/50">
+    <div
+      className={`flex items-center gap-3 bg-secondary/40 rounded-xl px-4 py-3 border border-border/50 ${onClick ? "cursor-pointer hover:border-primary/30 transition-colors active:scale-[0.99]" : ""}`}
+      onClick={onClick}
+    >
       <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
         {user.profile_picture ? (
           <img src={user.profile_picture} alt="" className="w-full h-full object-cover" />
