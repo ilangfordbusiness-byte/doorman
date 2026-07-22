@@ -20,5 +20,10 @@
       "type": "string",
       "description": "Instagram handle (without @)"
     }
-  }
+  },
+  "required": [
+    "phone",
+    "profile_picture",
+    "instagram"
+  ]
 }
