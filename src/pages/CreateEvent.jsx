@@ -2,7 +2,7 @@ import { useState } from "react";
 import CoverPicker, { COVERS } from "../components/CoverPicker";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { ArrowLeft, Upload, Calendar, Clock, MapPin, Users, Shirt, FileText, Eye, Lock, Plus } from "lucide-react";
+import { ArrowLeft, Upload, Calendar, Clock, MapPin, Users, Shirt, FileText, Eye, Lock, Plus, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,6 +32,9 @@ export default function CreateEvent() {
     is_public: false,
     plus_one_allowed: false,
     capacity: "",
+    is_paid: false,
+    currency: "gbp",
+    visibility: "show_names",
   });
 
   function updateForm(field, value) {
@@ -271,6 +274,51 @@ export default function CreateEvent() {
             </div>
             <Switch checked={form.plus_one_allowed} onCheckedChange={(v) => updateForm("plus_one_allowed", v)} />
           </div>
+        </div>
+
+        {/* Paid Ticketing */}
+        <div className="space-y-4 bg-secondary/30 rounded-2xl p-4 border border-border/50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Ticket className="w-4 h-4 text-muted-foreground" />
+              <div>
+                <p className="text-sm font-medium">Paid Event</p>
+                <p className="text-xs text-muted-foreground">Sell tickets, or leave it free</p>
+              </div>
+            </div>
+            <Switch checked={form.is_paid} onCheckedChange={(v) => updateForm("is_paid", v)} />
+          </div>
+          {form.is_paid && (
+            <div className="space-y-3">
+              <div>
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Currency</Label>
+                <select value={form.currency} onChange={(e) => updateForm("currency", e.target.value)} className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm">
+                  <option value="gbp">GBP (£)</option>
+                  <option value="eur">EUR (€)</option>
+                  <option value="usd">USD ($)</option>
+                </select>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Who's Going Visibility</Label>
+                <div className="space-y-2">
+                  {[
+                    { v: "show_names", l: "Show names", d: "Guests see attendee names" },
+                    { v: "count_only", l: "Show count only", d: "Just a number, no names" },
+                    { v: "none", l: "Show nothing", d: "No attendee info at all" },
+                  ].map((o) => (
+                    <label key={o.v} className={`flex items-start gap-2 rounded-xl p-2.5 border cursor-pointer ${form.visibility === o.v ? "border-primary bg-primary/10" : "border-border bg-secondary/40"}`}>
+                      <input type="radio" name="visibility" checked={form.visibility === o.v} onChange={() => updateForm("visibility", o.v)} className="mt-0.5 accent-primary" />
+                      <div>
+                        <p className="text-sm font-medium">{o.l}</p>
+                        <p className="text-xs text-muted-foreground">{o.d}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">Add ticket tiers & promo codes after creating the event — Edit Event → Ticketing.</p>
+            </div>
+          )}
         </div>
 
         {/* Actions */}

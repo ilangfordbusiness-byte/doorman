@@ -99,6 +99,26 @@
     "staff_code": {
       "type": "string",
       "description": "4-digit code for doormen to self-register"
+    },
+    "is_paid": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this event sells paid tickets"
+    },
+    "currency": {
+      "type": "string",
+      "default": "gbp",
+      "description": "ISO currency code for ticket sales, lowercase (e.g. gbp, eur)"
+    },
+    "visibility": {
+      "type": "string",
+      "enum": [
+        "show_names",
+        "count_only",
+        "none"
+      ],
+      "default": "show_names",
+      "description": "Who's-going visibility: show_names, count_only, or none"
     }
   },
   "required": [

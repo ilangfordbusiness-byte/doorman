@@ -19,6 +19,21 @@
     "instagram": {
       "type": "string",
       "description": "Instagram handle (without @)"
+    },
+    "stripe_account_id": {
+      "type": "string",
+      "description": "Connected Stripe account ID for receiving ticket payouts"
+    },
+    "stripe_onboarding_status": {
+      "type": "string",
+      "enum": [
+        "none",
+        "pending",
+        "restricted",
+        "active"
+      ],
+      "default": "none",
+      "description": "Status of the host's Stripe Connect onboarding"
     }
   },
   "required": [

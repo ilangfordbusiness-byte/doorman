@@ -13,7 +13,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import {
   ArrowLeft, Calendar, Clock, MapPin, Shirt, Users, Share2,
-  QrCode, Shield, Edit, Trash2, UserPlus, Copy, Check, Plus, X
+  QrCode, Shield, Edit, Trash2, UserPlus, Copy, Check, Plus, X, Ticket, BarChart3
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -36,12 +36,26 @@ export default function EventDetails() {
   const [staff, setStaff] = useState([]);
   const [newStaffEmail, setNewStaffEmail] = useState("");
   const [addingStaff, setAddingStaff] = useState(false);
+  const [tiers, setTiers] = useState([]);
 
   const isHost = user && event && event.host_email === user.email;
 
   useEffect(() => {
     loadEvent();
   }, [id]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const payment = params.get("payment");
+    if (payment === "success") {
+      toast({ title: "Payment successful!", description: "Your ticket is being issued — refresh in a moment for your QR pass." });
+    } else if (payment === "cancelled") {
+      toast({ title: "Payment cancelled", variant: "destructive" });
+    }
+    if (payment) {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
 
   async function loadEvent() {
     const me = await base44.auth.me();
@@ -73,6 +87,12 @@ export default function EventDetails() {
 
     const staffList = await base44.entities.EventStaff.filter({ event_id: id });
     setStaff(staffList);
+
+    try {
+      const tierList = await base44.entities.TicketTier.filter({ event_id: id });
+      tierList.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+      setTiers(tierList);
+    } catch {}
 
     setLoading(false);
   }
@@ -253,6 +273,13 @@ export default function EventDetails() {
                 <Share2 className="w-4 h-4" /> Share
               </Button>
             </div>
+            {event.is_paid && (
+              <Link to={`/event/${id}/analytics`}>
+                <Button variant="outline" className="w-full h-12 rounded-xl gap-2 font-semibold">
+                  <BarChart3 className="w-4 h-4" /> Sales Analytics
+                </Button>
+              </Link>
+            )}
 
             {/* Staff Management */}
             <div>
@@ -305,7 +332,32 @@ export default function EventDetails() {
         {/* Guest Actions */}
         {!isHost && (
           <div className="space-y-3">
-            {!myEntry && event.requests_open && (
+            {event.is_paid && (
+              <div className="bg-secondary/40 rounded-2xl p-4 border border-border/50">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-heading font-semibold text-sm">Tickets</h3>
+                  <Link to={`/event/${id}/checkout`}>
+                    <Button size="sm" className="rounded-xl gap-1.5"><Ticket className="w-4 h-4" /> Buy Tickets</Button>
+                  </Link>
+                </div>
+                <div className="space-y-2">
+                  {tiers.map((t) => {
+                    const left = Math.max(0, Number(t.quantity || 0) - Number(t.sold || 0));
+                    return (
+                      <div key={t.id} className="flex justify-between items-center text-sm">
+                        <div>
+                          <p className="font-medium">{t.name}</p>
+                          <p className="text-xs text-muted-foreground">{left <= 0 ? "Sold out" : `${left} left`}</p>
+                        </div>
+                        <p className="font-bold">{({ gbp: "£", eur: "€", usd: "$" }[String(event.currency || "gbp").toLowerCase()] || "")}{Number(t.price).toFixed(2)}</p>
+                      </div>
+                    );
+                  })}
+                  {tiers.length === 0 && <p className="text-xs text-muted-foreground">Tickets coming soon.</p>}
+                </div>
+              </div>
+            )}
+            {!event.is_paid && !myEntry && event.requests_open && (
               <Button
                 className="w-full h-14 rounded-xl font-bold text-base bg-primary hover:bg-primary/90"
                 onClick={handleRequestJoin}
@@ -315,8 +367,13 @@ export default function EventDetails() {
                 {requesting ? "Requesting..." : "Request to Join"}
               </Button>
             )}
-            {myEntry && ["approved", "invited", "checked_in"].includes(myEntry.status) && (
-          <WhoIsGoing eventId={id} myEmail={user?.email} />
+            {event.visibility !== "none" && (myEntry || event.is_paid) && (
+          <WhoIsGoing
+            eventId={id}
+            myEmail={user?.email}
+            visibility={event.visibility}
+            unlocked={!!myEntry && ["approved", "checked_in"].includes(myEntry.status)}
+          />
         )}
 
         {myEntry && (

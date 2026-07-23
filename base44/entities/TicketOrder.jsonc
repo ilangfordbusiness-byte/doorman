@@ -1,0 +1,98 @@
+{
+  "name": "TicketOrder",
+  "type": "object",
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "description": "Reference to event"
+    },
+    "tier_id": {
+      "type": "string",
+      "description": "Reference to TicketTier"
+    },
+    "tier_name": {
+      "type": "string"
+    },
+    "guest_email": {
+      "type": "string"
+    },
+    "guest_name": {
+      "type": "string"
+    },
+    "promo_code_id": {
+      "type": "string",
+      "description": "Reference to PromoCode used, if any"
+    },
+    "promo_code": {
+      "type": "string",
+      "description": "Promo code text used, if any"
+    },
+    "quantity": {
+      "type": "number",
+      "default": 1
+    },
+    "unit_price": {
+      "type": "number",
+      "description": "Face value per ticket in major currency units"
+    },
+    "discount_percent": {
+      "type": "number",
+      "default": 0
+    },
+    "discount_amount": {
+      "type": "number",
+      "description": "Total discount applied, in major currency units",
+      "default": 0
+    },
+    "paid_amount": {
+      "type": "number",
+      "description": "Total paid by guest after discount, in major currency units"
+    },
+    "platform_fee": {
+      "type": "number",
+      "description": "Platform fee = 0.50 + 4% of paid amount, in major currency units",
+      "default": 0
+    },
+    "host_net": {
+      "type": "number",
+      "description": "Amount due to host = paid_amount - platform_fee, in major currency units",
+      "default": 0
+    },
+    "currency": {
+      "type": "string",
+      "default": "gbp"
+    },
+    "stripe_session_id": {
+      "type": "string"
+    },
+    "stripe_payment_intent_id": {
+      "type": "string"
+    },
+    "guestlist_entry_id": {
+      "type": "string",
+      "description": "GuestlistEntry created once payment confirmed"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "paid",
+        "refunded",
+        "cancelled"
+      ],
+      "default": "pending"
+    },
+    "refunded_at": {
+      "type": "string",
+      "description": "Timestamp when refund processed"
+    }
+  },
+  "required": [
+    "event_id",
+    "tier_id",
+    "guest_email",
+    "unit_price",
+    "paid_amount",
+    "status"
+  ]
+}
