@@ -1,11 +1,12 @@
-import { Check, X, Clock, UserPlus } from "lucide-react";
+import { Check, X, Clock, UserPlus, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import StatusBadge from "./StatusBadge";
 
-export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, showActions = true }) {
+export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, onToggleChat, showActions = true }) {
   const canApprove = ["requested", "waitlist", "denied"].includes(guest.status);
   const canDeny = ["requested", "waitlist", "approved", "invited"].includes(guest.status);
   const canWaitlist = ["requested"].includes(guest.status);
+  const chatEligible = ["approved", "invited", "checked_in"].includes(guest.status);
 
   return (
     <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/50 border border-border/50">
@@ -34,6 +35,17 @@ export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, showAc
       {/* Status + Actions */}
       <div className="flex items-center gap-2 flex-shrink-0">
         <StatusBadge status={guest.status} />
+        {showActions && onToggleChat && chatEligible && (
+          <Button
+            size="icon"
+            variant="ghost"
+            title={guest.can_chat ? "Revoke chat access" : "Allow chat access"}
+            className={`h-11 w-11 ${guest.can_chat ? "text-accent hover:bg-accent/20" : "text-muted-foreground hover:bg-accent/10"}`}
+            onClick={(e) => { e.stopPropagation(); onToggleChat(guest); }}
+          >
+            <MessageCircle className="w-5 h-5" />
+          </Button>
+        )}
         {showActions && (
           <div className="flex gap-1">
             {canApprove && (

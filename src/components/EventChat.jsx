@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { Send, MessageCircle } from "lucide-react";
 
-export default function EventChat({ eventId, user, isHost }) {
+export default function EventChat({ eventId, user, isHost, canChat }) {
+  const canSend = isHost || canChat === true;
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -25,7 +26,7 @@ export default function EventChat({ eventId, user, isHost }) {
   }, [messages]);
 
   async function handleSend() {
-    if (!text.trim() || sending) return;
+    if (!text.trim() || sending || !canSend) return;
     setSending(true);
     await base44.entities.EventMessage.create({
       event_id: eventId,
@@ -44,7 +45,9 @@ export default function EventChat({ eventId, user, isHost }) {
       <div className="flex items-center gap-2">
         <MessageCircle className="w-4 h-4 text-primary" />
         <h3 className="font-heading font-semibold text-sm">Event Chat</h3>
-        <span className="text-xs text-muted-foreground">(approved guests only)</span>
+        <span className="text-xs text-muted-foreground">
+          {isHost ? "(host)" : canSend ? "(chat access granted)" : "(host-only · read only)"}
+        </span>
       </div>
 
       <div className="bg-secondary/30 rounded-2xl border border-border/50 flex flex-col" style={{ height: 320 }}>
@@ -91,20 +94,28 @@ export default function EventChat({ eventId, user, isHost }) {
 
         {/* Input */}
         <div className="p-2 border-t border-border/50 flex gap-2">
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-            placeholder="Message guests..."
-            className="flex-1 h-9 px-3 text-sm bg-secondary/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-          />
-          <button
-            onClick={handleSend}
-            disabled={sending || !text.trim()}
-            className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center disabled:opacity-40 transition-opacity"
-          >
-            <Send className="w-4 h-4 text-primary-foreground" />
-          </button>
+          {canSend ? (
+            <>
+              <input
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+                placeholder={isHost ? "Message guests..." : "Message..."}
+                className="flex-1 h-9 px-3 text-sm bg-secondary/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+              <button
+                onClick={handleSend}
+                disabled={sending || !text.trim()}
+                className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center disabled:opacity-40 transition-opacity"
+              >
+                <Send className="w-4 h-4 text-primary-foreground" />
+              </button>
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground text-center py-2 flex-1">
+              Only the host can send messages. Ask the host for chat access.
+            </p>
+          )}
         </div>
       </div>
     </div>

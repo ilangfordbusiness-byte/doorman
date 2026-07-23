@@ -61,6 +61,12 @@ export default function GuestlistManagement() {
     loadData();
   }
 
+  async function toggleChat(guest) {
+    await base44.entities.GuestlistEntry.update(guest.id, { can_chat: !guest.can_chat });
+    toast({ title: guest.can_chat ? "Chat access revoked" : `${guest.guest_name || "Guest"} can now chat` });
+    loadData();
+  }
+
   async function addFriendToGuestlist(friend) {
     const existing = guests.find((g) => g.guest_email === friend.email);
     if (existing) {
@@ -273,6 +279,7 @@ export default function GuestlistManagement() {
                 key={g.id}
                 guest={g}
                 onDeny={(g) => updateStatus(g, "revoked")}
+                onToggleChat={toggleChat}
                 showActions={true}
               />
             ))
@@ -284,7 +291,7 @@ export default function GuestlistManagement() {
             <EmptyTab message="No check-ins yet" />
           ) : (
             checkedIn.map((g) => (
-              <GuestCard key={g.id} guest={g} showActions={false} />
+              <GuestCard key={g.id} guest={g} onToggleChat={toggleChat} showActions={true} />
             ))
           )}
         </TabsContent>

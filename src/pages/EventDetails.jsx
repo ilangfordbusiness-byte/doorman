@@ -299,7 +299,7 @@ export default function EventDetails() {
 
         {/* Chat — visible to host and approved/checked-in guests */}
         {(isHost || (myEntry && ["approved", "invited", "checked_in"].includes(myEntry.status))) && (
-          <EventChat eventId={id} user={user} isHost={isHost} />
+          <EventChat eventId={id} user={user} isHost={isHost} canChat={isHost || myEntry?.can_chat === true} />
         )}
 
         {/* Guest Actions */}

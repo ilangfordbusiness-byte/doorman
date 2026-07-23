@@ -47,6 +47,11 @@
     "plus_one_name": {
       "type": "string"
     },
+    "can_chat": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this guest is allowed to send messages in the event chat"
+    },
     "checked_in_at": {
       "type": "string",
       "description": "Timestamp when checked in"
