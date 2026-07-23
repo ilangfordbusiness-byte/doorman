@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { Mic2, Users, ScanLine, UserCircle, ChevronRight, HeartHandshake } from "lucide-react";
+import { Mic2, Users, UserCircle, ChevronRight, HeartHandshake } from "lucide-react";
 
 const roles = [
   {
@@ -19,26 +19,14 @@ const roles = [
   {
     to: "/guest",
     icon: Users,
-    label: "Guest",
+    label: "Discover",
     sublabel: "View your invites & passes",
     border: "border-amber-500/20 hover:border-amber-400/60",
     topBar: "from-amber-400 to-orange-500",
     iconColor: "text-amber-400",
     iconBg: "bg-amber-500/10",
     tag: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-    tagText: "GUEST",
-  },
-  {
-    to: "/staff",
-    icon: ScanLine,
-    label: "Doorman",
-    sublabel: "Scan QR codes & check guests in",
-    border: "border-cyan-500/20 hover:border-cyan-400/60",
-    topBar: "from-cyan-400 to-emerald-400",
-    iconColor: "text-cyan-400",
-    iconBg: "bg-cyan-500/10",
-    tag: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
-    tagText: "STAFF",
+    tagText: "DISCOVER",
   },
   {
     to: "/friends",

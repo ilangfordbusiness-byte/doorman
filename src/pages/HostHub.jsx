@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { Plus, ArrowLeft, Mic2, Users, QrCode, Share2 } from "lucide-react";
+import { Plus, ArrowLeft, Mic2, Users, QrCode, Share2, ScanLine, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import EventCard from "../components/EventCard";
 import LoadingSpinner from "../components/LoadingSpinner";
@@ -39,6 +39,17 @@ export default function HostHub() {
           </Button>
         </Link>
       </div>
+
+      <Link to="/staff" className="flex items-center gap-3 bg-card rounded-2xl border border-border p-3.5 mb-4 active:scale-[0.98] transition-transform">
+        <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center border border-white/5">
+          <ScanLine className="w-5 h-5 text-cyan-400" />
+        </div>
+        <div className="flex-1">
+          <p className="font-heading font-semibold text-sm">Doorman Scanner</p>
+          <p className="text-xs text-muted-foreground">Scan QR codes & check guests in</p>
+        </div>
+        <ChevronRight className="w-4 h-4 text-muted-foreground" />
+      </Link>
 
       {loading ? (
         <LoadingSpinner />

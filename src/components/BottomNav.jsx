@@ -1,10 +1,9 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { Mic2, Users, ScanLine, HeartHandshake, UserCircle } from "lucide-react";
+import { Mic2, Users, HeartHandshake, UserCircle } from "lucide-react";
 
 const tabs = [
   { path: "/host", icon: Mic2, label: "Host" },
-  { path: "/guest", icon: Users, label: "Guest" },
-  { path: "/staff", icon: ScanLine, label: "Staff" },
+  { path: "/guest", icon: Users, label: "Discover" },
   { path: "/friends", icon: HeartHandshake, label: "Friends" },
   { path: "/profile", icon: UserCircle, label: "Account" },
 ];

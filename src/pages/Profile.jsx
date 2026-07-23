@@ -10,7 +10,7 @@ import LoadingSpinner from "../components/LoadingSpinner";
 export default function Profile() {
   const { toast } = useToast();
   const [user, setUser] = useState(null);
-  const [stats, setStats] = useState({ hosted: 0, attended: 0, hoursPartied: 0, guestsEntertained: 0 });
+  const [stats, setStats] = useState({ hosted: 0, attended: 0 });
   const [loading, setLoading] = useState(true);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [editing, setEditing] = useState(null); // "name" | "phone" | "instagram"
@@ -36,31 +36,14 @@ export default function Profile() {
   async function loadProfile() {
     const me = await base44.auth.me();
     setUser(me);
-    const [events, entries, hostedEntries] = await Promise.all([
+    const [events, entries] = await Promise.all([
       base44.entities.Event.filter({ host_email: me.email }),
       base44.entities.GuestlistEntry.filter({ guest_email: me.email }),
-      base44.entities.GuestlistEntry.filter({ checked_in_by: me.email }),
     ]);
-
-    // Hours partied: sum duration of attended events with check-in + check-out
-    let hoursPartied = 0;
-    entries.forEach((e) => {
-      if (e.checked_in_at && e.checked_out_at) {
-        hoursPartied += (new Date(e.checked_out_at) - new Date(e.checked_in_at)) / 3600000;
-      }
-    });
-
-    // Guests entertained: unique guests checked in across hosted events
-    const hostedEventIds = new Set(events.map((ev) => ev.id));
-    const guestsEntertained = new Set(
-      hostedEntries.filter((e) => hostedEventIds.has(e.event_id)).map((e) => e.guest_email)
-    ).size;
 
     setStats({
       hosted: events.length,
       attended: entries.filter((e) => ["checked_in", "checked_out"].includes(e.status) || e.checked_in_at).length,
-      hoursPartied: Math.round(hoursPartied * 10) / 10,
-      guestsEntertained,
     });
     setLoading(false);
   }
@@ -167,16 +150,6 @@ export default function Profile() {
             <p className="text-xl font-bold font-heading text-accent">{stats.attended}</p>
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Events Attended</p>
           </div>
-          <div className="bg-secondary/50 rounded-xl p-3 text-center border border-border/50">
-            <p className="text-xl font-bold font-heading text-emerald-400">{stats.hoursPartied}h</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Hours Partied</p>
-          </div>
-          {stats.guestsEntertained > 0 && (
-            <div className="bg-secondary/50 rounded-xl p-3 text-center border border-border/50">
-              <p className="text-xl font-bold font-heading text-pink-400">{stats.guestsEntertained}</p>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Guests Entertained</p>
-            </div>
-          )}
         </div>
       </div>
 
