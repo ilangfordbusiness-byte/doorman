@@ -56,6 +56,17 @@ Deno.serve(async (req) => {
     const events = await base44.asServiceRole.entities.Event.filter({ id: eid });
     const event = events[0];
 
+    // Authorization: only the event host or registered staff may validate / check in.
+    const isHost = !!event && event.host_email === user.email;
+    let isStaff = isHost;
+    if (!isStaff) {
+      const staffRecords = await base44.asServiceRole.entities.EventStaff.filter({ event_id: eid, staff_email: user.email });
+      isStaff = staffRecords.length > 0;
+    }
+    if (!isStaff) {
+      return Response.json({ valid: false, error: "Not authorized for this event" }, { status: 403 });
+    }
+
     // Check if already checked in
     if (entry.status === 'checked_in') {
       return Response.json({

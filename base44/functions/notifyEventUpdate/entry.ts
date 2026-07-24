@@ -5,8 +5,25 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const base44 = createClientFromRequest(req);
 
-    const { data: event, old_data: oldEvent, changed_fields } = body;
-    if (!event || !event.id) return Response.json({ ok: true });
+    const { data: eventData, old_data: oldEvent, changed_fields } = body;
+    if (!eventData || !eventData.id) return Response.json({ ok: true });
+
+    // Re-fetch the event from the DB so every displayed value comes from a real
+    // record and cannot be spoofed via the request body.
+    let event;
+    try {
+      const events = await base44.asServiceRole.entities.Event.filter({ id: eventData.id });
+      event = events[0];
+    } catch {
+      return Response.json({ ok: true, skipped: "invalid event reference" });
+    }
+    if (!event) return Response.json({ ok: true, skipped: "event not found" });
+
+    // Limit replay: only notify for updates made in the last 5 minutes.
+    const updatedMs = event.updated_date ? new Date(event.updated_date).getTime() : 0;
+    if (updatedMs && Date.now() - updatedMs > 300000) {
+      return Response.json({ ok: true, skipped: "stale update" });
+    }
 
     // Only notify if meaningful fields changed
     const relevantFields = ["title", "date", "start_time", "end_time", "venue_name", "address", "dress_code", "description", "entry_notes", "status"];
@@ -18,7 +35,7 @@ Deno.serve(async (req) => {
     const guests = entries.filter(e => ["approved", "invited", "checked_in"].includes(e.status));
     if (!guests.length) return Response.json({ ok: true, skipped: "no guests" });
 
-    // Build what changed
+    // Build what changed — all values sourced from the DB-fetched event
     const changes = [];
     if (changed_fields?.includes("date") && oldEvent?.date !== event.date) {
       changes.push(`📅 Date changed to: ${event.date}`);
