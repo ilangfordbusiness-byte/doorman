@@ -36,31 +36,36 @@ export default function TicketingPanel({ eventId, paid, currency }) {
       return;
     }
     try {
-      await base44.entities.TicketTier.create({
+      const res = await base44.functions.invoke("manageTicketCatalog", {
+        action: "create_tier",
         event_id: eventId,
         name: newTier.name,
         price: Number(newTier.price),
         quantity: Number(newTier.quantity),
-        sold: 0,
-        sales_status: "open",
         sort_order: tiers.length,
       });
+      if (res.data?.error) throw new Error(res.data.error);
       setNewTier({ name: "", price: "", quantity: "" });
       await load();
       toast({ title: "Tier added" });
     } catch (e) {
       console.error("TicketTier create failed:", e);
-      toast({ title: "Couldn't save tier", description: e?.message || "Permission denied — only the event host can add tiers.", variant: "destructive" });
+      toast({ title: "Couldn't save tier", description: e?.message || "Only the event host can add tiers.", variant: "destructive" });
     }
   }
 
   async function removeTier(tid) {
     try {
-      await base44.entities.TicketTier.delete(tid);
+      const res = await base44.functions.invoke("manageTicketCatalog", {
+        action: "delete_tier",
+        event_id: eventId,
+        id: tid,
+      });
+      if (res.data?.error) throw new Error(res.data.error);
       await load();
     } catch (e) {
       console.error("TicketTier delete failed:", e);
-      toast({ title: "Couldn't delete tier", description: e?.message || "Permission denied.", variant: "destructive" });
+      toast({ title: "Couldn't delete tier", description: e?.message || "Only the event host can delete tiers.", variant: "destructive" });
     }
   }
 
@@ -70,31 +75,35 @@ export default function TicketingPanel({ eventId, paid, currency }) {
       return;
     }
     try {
-      await base44.entities.PromoCode.create({
+      const res = await base44.functions.invoke("manageTicketCatalog", {
+        action: "create_promo",
         event_id: eventId,
-        code: newPromo.code.trim().toUpperCase(),
+        code: newPromo.code.trim(),
         discount_percent: Number(newPromo.discount_percent),
         max_uses: Number(newPromo.max_uses),
-        used_count: 0,
-        total_discount_given: 0,
-        status: "active",
       });
+      if (res.data?.error) throw new Error(res.data.error);
       setNewPromo({ code: "", discount_percent: "", max_uses: "" });
       await load();
       toast({ title: "Promo code added" });
     } catch (e) {
       console.error("PromoCode create failed:", e);
-      toast({ title: "Couldn't save promo code", description: e?.message || "Permission denied — only the event host can add promo codes.", variant: "destructive" });
+      toast({ title: "Couldn't save promo code", description: e?.message || "Only the event host can add promo codes.", variant: "destructive" });
     }
   }
 
   async function removePromo(pid) {
     try {
-      await base44.entities.PromoCode.delete(pid);
+      const res = await base44.functions.invoke("manageTicketCatalog", {
+        action: "delete_promo",
+        event_id: eventId,
+        id: pid,
+      });
+      if (res.data?.error) throw new Error(res.data.error);
       await load();
     } catch (e) {
       console.error("PromoCode delete failed:", e);
-      toast({ title: "Couldn't delete promo code", description: e?.message || "Permission denied.", variant: "destructive" });
+      toast({ title: "Couldn't delete promo code", description: e?.message || "Only the event host can delete promo codes.", variant: "destructive" });
     }
   }
 
