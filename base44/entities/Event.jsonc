@@ -131,11 +131,7 @@
     "create": {
       "created_by_id": "{{user.id}}"
     },
-    "read": {
-      "user_condition": {
-        "isAuthenticated": true
-      }
-    },
+    "read": {},
     "update": {
       "data.host_email": "{{user.email}}"
     },
