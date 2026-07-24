@@ -35,12 +35,17 @@ Deno.serve(async (req) => {
   try {
     const rawBody = await req.text();
     const sigHeader = req.headers.get('stripe-signature') || '';
-    const secret = Deno.env.get('STRIPE_WEBHOOK_SECRET');
-    if (!secret) {
-      console.log('ticketWebhook: STRIPE_WEBHOOK_SECRET not set');
+    // Accept both live and test webhook secrets so the same endpoint handles
+    // events from either Stripe mode (live + test during validation).
+    const secrets = [Deno.env.get('STRIPE_TEST_WEBHOOK_SECRET'), Deno.env.get('STRIPE_WEBHOOK_SECRET')].filter(Boolean);
+    if (!secrets.length) {
+      console.log('ticketWebhook: no webhook secret configured');
       return Response.json({ error: 'Webhook secret not configured' }, { status: 500 });
     }
-    const ok = await verifyStripeSignature(rawBody, sigHeader, secret);
+    let ok = false;
+    for (const s of secrets) {
+      if (await verifyStripeSignature(rawBody, sigHeader, s)) { ok = true; break; }
+    }
     if (!ok) return Response.json({ error: 'Invalid signature' }, { status: 400 });
 
     const stripeEvent = JSON.parse(rawBody);

@@ -1,22 +1,34 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { ArrowLeft, CreditCard, Tag, Loader2 } from "lucide-react";
+import { ArrowLeft, CreditCard, Tag, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useToast } from "@/components/ui/use-toast";
 import { getStoredRef, captureRef, getLinkDomain } from "@/lib/promoterRef";
+import CheckoutSuccess from "@/components/checkout/CheckoutSuccess";
+import CheckoutCancelled from "@/components/checkout/CheckoutCancelled";
 
 const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
 
+// Standalone checkout page at /event/:id/checkout (and /checkout/:id).
+// Guests must be logged into a DoorMan account before buying — if not, they're
+// sent to login and returned here with the ref param intact. The ref is also
+// carried through the Stripe redirect so promoter attribution survives.
 export default function TicketCheckout() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const params = new URLSearchParams(window.location.search);
+  const payment = params.get("payment");
+  const ref = params.get("ref");
+
+  const [authed, setAuthed] = useState(false);
   const [event, setEvent] = useState(null);
   const [tiers, setTiers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [selected, setSelected] = useState(null);
   const [promoInput, setPromoInput] = useState("");
   const [promo, setPromo] = useState(null);
@@ -24,22 +36,38 @@ export default function TicketCheckout() {
   const [applyingPromo, setApplyingPromo] = useState(false);
   const [paying, setPaying] = useState(false);
 
+  // Auth gate — require a DoorMan account before checkout. Return here (with ref)
+  // after login so the purchase resumes exactly where they left off.
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const ref = params.get("ref");
-    if (ref) captureRef(id, ref).catch(() => {});
-    load();
+    base44.auth.isAuthenticated().then((ok) => {
+      if (ok) { setAuthed(true); return; }
+      base44.auth.redirectToLogin(window.location.href);
+    });
+  }, []);
+
+  // Capture promoter ref on entry (skip on the success screen to avoid a
+  // duplicate click being counted after the Stripe redirect).
+  useEffect(() => {
+    if (ref && payment !== "success") captureRef(id, ref).catch(() => {});
   }, [id]);
 
+  useEffect(() => {
+    if (authed) load();
+  }, [authed]);
+
   async function load() {
-    const [events, t] = await Promise.all([
-      base44.entities.Event.filter({ id }),
-      base44.entities.TicketTier.filter({ event_id: id }),
-    ]);
-    if (!events.length) return navigate("/");
-    setEvent(events[0]);
-    t.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-    setTiers(t);
+    try {
+      const [events, t] = await Promise.all([
+        base44.entities.Event.filter({ id }),
+        base44.entities.TicketTier.filter({ event_id: id }),
+      ]);
+      if (!events.length) { setLoadError("This event is no longer available."); setLoading(false); return; }
+      setEvent(events[0]);
+      t.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+      setTiers(t);
+    } catch {
+      setLoadError("Couldn't load tickets. Please try again.");
+    }
     setLoading(false);
   }
 
@@ -55,13 +83,8 @@ export default function TicketCheckout() {
     try {
       const res = await base44.functions.invoke("validatePromoCode", { event_id: id, code: promoInput.trim(), tier_id: selected });
       const d = res.data;
-      if (!d.valid) {
-        setPromoMsg(d.message || "Invalid promo code");
-      } else {
-        setPromo(d);
-        setPromoMsg("");
-        toast({ title: "Promo applied" });
-      }
+      if (!d.valid) setPromoMsg(d.message || "Invalid promo code");
+      else { setPromo(d); setPromoMsg(""); toast({ title: "Promo applied" }); }
     } catch {
       setPromoMsg("Could not validate code");
     }
@@ -78,25 +101,36 @@ export default function TicketCheckout() {
     setPaying(true);
     try {
       const promoterCode = getStoredRef(id);
+      const base = `${getLinkDomain()}/event/${id}/checkout`;
+      const refPart = promoterCode ? `&ref=${promoterCode}` : "";
       const res = await base44.functions.invoke("createTicketCheckout", {
         tier_id: tier.id,
         promo_code: promo ? promoInput.trim() : null,
         promoter_code: promoterCode || null,
-        success_url: `${getLinkDomain()}/event/${id}?payment=success`,
-        cancel_url: `${getLinkDomain()}/event/${id}?payment=cancelled`,
+        success_url: `${base}?payment=success${refPart}`,
+        cancel_url: `${base}?payment=cancelled${refPart}`,
       });
-      if (res.data?.url) {
-        window.location.href = res.data.url;
-      } else {
-        throw new Error(res.data?.error || "Failed to start checkout");
-      }
+      if (res.data?.url) window.location.href = res.data.url;
+      else throw new Error(res.data?.error || "Failed to start checkout");
     } catch (e) {
       toast({ title: e.message || "Checkout failed", variant: "destructive" });
       setPaying(false);
     }
   }
 
+  // Confirmation screens render once the auth check has settled.
+  if (!authed) return <LoadingSpinner fullScreen />;
+  if (payment === "success") return <CheckoutSuccess eventId={id} />;
+  if (payment === "cancelled") return <CheckoutCancelled eventId={id} />;
   if (loading) return <LoadingSpinner fullScreen />;
+  if (loadError) return (
+    <div className="max-w-lg mx-auto px-4 pt-20 text-center">
+      <AlertCircle className="w-10 h-10 text-destructive mx-auto mb-3" />
+      <p className="text-sm text-muted-foreground mb-5">{loadError}</p>
+      <Button onClick={() => navigate(`/event/${id}`)}>Back to event</Button>
+    </div>
+  );
+  if (!event) return <LoadingSpinner fullScreen />;
 
   const cur = String(event.currency || "gbp").toLowerCase();
   const sym = SYMBOL[cur] || "";
