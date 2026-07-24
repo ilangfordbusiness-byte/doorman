@@ -26,5 +26,39 @@
     "event_id",
     "sender_email",
     "text"
-  ]
+  ],
+  "rls": {
+    "create": {
+      "data.sender_email": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "data.sender_email": "{{user.email}}"
+        },
+        {
+          "Event.data.host_email": "{{user.email}}",
+          "Event.id": "$data.event_id"
+        },
+        {
+          "GuestlistEntry.data.guest_email": "{{user.email}}",
+          "GuestlistEntry.data.event_id": "$data.event_id"
+        }
+      ]
+    },
+    "update": {
+      "data.sender_email": "{{user.email}}"
+    },
+    "delete": {
+      "$or": [
+        {
+          "data.sender_email": "{{user.email}}"
+        },
+        {
+          "Event.data.host_email": "{{user.email}}",
+          "Event.id": "$data.event_id"
+        }
+      ]
+    }
+  }
 }

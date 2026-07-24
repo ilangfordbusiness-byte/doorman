@@ -34,5 +34,35 @@
     "sender_email",
     "receiver_email",
     "status"
-  ]
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "isAuthenticated": true
+      }
+    },
+    "read": {
+      "$or": [
+        {
+          "data.sender_email": "{{user.email}}"
+        },
+        {
+          "data.receiver_email": "{{user.email}}"
+        }
+      ]
+    },
+    "update": {
+      "data.receiver_email": "{{user.email}}"
+    },
+    "delete": {
+      "$or": [
+        {
+          "data.sender_email": "{{user.email}}"
+        },
+        {
+          "data.receiver_email": "{{user.email}}"
+        }
+      ]
+    }
+  }
 }

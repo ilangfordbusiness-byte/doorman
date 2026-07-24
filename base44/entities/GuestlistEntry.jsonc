@@ -77,5 +77,49 @@
     "event_id",
     "guest_email",
     "status"
-  ]
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "Event.data.host_email": "{{user.email}}",
+          "Event.id": "$data.event_id"
+        },
+        {
+          "data.guest_email": "{{user.email}}"
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "data.guest_email": "{{user.email}}"
+        },
+        {
+          "Event.data.host_email": "{{user.email}}",
+          "Event.id": "$data.event_id"
+        },
+        {
+          "EventStaff.data.staff_email": "{{user.email}}",
+          "EventStaff.data.event_id": "$data.event_id"
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "Event.data.host_email": "{{user.email}}",
+          "Event.id": "$data.event_id"
+        },
+        {
+          "EventStaff.data.staff_email": "{{user.email}}",
+          "EventStaff.data.event_id": "$data.event_id"
+        }
+      ]
+    },
+    "delete": {
+      "Event.data.host_email": "{{user.email}}",
+      "Event.id": "$data.event_id"
+    }
+  }
 }

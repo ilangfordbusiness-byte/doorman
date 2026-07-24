@@ -126,5 +126,28 @@
     "date",
     "start_time",
     "host_email"
-  ]
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "isAuthenticated": true
+      }
+    },
+    "read": {
+      "$or": [
+        {
+          "data.host_email": "{{user.email}}"
+        },
+        {
+          "data.is_public": true
+        }
+      ]
+    },
+    "update": {
+      "data.host_email": "{{user.email}}"
+    },
+    "delete": {
+      "data.host_email": "{{user.email}}"
+    }
+  }
 }

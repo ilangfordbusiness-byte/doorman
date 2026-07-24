@@ -107,5 +107,38 @@
     "unit_price",
     "paid_amount",
     "status"
-  ]
+  ],
+  "rls": {
+    "create": {
+      "$expr": {
+        "$eq": [
+          null,
+          "null"
+        ]
+      }
+    },
+    "read": {
+      "$or": [
+        {
+          "data.guest_email": "{{user.email}}"
+        },
+        {
+          "Event.data.host_email": "{{user.email}}",
+          "Event.id": "$data.event_id"
+        }
+      ]
+    },
+    "update": {
+      "$expr": {
+        "$eq": [
+          null,
+          "null"
+        ]
+      }
+    },
+    "delete": {
+      "Event.data.host_email": "{{user.email}}",
+      "Event.id": "$data.event_id"
+    }
+  }
 }

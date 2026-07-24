@@ -45,5 +45,23 @@
     "code",
     "discount_percent",
     "max_uses"
-  ]
+  ],
+  "rls": {
+    "create": {
+      "Event.data.host_email": "{{user.email}}",
+      "Event.id": "$data.event_id"
+    },
+    "read": {
+      "Event.data.host_email": "{{user.email}}",
+      "Event.id": "$data.event_id"
+    },
+    "update": {
+      "Event.data.host_email": "{{user.email}}",
+      "Event.id": "$data.event_id"
+    },
+    "delete": {
+      "Event.data.host_email": "{{user.email}}",
+      "Event.id": "$data.event_id"
+    }
+  }
 }

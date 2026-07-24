@@ -30,5 +30,33 @@
   "required": [
     "event_id",
     "role"
-  ]
+  ],
+  "rls": {
+    "create": {
+      "Event.data.host_email": "{{user.email}}",
+      "Event.id": "$data.event_id"
+    },
+    "read": {
+      "$or": [
+        {
+          "Event.data.host_email": "{{user.email}}",
+          "Event.id": "$data.event_id"
+        },
+        {
+          "data.staff_email": "{{user.email}}"
+        },
+        {
+          "data.staff_phone": "{{user.phone}}"
+        }
+      ]
+    },
+    "update": {
+      "Event.data.host_email": "{{user.email}}",
+      "Event.id": "$data.event_id"
+    },
+    "delete": {
+      "Event.data.host_email": "{{user.email}}",
+      "Event.id": "$data.event_id"
+    }
+  }
 }
