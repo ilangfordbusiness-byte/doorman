@@ -21,7 +21,7 @@ import StatusBadge from "../components/StatusBadge";
 import WhoIsGoing from "../components/WhoIsGoing";
 import EventChat from "../components/EventChat";
 import moment from "moment";
-import { captureRef } from "@/lib/promoterRef";
+import { captureRef, getLinkDomain } from "@/lib/promoterRef";
 
 export default function EventDetails() {
   const { id } = useParams();
@@ -153,7 +153,7 @@ export default function EventDetails() {
   }
 
   async function handleShare() {
-    const url = `${window.location.origin}/invite/${event.invite_code}`;
+    const url = `${getLinkDomain()}/invite/${event.invite_code}`;
     try {
       if (navigator.share) {
         await navigator.share({ title: event.title, text: `You're invited to ${event.title}!`, url });

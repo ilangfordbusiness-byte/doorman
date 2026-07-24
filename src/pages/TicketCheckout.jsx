@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useToast } from "@/components/ui/use-toast";
-import { getStoredRef, captureRef } from "@/lib/promoterRef";
+import { getStoredRef, captureRef, getLinkDomain } from "@/lib/promoterRef";
 
 const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
 
@@ -82,8 +82,8 @@ export default function TicketCheckout() {
         tier_id: tier.id,
         promo_code: promo ? promoInput.trim() : null,
         promoter_code: promoterCode || null,
-        success_url: `${window.location.origin}/event/${id}?payment=success`,
-        cancel_url: `${window.location.origin}/event/${id}?payment=cancelled`,
+        success_url: `${getLinkDomain()}/event/${id}?payment=success`,
+        cancel_url: `${getLinkDomain()}/event/${id}?payment=cancelled`,
       });
       if (res.data?.url) {
         window.location.href = res.data.url;
