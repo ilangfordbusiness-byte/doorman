@@ -35,23 +35,33 @@ export default function TicketingPanel({ eventId, paid, currency }) {
       toast({ title: "Fill in all tier fields" });
       return;
     }
-    await base44.entities.TicketTier.create({
-      event_id: eventId,
-      name: newTier.name,
-      price: Number(newTier.price),
-      quantity: Number(newTier.quantity),
-      sold: 0,
-      sales_status: "open",
-      sort_order: tiers.length,
-    });
-    setNewTier({ name: "", price: "", quantity: "" });
-    load();
-    toast({ title: "Tier added" });
+    try {
+      await base44.entities.TicketTier.create({
+        event_id: eventId,
+        name: newTier.name,
+        price: Number(newTier.price),
+        quantity: Number(newTier.quantity),
+        sold: 0,
+        sales_status: "open",
+        sort_order: tiers.length,
+      });
+      setNewTier({ name: "", price: "", quantity: "" });
+      await load();
+      toast({ title: "Tier added" });
+    } catch (e) {
+      console.error("TicketTier create failed:", e);
+      toast({ title: "Couldn't save tier", description: e?.message || "Permission denied — only the event host can add tiers.", variant: "destructive" });
+    }
   }
 
   async function removeTier(tid) {
-    await base44.entities.TicketTier.delete(tid);
-    load();
+    try {
+      await base44.entities.TicketTier.delete(tid);
+      await load();
+    } catch (e) {
+      console.error("TicketTier delete failed:", e);
+      toast({ title: "Couldn't delete tier", description: e?.message || "Permission denied.", variant: "destructive" });
+    }
   }
 
   async function addPromo() {
