@@ -1,15 +1,17 @@
 import { base44 } from "@/api/base44Client";
 
 const DOMAIN_KEY = "doorman_link_domain";
+const APP_DOMAIN = "https://thedoorman.app";
 
-// Origin used in shareable promoter links. Defaults to the current origin
-// (the live domain in production); hosts can override it from the Promoter panel.
+// Canonical domain for all shareable links (promoter tracking, event invites,
+// ticket sales QR, checkout). Defaults to the connected custom domain; hosts can
+// override it from the Promoter panel if needed.
 export function getLinkDomain() {
   try {
     const stored = localStorage.getItem(DOMAIN_KEY);
     if (stored) return stored;
   } catch {}
-  return typeof window !== "undefined" ? window.location.origin : "";
+  return APP_DOMAIN;
 }
 
 export function setLinkDomain(raw) {
@@ -18,13 +20,13 @@ export function setLinkDomain(raw) {
   try {
     if (!v) {
       localStorage.removeItem(DOMAIN_KEY);
-      return window.location.origin;
+      return APP_DOMAIN;
     }
     const origin = new URL(v).origin;
     localStorage.setItem(DOMAIN_KEY, origin);
     return origin;
   } catch {
-    return typeof window !== "undefined" ? window.location.origin : "";
+    return APP_DOMAIN;
   }
 }
 

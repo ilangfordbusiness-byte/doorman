@@ -96,17 +96,18 @@ Deno.serve(async (req) => {
     params.append('line_items[0][price_data][product_data][name]', `${event.title} — ${tier.name}`);
     // Only allow redirect URLs on this app's own origin to prevent open redirect.
     const appOrigin = new URL(req.url).origin;
+    const APP_DOMAIN = "https://thedoorman.app";
     const safeRedirect = (url, fallback) => {
       if (!url) return fallback;
       try {
         const u = new URL(url);
-        return u.origin === appOrigin ? url : fallback;
+        return (u.origin === appOrigin || u.origin === APP_DOMAIN) ? url : fallback;
       } catch {
         return fallback;
       }
     };
-    const successUrl = safeRedirect(success_url, `${appOrigin}/event/${tier.event_id}?payment=success`);
-    const cancelUrl = safeRedirect(cancel_url, `${appOrigin}/event/${tier.event_id}?payment=cancelled`);
+    const successUrl = safeRedirect(success_url, `${APP_DOMAIN}/checkout/${tier.event_id}?payment=success`);
+    const cancelUrl = safeRedirect(cancel_url, `${APP_DOMAIN}/checkout/${tier.event_id}?payment=cancelled`);
     params.append('success_url', successUrl);
     params.append('cancel_url', cancelUrl);
     params.append('metadata[order_id]', order.id);

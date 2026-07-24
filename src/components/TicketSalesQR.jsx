@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { X, Download, Printer, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getLinkDomain } from "@/lib/promoterRef";
 
 // A QR for DOOR STAFF to display so walk-ups can scan & buy tickets.
 // This is deliberately separate from a guest's personal entry QR pass.
 export default function TicketSalesQR({ event, onClose }) {
-  const ticketUrl = `${window.location.origin}/event/${event.id}/checkout`;
+  const ticketUrl = `${getLinkDomain()}/checkout/${event.id}`;
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(ticketUrl)}&bgcolor=FFFFFF&color=000000`;
   const [downloading, setDownloading] = useState(false);
 

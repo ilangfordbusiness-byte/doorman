@@ -88,6 +88,7 @@ const AuthenticatedApp = () => {
       </Route>
       <Route path="/pass/:id" element={<GuestPass />} />
       <Route path="/scanner" element={<DoormanScanner />} />
+      <Route path="/checkout/:id" element={<TicketCheckout />} />
     </Routes>
     </Suspense>
   );
