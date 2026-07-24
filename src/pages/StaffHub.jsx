@@ -7,6 +7,15 @@ import { ArrowLeft, ScanLine, Calendar, MapPin, Clock, UserCheck, Ticket } from 
 import { Button } from "@/components/ui/button";
 import LoadingSpinner from "../components/LoadingSpinner";
 import TicketSalesQR from "../components/TicketSalesQR";
+import { COVERS } from "../components/CoverPicker";
+
+function getCoverStyle(cover_image) {
+  if (cover_image?.startsWith("__cover__")) {
+    const id = cover_image.replace("__cover__", "");
+    return COVERS.find((c) => c.id === id)?.style || null;
+  }
+  return null;
+}
 import moment from "moment";
 
 export default function StaffHub() {
@@ -178,18 +187,35 @@ export default function StaffHub() {
             {events.map((event) => {
               const eventDate = moment(event.date);
               return (
-                <div key={event.id} className="relative rounded-2xl overflow-hidden bg-card border border-border hover:border-emerald-500/40 transition-all duration-200">
-                  {event.cover_image && (
-                    <div className="h-28 overflow-hidden">
-                      <img src={event.cover_image} alt={event.title} className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent" />
-                    </div>
-                  )}
+                <div
+                  key={event.id}
+                  onClick={() => navigate(`/scanner?event_id=${event.id}`)}
+                  className="relative rounded-2xl overflow-hidden bg-card border border-border hover:border-emerald-500/40 transition-all duration-200 cursor-pointer active:scale-[0.99]"
+                >
+                  {(() => {
+                    const coverStyle = getCoverStyle(event.cover_image);
+                    if (coverStyle) {
+                      return (
+                        <div className="h-28 w-full" style={coverStyle}>
+                          <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-t from-card via-transparent to-transparent" />
+                        </div>
+                      );
+                    }
+                    if (event.cover_image && !event.cover_image.startsWith("__cover__")) {
+                      return (
+                        <div className="h-28 overflow-hidden relative">
+                          <img src={event.cover_image} alt={event.title} className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent" />
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                   <div className="p-4 flex items-center gap-3">
-                    <button onClick={() => navigate(`/scanner?event_id=${event.id}`)} className="w-12 h-12 rounded-xl bg-emerald-500/15 flex items-center justify-center flex-shrink-0 active:scale-95 transition-transform">
+                    <div className="w-12 h-12 rounded-xl bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
                       <ScanLine className="w-6 h-6 text-emerald-400" />
-                    </button>
-                    <button onClick={() => navigate(`/scanner?event_id=${event.id}`)} className="flex-1 min-w-0 text-left">
+                    </div>
+                    <div className="flex-1 min-w-0">
                       <p className="font-heading font-bold text-base text-foreground truncate">{event.title}</p>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 flex-wrap">
                         <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{eventDate.format("MMM D")}</span>
@@ -201,8 +227,11 @@ export default function StaffHub() {
                           <span className="text-emerald-400 font-semibold">{event.staffRole}</span>
                         )}
                       </div>
-                    </button>
-                    <button onClick={() => setQrEvent(event)} className="flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg hover:bg-amber-500/10 transition-colors flex-shrink-0">
+                    </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setQrEvent(event); }}
+                      className="flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg hover:bg-amber-500/10 transition-colors flex-shrink-0"
+                    >
                       <Ticket className="w-5 h-5 text-amber-400" />
                       <span className="text-[9px] text-amber-400 uppercase tracking-wider font-semibold">Sell</span>
                     </button>

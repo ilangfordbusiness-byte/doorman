@@ -17,18 +17,31 @@ export default function FriendsSearch({ me, friendEmails, sentSet, onSend }) {
 
   async function loadDirectory() {
     try {
-      const entries = await base44.entities.GuestlistEntry.list("-created_date", 500);
+      // Build the widest people directory we can see across the app's entities.
+      // (The User entity itself is admin-only to list, so we aggregate every
+      //  identity the platform exposes to regular users.)
+      const [entries, reqs, staff, promoters] = await Promise.all([
+        base44.entities.GuestlistEntry.list("-created_date", 1000),
+        base44.entities.FriendRequest.list("-created_date", 1000),
+        base44.entities.EventStaff.list("-created_date", 500),
+        base44.entities.Promoter.list("-created_date", 500),
+      ]);
       const map = new Map();
-      entries.forEach((e) => {
-        if (!e.guest_email || e.guest_email === me?.email) return;
-        if (!map.has(e.guest_email)) {
-          map.set(e.guest_email, {
-            email: e.guest_email,
-            full_name: e.guest_name || e.guest_email,
-            profile_picture: "",
-          });
+      const add = (email, name, picture) => {
+        if (!email) return;
+        const e = String(email).toLowerCase();
+        if (e === me?.email) return;
+        if (!map.has(e)) {
+          map.set(e, { email: e, full_name: name || e, profile_picture: picture || "" });
         }
+      };
+      entries.forEach((x) => add(x.guest_email, x.guest_name));
+      reqs.forEach((x) => {
+        add(x.sender_email, x.sender_name, x.sender_picture);
+        add(x.receiver_email, x.receiver_name, x.receiver_picture);
       });
+      staff.forEach((x) => add(x.staff_email, x.staff_name));
+      promoters.forEach((x) => add(x.email, x.name));
       setDirectory([...map.values()]);
     } catch {}
     setLoadingDir(false);

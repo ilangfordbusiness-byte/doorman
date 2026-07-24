@@ -10,7 +10,7 @@ import FriendsSearch from "../components/FriendsSearch";
 
 export default function Friends() {
   const { toast } = useToast();
-  const [tab, setTab] = useState("search");
+  const [tab, setTab] = useState("suggestions");
   const [me, setMe] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
   const [requests, setRequests] = useState([]);
