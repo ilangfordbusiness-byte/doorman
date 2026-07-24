@@ -50,17 +50,9 @@
       "Event.id": "$data.event_id"
     },
     "read": {
-      "$or": [
-        {
-          "Event.data.host_email": "{{user.email}}",
-          "Event.id": "$data.event_id"
-        },
-        {
-          "Event.data.is_paid": true,
-          "Event.id": "$data.event_id",
-          "Event.status": "published"
-        }
-      ]
+      "user_condition": {
+        "isAuthenticated": true
+      }
     },
     "update": {
       "Event.data.host_email": "{{user.email}}",
