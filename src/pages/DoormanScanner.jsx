@@ -2,9 +2,10 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import jsQR from "jsqr";
-import { ArrowLeft, Search, CheckCircle2, XCircle, RotateCcw } from "lucide-react";
+import { ArrowLeft, Search, CheckCircle2, XCircle, RotateCcw, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import TicketSalesQR from "@/components/TicketSalesQR";
 
 export default function DoormanScanner() {
   const navigate = useNavigate();
@@ -14,6 +15,8 @@ export default function DoormanScanner() {
   const [manualCode, setManualCode] = useState("");
   const [cameraStatus, setCameraStatus] = useState("starting"); // starting, active, error
   const [debugMsg, setDebugMsg] = useState("");
+  const [event, setEvent] = useState(null);
+  const [showSell, setShowSell] = useState(false);
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -21,6 +24,16 @@ export default function DoormanScanner() {
   const rafRef = useRef(null);
   const processingRef = useRef(false);
   const lastQrData = useRef("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const eid = params.get("event_id");
+    if (eid) {
+      base44.entities.Event.filter({ id: eid })
+        .then((r) => setEvent(r[0] || null))
+        .catch(() => {});
+    }
+  }, []);
 
   const stopEverything = useCallback(() => {
     if (rafRef.current) {
@@ -161,6 +174,16 @@ export default function DoormanScanner() {
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <h1 className="font-heading font-bold text-lg">Door Scanner</h1>
+        {event && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="ml-auto text-amber-400 hover:bg-amber-500/10 hover:text-amber-400"
+            onClick={() => setShowSell(true)}
+          >
+            <Ticket className="w-4 h-4" /> Sell
+          </Button>
+        )}
       </div>
 
       {mode === "scan" && (
@@ -297,6 +320,8 @@ export default function DoormanScanner() {
           </div>
         </div>
       )}
+
+      {event && showSell && <TicketSalesQR event={event} onClose={() => setShowSell(false)} />}
     </div>
   );
 }
