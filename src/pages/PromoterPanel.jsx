@@ -43,13 +43,18 @@ export default function PromoterPanel() {
 
   async function addPromoter() {
     if (!name.trim() || cvalue === "") return;
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      toast({ title: "Promoter email required", description: "Enter the email they use for their DoorMan account.", variant: "destructive" });
+      return;
+    }
     setSaving(true);
     try {
       const code = Math.random().toString(36).substring(2, 10).toUpperCase();
       await base44.entities.Promoter.create({
         event_id: id,
         name: name.trim(),
-        email: email.trim().toLowerCase(),
+        email: cleanEmail,
         commission_type: ctype,
         commission_value: Number(cvalue),
         tracking_code: code,
@@ -153,7 +158,7 @@ export default function PromoterPanel() {
       <div className="bg-card rounded-2xl border border-border p-4 mb-5 space-y-3">
         <h3 className="font-heading font-semibold text-sm flex items-center gap-2"><Plus className="w-4 h-4" /> Add Promoter</h3>
         <Input placeholder="Promoter name" value={name} onChange={(e) => setName(e.target.value)} className="h-10" />
-        <Input placeholder="Email (optional)" value={email} onChange={(e) => setEmail(e.target.value)} className="h-10" />
+        <Input placeholder="Promoter's account email" value={email} onChange={(e) => setEmail(e.target.value)} className="h-10" />
         <div className="flex gap-2">
           <select
             value={ctype}
@@ -171,7 +176,7 @@ export default function PromoterPanel() {
             className="h-10 flex-1"
           />
         </div>
-        <Button className="w-full h-11 rounded-xl" onClick={addPromoter} disabled={saving || !name.trim() || cvalue === ""}>
+        <Button className="w-full h-11 rounded-xl" onClick={addPromoter} disabled={saving || !name.trim() || cvalue === "" || !email.trim()}>
           {saving ? "Adding..." : "Add Promoter & Generate Link"}
         </Button>
       </div>
