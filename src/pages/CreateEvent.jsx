@@ -79,66 +79,76 @@ export default function CreateEvent() {
     }
 
     setSaving(true);
-    let cover_image = "";
+    setError("");
+    try {
+      let cover_image = "";
 
-    if (coverFile) {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file: coverFile });
-      cover_image = file_url;
-    } else if (coverId) {
-      cover_image = `__cover__${coverId}`;
+      if (coverFile) {
+        const { file_url } = await base44.integrations.Core.UploadFile({ file: coverFile });
+        cover_image = file_url;
+      } else if (coverId) {
+        cover_image = `__cover__${coverId}`;
+      }
+
+      const me = await base44.auth.me();
+      if (!me?.email) throw new Error("You must be signed in to create an event.");
+      const invite_code = Math.random().toString(36).substring(2, 10).toUpperCase();
+
+      // Geocode address for location-based auto-checkout (5s timeout, never blocks publish)
+      let venue_lat = null;
+      let venue_lng = null;
+      if (form.address) {
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 5000);
+          const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(form.address)}&limit=1`, { signal: controller.signal });
+          clearTimeout(timeout);
+          const geoData = await geoRes.json();
+          if (geoData[0]) {
+            venue_lat = parseFloat(geoData[0].lat);
+            venue_lng = parseFloat(geoData[0].lon);
+          }
+        } catch {}
+      }
+
+      const event = await base44.entities.Event.create({
+        ...form,
+        cover_image,
+        capacity: form.capacity ? Number(form.capacity) : null,
+        host_email: me.email,
+        host_name: me.full_name,
+        status,
+        invite_code,
+        ...(venue_lat && venue_lng ? { venue_lat, venue_lng } : {}),
+      });
+
+      // Create promoters entered during setup
+      for (const p of promoters) {
+        if (!p.name) continue;
+        const code = Math.random().toString(36).substring(2, 10).toUpperCase();
+        try {
+          await base44.entities.Promoter.create({
+            event_id: event.id,
+            name: p.name,
+            email: p.email || undefined,
+            commission_type: p.commission_type,
+            commission_value: p.commission_value,
+            tracking_code: code,
+            status: "active",
+            tickets_sold: 0,
+            total_sales: 0,
+            commission_owed: 0,
+            commission_paid: 0,
+          });
+        } catch {}
+      }
+
+      toast({ title: status === "published" ? "Event published!" : "Draft saved" });
+      navigate(`/event/${event.id}`);
+    } catch (e) {
+      setError(e?.message || "Something went wrong while saving your event. Please try again.");
+      setSaving(false);
     }
-
-    const me = await base44.auth.me();
-    const invite_code = Math.random().toString(36).substring(2, 10).toUpperCase();
-
-    // Geocode address for location-based auto-checkout
-    let venue_lat = null;
-    let venue_lng = null;
-    if (form.address) {
-      try {
-        const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(form.address)}&limit=1`);
-        const geoData = await geoRes.json();
-        if (geoData[0]) {
-          venue_lat = parseFloat(geoData[0].lat);
-          venue_lng = parseFloat(geoData[0].lon);
-        }
-      } catch {}
-    }
-
-    const event = await base44.entities.Event.create({
-      ...form,
-      cover_image,
-      capacity: form.capacity ? Number(form.capacity) : null,
-      host_email: me.email,
-      host_name: me.full_name,
-      status,
-      invite_code,
-      ...(venue_lat && venue_lng ? { venue_lat, venue_lng } : {}),
-    });
-
-    // Create promoters entered during setup
-    for (const p of promoters) {
-      if (!p.name) continue;
-      const code = Math.random().toString(36).substring(2, 10).toUpperCase();
-      try {
-        await base44.entities.Promoter.create({
-          event_id: event.id,
-          name: p.name,
-          email: p.email || undefined,
-          commission_type: p.commission_type,
-          commission_value: p.commission_value,
-          tracking_code: code,
-          status: "active",
-          tickets_sold: 0,
-          total_sales: 0,
-          commission_owed: 0,
-          commission_paid: 0,
-        });
-      } catch {}
-    }
-
-    toast({ title: status === "published" ? "Event published!" : "Draft saved" });
-    navigate(`/event/${event.id}`);
   }
 
   return (
