@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useToast } from "@/components/ui/use-toast";
+import { getStoredRef, captureRef } from "@/lib/promoterRef";
 
 const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
 
@@ -23,7 +24,12 @@ export default function TicketCheckout() {
   const [applyingPromo, setApplyingPromo] = useState(false);
   const [paying, setPaying] = useState(false);
 
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("ref");
+    if (ref) captureRef(id, ref).catch(() => {});
+    load();
+  }, [id]);
 
   async function load() {
     const [events, t] = await Promise.all([
@@ -71,7 +77,7 @@ export default function TicketCheckout() {
     }
     setPaying(true);
     try {
-      const promoterCode = localStorage.getItem(`promoter_ref_${id}`);
+      const promoterCode = getStoredRef(id);
       const res = await base44.functions.invoke("createTicketCheckout", {
         tier_id: tier.id,
         promo_code: promo ? promoInput.trim() : null,

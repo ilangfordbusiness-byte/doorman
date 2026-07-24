@@ -21,6 +21,7 @@ import StatusBadge from "../components/StatusBadge";
 import WhoIsGoing from "../components/WhoIsGoing";
 import EventChat from "../components/EventChat";
 import moment from "moment";
+import { captureRef } from "@/lib/promoterRef";
 
 export default function EventDetails() {
   const { id } = useParams();
@@ -37,6 +38,8 @@ export default function EventDetails() {
   const [newStaffEmail, setNewStaffEmail] = useState("");
   const [addingStaff, setAddingStaff] = useState(false);
   const [tiers, setTiers] = useState([]);
+  const [loadError, setLoadError] = useState(null);
+  const [refStatus, setRefStatus] = useState(null);
 
   const isHost = user && event && event.host_email === user.email;
 
@@ -56,7 +59,11 @@ export default function EventDetails() {
       window.history.replaceState({}, "", window.location.pathname);
     }
     const ref = params.get("ref");
-    if (ref) localStorage.setItem(`promoter_ref_${id}`, ref);
+    if (ref) {
+      captureRef(id, ref)
+        .then((res) => setRefStatus(res.valid ? { valid: true, name: res.promoter?.name } : { valid: false }))
+        .catch(() => setRefStatus({ valid: false }));
+    }
   }, [id]);
 
   async function loadEvent() {
@@ -64,7 +71,11 @@ export default function EventDetails() {
     setUser(me);
 
     const events = await base44.entities.Event.filter({ id });
-    if (!events.length) return navigate("/");
+    if (!events.length) {
+      setLoadError("This event is no longer available or the link is invalid.");
+      setLoading(false);
+      return;
+    }
     let evt = events[0];
 
     // Generate staff_code if missing
@@ -159,6 +170,14 @@ export default function EventDetails() {
 
   if (loading) return <LoadingSpinner fullScreen />;
 
+  if (loadError) return (
+    <div className="max-w-lg mx-auto px-4 pt-20 text-center">
+      <h2 className="font-heading font-bold text-lg mb-2">Event not found</h2>
+      <p className="text-sm text-muted-foreground mb-6">{loadError}</p>
+      <Button onClick={() => navigate("/guest")}>Browse events</Button>
+    </div>
+  );
+
   if (!event) return null;
 
   const eventDate = moment(event.date);
@@ -203,6 +222,14 @@ export default function EventDetails() {
           <h1 className="font-heading font-bold text-2xl text-foreground">{event.title}</h1>
           <p className="text-sm text-muted-foreground mt-1">by {event.host_name}</p>
         </div>
+
+        {refStatus && (
+          <div className={`rounded-xl p-3 border text-xs ${refStatus.valid ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-300" : "bg-amber-500/10 border-amber-500/20 text-amber-300"}`}>
+            {refStatus.valid
+              ? `Referred by ${refStatus.name || "a promoter"} — your ticket will be credited to them.`
+              : "This referral code wasn't recognized — you can still buy tickets, but no promoter will be credited."}
+          </div>
+        )}
 
         {/* Details Grid */}
         <div className="grid grid-cols-2 gap-3">

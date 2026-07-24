@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { getLinkDomain, setLinkDomain as persistLinkDomain } from "@/lib/promoterRef";
 
 const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
 
@@ -22,6 +23,8 @@ export default function PromoterPanel() {
   const [cvalue, setCvalue] = useState("");
   const [saving, setSaving] = useState(false);
   const [copiedCode, setCopiedCode] = useState("");
+  const [linkDomain, setLinkDomain] = useState(getLinkDomain());
+  const [domainInput, setDomainInput] = useState(getLinkDomain());
 
   useEffect(() => { load(); }, [id]);
 
@@ -84,8 +87,15 @@ export default function PromoterPanel() {
     load();
   }
 
+  function saveDomain() {
+    const v = persistLinkDomain(domainInput);
+    setLinkDomain(v);
+    setDomainInput(v);
+    toast({ title: "Link domain saved" });
+  }
+
   function copyLink(p) {
-    const link = `${window.location.origin}/event/${id}?ref=${p.tracking_code}`;
+    const link = `${linkDomain}/event/${id}?ref=${p.tracking_code}`;
     navigator.clipboard.writeText(link);
     setCopiedCode(p.id);
     toast({ title: "Tracking link copied!" });
@@ -128,6 +138,16 @@ export default function PromoterPanel() {
       {totalPaid > 0 && (
         <p className="text-xs text-muted-foreground mb-4">Commission paid out so far: {sym}{totalPaid.toFixed(2)}</p>
       )}
+
+      {/* Public link domain */}
+      <div className="bg-card rounded-2xl border border-border p-4 mb-5">
+        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Public link domain</p>
+        <div className="flex gap-2">
+          <Input value={domainInput} onChange={(e) => setDomainInput(e.target.value)} placeholder="yourdomain.com" className="h-10" />
+          <Button size="sm" className="h-10 rounded-xl flex-shrink-0" onClick={saveDomain}>Save</Button>
+        </div>
+        <p className="text-[10px] text-muted-foreground mt-1.5 leading-relaxed">Tracking links use this domain. Set it to your live domain so guests land on the real app — and deep-link into it if installed.</p>
+      </div>
 
       {/* Add promoter */}
       <div className="bg-card rounded-2xl border border-border p-4 mb-5 space-y-3">
@@ -188,7 +208,7 @@ export default function PromoterPanel() {
               onClick={() => copyLink(p)}
               className="w-full flex items-center gap-2 bg-secondary/50 border border-border rounded-lg px-3 py-2 text-xs text-left mb-3"
             >
-              <span className="font-mono text-muted-foreground truncate flex-1">{window.location.origin}/event/{id}?ref={p.tracking_code}</span>
+              <span className="font-mono text-muted-foreground truncate flex-1">{linkDomain}/event/{id}?ref={p.tracking_code}</span>
               {copiedCode === p.id ? <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" /> : <Copy className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />}
             </button>
 

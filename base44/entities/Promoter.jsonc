@@ -58,6 +58,11 @@
       "type": "number",
       "description": "Total commission marked as paid out to this promoter, major units",
       "default": 0
+    },
+    "clicks": {
+      "type": "number",
+      "description": "Total clicks on the promoter tracking link (counted once per guest session)",
+      "default": 0
     }
   },
   "required": [

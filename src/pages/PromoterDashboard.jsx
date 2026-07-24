@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { ArrowLeft, Ticket, TrendingUp, Wallet } from "lucide-react";
+import { ArrowLeft, Ticket, TrendingUp, Wallet, MousePointerClick } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
@@ -19,8 +19,12 @@ export default function PromoterDashboard() {
 
   useEffect(() => {
     load();
-    const unsub = base44.entities.TicketOrder.subscribe(() => { load(); });
-    return () => { if (typeof unsub === "function") unsub(); };
+    const unsubOrders = base44.entities.TicketOrder.subscribe(() => { load(); });
+    const unsubProms = base44.entities.Promoter.subscribe(() => { load(); });
+    return () => {
+      if (typeof unsubOrders === "function") unsubOrders();
+      if (typeof unsubProms === "function") unsubProms();
+    };
   }, [code]);
 
   async function load() {
@@ -72,11 +76,15 @@ export default function PromoterDashboard() {
         <p className="text-[11px] text-muted-foreground mt-1">Commission: {rate}</p>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 mb-5">
+      <div className="grid grid-cols-2 gap-2 mb-4">
         <Stat icon={<Ticket className="w-4 h-4" />} label="Tickets Sold" value={String(ticketsSold)} />
+        <Stat icon={<MousePointerClick className="w-4 h-4" />} label="Link Clicks" value={String(Number(promoter.clicks || 0))} />
         <Stat icon={<TrendingUp className="w-4 h-4" />} label="Total Sales" value={`${sym}${totalSales.toFixed(2)}`} />
         <Stat icon={<Wallet className="w-4 h-4" />} label="Commission" value={`${sym}${commissionEarned.toFixed(2)}`} accent="text-amber-400" />
       </div>
+      <p className="text-[11px] text-muted-foreground mb-4 leading-relaxed">
+        Tip: open your tracking link in a new session to register a test click, then buy a ticket to confirm it appears under Recent Sales.
+      </p>
 
       <h3 className="font-heading font-semibold text-sm mb-3">Recent Sales</h3>
       <div className="space-y-2">
