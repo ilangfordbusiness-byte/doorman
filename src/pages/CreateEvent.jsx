@@ -64,6 +64,23 @@ export default function CreateEvent() {
     setPromoters((prev) => prev.filter((_, idx) => idx !== i));
   }
 
+  const [tiers, setTiers] = useState([]);
+  const [newTier, setNewTier] = useState({ name: "", price: "", quantity: "" });
+
+  function addTier() {
+    if (!newTier.name || newTier.price === "" || newTier.quantity === "") return;
+    setTiers((prev) => [...prev, {
+      name: newTier.name,
+      price: Number(newTier.price),
+      quantity: Number(newTier.quantity),
+    }]);
+    setNewTier({ name: "", price: "", quantity: "" });
+  }
+
+  function removeTier(i) {
+    setTiers((prev) => prev.filter((_, idx) => idx !== i));
+  }
+
   function handleCoverChange(e) {
     const file = e.target.files?.[0];
     if (file) {
@@ -121,6 +138,22 @@ export default function CreateEvent() {
         invite_code,
         ...(venue_lat && venue_lng ? { venue_lat, venue_lng } : {}),
       });
+
+      // Create ticket tiers entered during setup
+      for (const t of tiers) {
+        if (!t.name) continue;
+        try {
+          await base44.entities.TicketTier.create({
+            event_id: event.id,
+            name: t.name,
+            price: t.price,
+            quantity: t.quantity,
+            sold: 0,
+            sales_status: "open",
+            sort_order: 0,
+          });
+        } catch {}
+      }
 
       // Create promoters entered during setup
       for (const p of promoters) {
@@ -369,7 +402,36 @@ export default function CreateEvent() {
                   ))}
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">Add ticket tiers & promo codes after creating the event — Edit Event → Ticketing.</p>
+              {/* Ticket tier builder */}
+              <div className="border-t border-border/50 pt-4">
+                <h3 className="font-heading font-semibold text-sm flex items-center gap-2 mb-2">
+                  <Ticket className="w-4 h-4 text-primary" /> Ticket Tiers
+                </h3>
+                <p className="text-xs text-muted-foreground mb-3">Add your ticket tiers now — they'll be live the moment you publish.</p>
+                {tiers.length > 0 && (
+                  <div className="space-y-2 mb-3">
+                    {tiers.map((t, i) => (
+                      <div key={i} className="flex items-center gap-2 bg-secondary/40 rounded-lg px-3 py-2 border border-border/50">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{t.name}</p>
+                          <p className="text-[11px] text-muted-foreground">{SYMBOL[form.currency] || ""}{Number(t.price).toFixed(2)} · {t.quantity} tickets</p>
+                        </div>
+                        <button onClick={() => removeTier(i)} className="text-muted-foreground hover:text-destructive p-1 flex-shrink-0">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="grid grid-cols-[1.3fr_0.8fr_0.8fr_auto] gap-2">
+                  <Input placeholder="Tier name" value={newTier.name} onChange={(e) => setNewTier((s) => ({ ...s, name: e.target.value }))} className="h-10 bg-secondary/50" />
+                  <Input type="number" placeholder="Price" value={newTier.price} onChange={(e) => setNewTier((s) => ({ ...s, price: e.target.value }))} className="h-10 bg-secondary/50" />
+                  <Input type="number" placeholder="Qty" value={newTier.quantity} onChange={(e) => setNewTier((s) => ({ ...s, quantity: e.target.value }))} className="h-10 bg-secondary/50" />
+                  <Button type="button" variant="outline" size="icon" className="h-10 w-10 flex-shrink-0" onClick={addTier} disabled={!newTier.name || newTier.price === "" || newTier.quantity === ""}>
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
 
               {/* Promoter setup */}
               <div className="border-t border-border/50 pt-4 mt-4">
