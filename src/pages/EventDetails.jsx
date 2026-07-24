@@ -21,7 +21,7 @@ import StatusBadge from "../components/StatusBadge";
 import WhoIsGoing from "../components/WhoIsGoing";
 import EventChat from "../components/EventChat";
 import moment from "moment";
-import { captureRef, getLinkDomain } from "@/lib/promoterRef";
+import { captureRef } from "@/lib/promoterRef";
 
 export default function EventDetails() {
   const { id } = useParams();
@@ -153,7 +153,7 @@ export default function EventDetails() {
   }
 
   async function handleShare() {
-    const url = `${getLinkDomain()}/invite/${event.invite_code}`;
+    const url = `${window.location.origin}/invite/${event.invite_code}`;
     try {
       if (navigator.share) {
         await navigator.share({ title: event.title, text: `You're invited to ${event.title}!`, url });
@@ -372,7 +372,7 @@ export default function EventDetails() {
               <div className="bg-secondary/40 rounded-2xl p-4 border border-border/50">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-heading font-semibold text-sm">Tickets</h3>
-                  <Link to={`/checkout/${id}`}>
+                  <Link to={`/event/${id}/checkout`}>
                     <Button size="sm" className="rounded-xl gap-1.5"><Ticket className="w-4 h-4" /> Buy Tickets</Button>
                   </Link>
                 </div>

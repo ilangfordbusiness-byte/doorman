@@ -1,12 +1,12 @@
-import { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { ArrowLeft, CreditCard, Tag, Loader2, CheckCircle2, XCircle, QrCode } from "lucide-react";
+import { ArrowLeft, CreditCard, Tag, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useToast } from "@/components/ui/use-toast";
-import { getStoredRef, captureRef, getLinkDomain } from "@/lib/promoterRef";
+import { getStoredRef, captureRef } from "@/lib/promoterRef";
 
 const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
 
@@ -17,67 +17,30 @@ export default function TicketCheckout() {
   const [event, setEvent] = useState(null);
   const [tiers, setTiers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(null);
   const [selected, setSelected] = useState(null);
   const [promoInput, setPromoInput] = useState("");
   const [promo, setPromo] = useState(null);
   const [promoMsg, setPromoMsg] = useState("");
   const [applyingPromo, setApplyingPromo] = useState(false);
   const [paying, setPaying] = useState(false);
-  const [payment, setPayment] = useState(null); // "success" | "cancelled" | null
-  const [confirmOrder, setConfirmOrder] = useState(null);
-  const [confirmEntry, setConfirmEntry] = useState(null);
-  const [issuing, setIssuing] = useState(false);
-  const pollRef = useRef(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const ref = params.get("ref");
     if (ref) captureRef(id, ref).catch(() => {});
-    setPayment(params.get("payment"));
     load();
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [id]);
 
   async function load() {
-    try {
-      const [events, t] = await Promise.all([
-        base44.entities.Event.filter({ id }),
-        base44.entities.TicketTier.filter({ event_id: id }),
-      ]);
-      if (!events.length) { setLoadError("This event isn't available right now."); setLoading(false); return; }
-      setEvent(events[0]);
-      t.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-      setTiers(t);
-      if (new URLSearchParams(window.location.search).get("payment") === "success") startConfirmPoll();
-    } catch {
-      setLoadError("Couldn't load this event's tickets.");
-    }
+    const [events, t] = await Promise.all([
+      base44.entities.Event.filter({ id }),
+      base44.entities.TicketTier.filter({ event_id: id }),
+    ]);
+    if (!events.length) return navigate("/");
+    setEvent(events[0]);
+    t.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    setTiers(t);
     setLoading(false);
-  }
-
-  // After Stripe success: poll for the paid order and the issued guestlist entry.
-  async function startConfirmPoll() {
-    setIssuing(true);
-    const me = await base44.auth.me().catch(() => null);
-    if (!me) { setIssuing(false); return; }
-    let tries = 0;
-    const tick = async () => {
-      tries++;
-      try {
-        const [orders, entries] = await Promise.all([
-          base44.entities.TicketOrder.filter({ event_id: id, guest_email: me.email, status: "paid" }),
-          base44.entities.GuestlistEntry.filter({ event_id: id, guest_email: me.email }),
-        ]);
-        const latest = orders.sort((a, b) => String(b.created_date || "").localeCompare(String(a.created_date || "")))[0];
-        if (latest) setConfirmOrder(latest);
-        const entry = entries.find((e) => ["approved", "checked_in"].includes(e.status));
-        if (entry) setConfirmEntry(entry);
-        if (entry || tries > 12) { setIssuing(false); if (pollRef.current) clearInterval(pollRef.current); }
-      } catch {}
-    };
-    await tick();
-    pollRef.current = setInterval(tick, 2000);
   }
 
   function remaining(t) {
@@ -115,13 +78,12 @@ export default function TicketCheckout() {
     setPaying(true);
     try {
       const promoterCode = getStoredRef(id);
-      const domain = getLinkDomain();
       const res = await base44.functions.invoke("createTicketCheckout", {
         tier_id: tier.id,
         promo_code: promo ? promoInput.trim() : null,
         promoter_code: promoterCode || null,
-        success_url: `${domain}/checkout/${id}?payment=success`,
-        cancel_url: `${domain}/checkout/${id}?payment=cancelled`,
+        success_url: `${window.location.origin}/event/${id}?payment=success`,
+        cancel_url: `${window.location.origin}/event/${id}?payment=cancelled`,
       });
       if (res.data?.url) {
         window.location.href = res.data.url;
@@ -136,70 +98,8 @@ export default function TicketCheckout() {
 
   if (loading) return <LoadingSpinner fullScreen />;
 
-  if (loadError) return (
-    <div className="max-w-lg mx-auto px-4 pt-20 text-center">
-      <XCircle className="w-10 h-10 text-destructive mx-auto mb-3" />
-      <h2 className="font-heading font-bold text-lg mb-2">Tickets unavailable</h2>
-      <p className="text-sm text-muted-foreground mb-6">{loadError}</p>
-      <Button onClick={() => navigate(`/event/${id}`)}>Back to event</Button>
-    </div>
-  );
-
-  if (!event) return null;
-
   const cur = String(event.currency || "gbp").toLowerCase();
   const sym = SYMBOL[cur] || "";
-
-  // ---- Confirmation screen ----
-  if (payment === "success") {
-    return (
-      <div className="max-w-lg mx-auto px-4 pt-10 pb-8">
-        <div className="bg-card rounded-2xl border border-border p-6 text-center">
-          <div className="w-16 h-16 rounded-full bg-emerald-500/15 flex items-center justify-center mx-auto mb-4">
-            <CheckCircle2 className="w-9 h-9 text-emerald-400" />
-          </div>
-          <h1 className="font-heading font-bold text-xl mb-1">Payment successful</h1>
-          <p className="text-sm text-muted-foreground mb-5">{event.title}</p>
-          {confirmOrder ? (
-            <div className="bg-secondary/40 rounded-xl p-4 border border-border/50 text-left space-y-1.5 text-sm mb-5">
-              <div className="flex justify-between"><span className="text-muted-foreground">Ticket</span><span className="font-medium">{confirmOrder.tier_name} ×{confirmOrder.quantity || 1}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Paid</span><span className="font-medium">{sym}{Number(confirmOrder.paid_amount).toFixed(2)}</span></div>
-              {confirmOrder.promo_code && <div className="flex justify-between text-emerald-400"><span>Promo</span><span>{confirmOrder.promo_code}</span></div>}
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground mb-5">Confirming your order…</p>
-          )}
-          {confirmEntry ? (
-            <Link to={`/pass/${id}`}>
-              <Button className="w-full h-12 rounded-xl font-bold gap-2 mb-2"><QrCode className="w-5 h-5" /> Open my QR Pass</Button>
-            </Link>
-          ) : (
-            <p className="text-xs text-muted-foreground mb-4">{issuing ? "Issuing your pass — one moment…" : "Your pass is being issued. Check the app shortly."}</p>
-          )}
-          <Button variant="outline" className="w-full h-11 rounded-xl" onClick={() => navigate(`/event/${id}`)}>Back to event</Button>
-        </div>
-      </div>
-    );
-  }
-
-  // ---- Cancel screen ----
-  if (payment === "cancelled") {
-    return (
-      <div className="max-w-lg mx-auto px-4 pt-10 pb-8">
-        <div className="bg-card rounded-2xl border border-border p-6 text-center">
-          <div className="w-16 h-16 rounded-full bg-destructive/15 flex items-center justify-center mx-auto mb-4">
-            <XCircle className="w-9 h-9 text-destructive" />
-          </div>
-          <h1 className="font-heading font-bold text-xl mb-1">Payment cancelled</h1>
-          <p className="text-sm text-muted-foreground mb-5">Your card wasn't charged. You can try again.</p>
-          <Button className="w-full h-12 rounded-xl font-bold mb-2" onClick={() => { setPayment(null); navigate(`/checkout/${id}`, { replace: true }); }}>Try again</Button>
-          <Button variant="outline" className="w-full h-11 rounded-xl" onClick={() => navigate(`/event/${id}`)}>Back to event</Button>
-        </div>
-      </div>
-    );
-  }
-
-  // ---- Checkout form ----
   const tier = tiers.find((t) => t.id === selected);
   const unit = tier ? Number(tier.price) : 0;
   const discount = promo ? unit * (promo.discount_percent / 100) : 0;
