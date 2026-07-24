@@ -122,12 +122,15 @@ export default function TicketingPanel({ eventId, paid, currency }) {
         ))}
         {tiers.length === 0 && <p className="text-xs text-muted-foreground">No tiers yet — add one below. Leave blank to keep the event free.</p>}
       </div>
-      <div className="grid grid-cols-[1.3fr_0.8fr_0.8fr_auto] gap-2">
+      <div className="grid grid-cols-3 gap-2">
         <Input placeholder="Tier name" value={newTier.name} onChange={(e) => setNewTier((s) => ({ ...s, name: e.target.value }))} className="h-10" />
         <Input type="number" placeholder="Price" value={newTier.price} onChange={(e) => setNewTier((s) => ({ ...s, price: e.target.value }))} className="h-10" />
         <Input type="number" placeholder="Qty" value={newTier.quantity} onChange={(e) => setNewTier((s) => ({ ...s, quantity: e.target.value }))} className="h-10" />
-        <Button size="sm" className="h-10 rounded-xl" onClick={addTier}><Plus className="w-4 h-4" /></Button>
       </div>
+      <Button className="w-full h-10 rounded-xl" onClick={addTier} disabled={!newTier.name || newTier.price === "" || newTier.quantity === ""}>
+        <Plus className="w-4 h-4" /> Add Tier
+      </Button>
+      <p className="text-[11px] text-muted-foreground">Click <span className="font-medium text-foreground">Add Tier</span> to save each tier — tiers save instantly, not on “Save Changes”.</p>
 
       <h3 className="font-heading font-semibold text-sm flex items-center gap-2 pt-2"><Tag className="w-4 h-4" /> Promo Codes</h3>
       <div className="space-y-2">
@@ -147,12 +150,14 @@ export default function TicketingPanel({ eventId, paid, currency }) {
         ))}
         {promos.length === 0 && <p className="text-xs text-muted-foreground">No promo codes yet.</p>}
       </div>
-      <div className="grid grid-cols-[1fr_0.8fr_0.8fr_auto] gap-2">
+      <div className="grid grid-cols-3 gap-2">
         <Input placeholder="CODE" value={newPromo.code} onChange={(e) => setNewPromo((s) => ({ ...s, code: e.target.value.toUpperCase() }))} className="h-10" />
         <Input type="number" placeholder="% off" value={newPromo.discount_percent} onChange={(e) => setNewPromo((s) => ({ ...s, discount_percent: e.target.value }))} className="h-10" />
         <Input type="number" placeholder="Max uses" value={newPromo.max_uses} onChange={(e) => setNewPromo((s) => ({ ...s, max_uses: e.target.value }))} className="h-10" />
-        <Button size="sm" className="h-10 rounded-xl" onClick={addPromo}><Plus className="w-4 h-4" /></Button>
       </div>
+      <Button className="w-full h-10 rounded-xl" onClick={addPromo} disabled={!newPromo.code || !newPromo.discount_percent || !newPromo.max_uses}>
+        <Plus className="w-4 h-4" /> Add Promo Code
+      </Button>
     </div>
   );
 }
