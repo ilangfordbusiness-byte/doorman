@@ -69,23 +69,33 @@ export default function TicketingPanel({ eventId, paid, currency }) {
       toast({ title: "Fill in all promo fields" });
       return;
     }
-    await base44.entities.PromoCode.create({
-      event_id: eventId,
-      code: newPromo.code.trim().toUpperCase(),
-      discount_percent: Number(newPromo.discount_percent),
-      max_uses: Number(newPromo.max_uses),
-      used_count: 0,
-      total_discount_given: 0,
-      status: "active",
-    });
-    setNewPromo({ code: "", discount_percent: "", max_uses: "" });
-    load();
-    toast({ title: "Promo code added" });
+    try {
+      await base44.entities.PromoCode.create({
+        event_id: eventId,
+        code: newPromo.code.trim().toUpperCase(),
+        discount_percent: Number(newPromo.discount_percent),
+        max_uses: Number(newPromo.max_uses),
+        used_count: 0,
+        total_discount_given: 0,
+        status: "active",
+      });
+      setNewPromo({ code: "", discount_percent: "", max_uses: "" });
+      await load();
+      toast({ title: "Promo code added" });
+    } catch (e) {
+      console.error("PromoCode create failed:", e);
+      toast({ title: "Couldn't save promo code", description: e?.message || "Permission denied — only the event host can add promo codes.", variant: "destructive" });
+    }
   }
 
   async function removePromo(pid) {
-    await base44.entities.PromoCode.delete(pid);
-    load();
+    try {
+      await base44.entities.PromoCode.delete(pid);
+      await load();
+    } catch (e) {
+      console.error("PromoCode delete failed:", e);
+      toast({ title: "Couldn't delete promo code", description: e?.message || "Permission denied.", variant: "destructive" });
+    }
   }
 
   if (!paid) return null;
