@@ -134,14 +134,9 @@
       }
     },
     "read": {
-      "$or": [
-        {
-          "data.host_email": "{{user.email}}"
-        },
-        {
-          "data.is_public": true
-        }
-      ]
+      "user_condition": {
+        "isAuthenticated": true
+      }
     },
     "update": {
       "data.host_email": "{{user.email}}"
