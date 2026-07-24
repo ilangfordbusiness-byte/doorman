@@ -49,11 +49,7 @@
       "Event.data.host_email": "{{user.email}}",
       "Event.id": "$data.event_id"
     },
-    "read": {
-      "user_condition": {
-        "isAuthenticated": true
-      }
-    },
+    "read": {},
     "update": {
       "Event.data.host_email": "{{user.email}}",
       "Event.id": "$data.event_id"
