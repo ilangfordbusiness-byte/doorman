@@ -48,20 +48,16 @@
   ],
   "rls": {
     "create": {
-      "Event.data.host_email": "{{user.email}}",
-      "Event.id": "$data.event_id"
+      "created_by_id": "{{user.id}}"
     },
     "read": {
-      "Event.data.host_email": "{{user.email}}",
-      "Event.id": "$data.event_id"
+      "created_by_id": "{{user.id}}"
     },
     "update": {
-      "Event.data.host_email": "{{user.email}}",
-      "Event.id": "$data.event_id"
+      "created_by_id": "{{user.id}}"
     },
     "delete": {
-      "Event.data.host_email": "{{user.email}}",
-      "Event.id": "$data.event_id"
+      "created_by_id": "{{user.id}}"
     }
   }
 }
