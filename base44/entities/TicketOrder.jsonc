@@ -53,14 +53,27 @@
       "description": "Platform fee = 0.50 + 4% of paid amount, in major currency units",
       "default": 0
     },
+    "commission_amount": {
+      "type": "number",
+      "description": "Promoter commission for this order, in major currency units",
+      "default": 0
+    },
     "host_net": {
       "type": "number",
-      "description": "Amount due to host = paid_amount - platform_fee, in major currency units",
+      "description": "Amount due to host = paid_amount - platform_fee - commission_amount, in major currency units",
       "default": 0
     },
     "currency": {
       "type": "string",
       "default": "gbp"
+    },
+    "promoter_id": {
+      "type": "string",
+      "description": "Reference to Promoter attributed for this sale, if any"
+    },
+    "promoter_code": {
+      "type": "string",
+      "description": "Promoter tracking code attributed for this sale, if any"
     },
     "stripe_session_id": {
       "type": "string"

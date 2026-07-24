@@ -23,6 +23,8 @@ const Friends = lazy(() => import('./pages/Friends'));
 const EditEvent = lazy(() => import('./pages/EditEvent'));
 const TicketCheckout = lazy(() => import('./pages/TicketCheckout'));
 const EventAnalytics = lazy(() => import('./pages/EventAnalytics'));
+const PromoterPanel = lazy(() => import('./pages/PromoterPanel'));
+const PromoterDashboard = lazy(() => import('./pages/PromoterDashboard'));
 
 const PageLoader = () => (
   <div className="fixed inset-0 flex items-center justify-center bg-background">
@@ -74,6 +76,8 @@ const AuthenticatedApp = () => {
         <Route path="/event/:id/edit" element={<EditEvent />} />
         <Route path="/event/:id/checkout" element={<TicketCheckout />} />
         <Route path="/event/:id/analytics" element={<EventAnalytics />} />
+        <Route path="/event/:id/promoters" element={<PromoterPanel />} />
+        <Route path="/promoter/:code" element={<PromoterDashboard />} />
         <Route path="/host" element={<HostHub />} />
         <Route path="/guest" element={<GuestHub />} />
         <Route path="/staff" element={<StaffHub />} />

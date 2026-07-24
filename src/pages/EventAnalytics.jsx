@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { ArrowLeft, TrendingUp, Ticket, Tag, Percent, Wallet } from "lucide-react";
+import { ArrowLeft, TrendingUp, Ticket, Tag, Percent, Wallet, Megaphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
@@ -74,6 +74,12 @@ export default function EventAnalytics() {
         <h1 className="font-heading font-bold text-xl">Sales Analytics</h1>
       </div>
       <p className="text-sm text-muted-foreground mb-5">{event.title}</p>
+
+      <Link to={`/event/${id}/promoters`} className="block mb-5">
+        <Button variant="outline" className="w-full h-11 rounded-xl gap-2 font-semibold">
+          <Megaphone className="w-4 h-4" /> Promoters & Commissions
+        </Button>
+      </Link>
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-3 mb-5">

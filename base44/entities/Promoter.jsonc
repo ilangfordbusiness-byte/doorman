@@ -1,0 +1,70 @@
+{
+  "name": "Promoter",
+  "type": "object",
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "description": "Reference to event"
+    },
+    "name": {
+      "type": "string",
+      "description": "Promoter display name"
+    },
+    "email": {
+      "type": "string",
+      "description": "Promoter contact email"
+    },
+    "commission_type": {
+      "type": "string",
+      "enum": [
+        "flat",
+        "percent"
+      ],
+      "default": "percent",
+      "description": "flat = fixed fee per ticket, percent = percentage of ticket price"
+    },
+    "commission_value": {
+      "type": "number",
+      "description": "Flat fee per ticket (major units) if type=flat, or percentage of paid amount if type=percent"
+    },
+    "tracking_code": {
+      "type": "string",
+      "description": "Unique shareable tracking code used in the promoter link"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "disabled"
+      ],
+      "default": "active"
+    },
+    "tickets_sold": {
+      "type": "number",
+      "description": "Running count of tickets sold through this promoter's link",
+      "default": 0
+    },
+    "total_sales": {
+      "type": "number",
+      "description": "Total ticket sales value attributed to this promoter, major units",
+      "default": 0
+    },
+    "commission_owed": {
+      "type": "number",
+      "description": "Running total commission earned but not yet paid out, major units",
+      "default": 0
+    },
+    "commission_paid": {
+      "type": "number",
+      "description": "Total commission marked as paid out to this promoter, major units",
+      "default": 0
+    }
+  },
+  "required": [
+    "event_id",
+    "name",
+    "commission_type",
+    "commission_value",
+    "tracking_code"
+  ]
+}

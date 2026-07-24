@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import LoadingSpinner from "../components/LoadingSpinner";
 import FriendProfile from "../components/FriendProfile";
+import FriendsSearch from "../components/FriendsSearch";
 
 export default function Friends() {
   const { toast } = useToast();
-  const [tab, setTab] = useState("suggestions");
+  const [tab, setTab] = useState("search");
   const [me, setMe] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
   const [requests, setRequests] = useState([]);
@@ -101,6 +102,7 @@ export default function Friends() {
   }
 
   const tabs = [
+    { id: "search", label: "Search" },
     { id: "suggestions", label: "Suggestions" },
     { id: "requests", label: `Requests${requests.length ? ` (${requests.length})` : ""}` },
     { id: "friends", label: `Friends${friends.length ? ` (${friends.length})` : ""}` },
@@ -145,6 +147,15 @@ export default function Friends() {
         <LoadingSpinner />
       ) : (
         <>
+          {tab === "search" && (
+            <FriendsSearch
+              me={me}
+              friendEmails={new Set(friends.map((f) => f.email))}
+              sentSet={sentSet}
+              onSend={sendRequest}
+            />
+          )}
+
           {tab === "suggestions" && (
             <div className="space-y-2">
               {suggestions.length === 0 && <Empty message="No suggestions right now" />}

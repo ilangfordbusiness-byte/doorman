@@ -7,7 +7,7 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { tier_id, promo_code, quantity = 1, success_url, cancel_url } = await req.json();
+    const { tier_id, promo_code, promoter_code, quantity = 1, success_url, cancel_url } = await req.json();
     if (!tier_id) return Response.json({ error: 'A ticket tier is required' }, { status: 400 });
 
     const tier = await base44.asServiceRole.entities.TicketTier.get(tier_id);
@@ -43,7 +43,26 @@ Deno.serve(async (req) => {
 
     const { discount, paid } = applyDiscount(unitMinor, discountPercent);
     const feeMinor = computeFeeMinor(paid);
-    const hostNetMinor = paid - feeMinor;
+    let hostNetMinor = paid - feeMinor;
+
+    // Promoter / affiliate attribution (last-touch, persisted client-side per event).
+    // Commission is deducted from what the host actually earns, on top of the platform fee.
+    let promoterRecord = null;
+    let commissionMinor = 0;
+    if (promoter_code) {
+      const code = String(promoter_code).trim();
+      const promoters = await base44.asServiceRole.entities.Promoter.filter({ event_id: tier.event_id, tracking_code: code, status: 'active' });
+      promoterRecord = promoters[0] || null;
+    }
+    if (promoterRecord) {
+      if (promoterRecord.commission_type === 'flat') {
+        commissionMinor = toMinor(promoterRecord.commission_value) * quantity;
+      } else {
+        commissionMinor = Math.round(paid * (Number(promoterRecord.commission_value || 0) / 100));
+      }
+      if (commissionMinor > hostNetMinor) commissionMinor = hostNetMinor;
+      hostNetMinor = hostNetMinor - commissionMinor;
+    }
 
     const order = await base44.asServiceRole.entities.TicketOrder.create({
       event_id: tier.event_id,
@@ -60,6 +79,9 @@ Deno.serve(async (req) => {
       paid_amount: toMajor(paid),
       platform_fee: toMajor(feeMinor),
       host_net: toMajor(hostNetMinor),
+      promoter_id: promoterRecord ? promoterRecord.id : null,
+      promoter_code: promoterRecord ? promoterRecord.tracking_code : null,
+      commission_amount: toMajor(commissionMinor),
       currency,
       status: 'pending',
     });
@@ -79,6 +101,7 @@ Deno.serve(async (req) => {
     params.append('metadata[order_id]', order.id);
     params.append('metadata[tier_id]', tier.id);
     params.append('metadata[event_id]', tier.event_id);
+    if (promoterRecord) params.append('metadata[promoter_id]', promoterRecord.id);
     params.append('metadata[base44_app_id]', Deno.env.get('BASE44_APP_ID') || '');
     params.append('customer_email', user.email);
 

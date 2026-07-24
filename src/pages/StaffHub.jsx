@@ -3,9 +3,10 @@ import { useNavigate, Link } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 import PhonePrompt from "../components/PhonePrompt";
 import { base44 } from "@/api/base44Client";
-import { ArrowLeft, ScanLine, Calendar, MapPin, Clock, UserCheck } from "lucide-react";
+import { ArrowLeft, ScanLine, Calendar, MapPin, Clock, UserCheck, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import LoadingSpinner from "../components/LoadingSpinner";
+import TicketSalesQR from "../components/TicketSalesQR";
 import moment from "moment";
 
 export default function StaffHub() {
@@ -17,6 +18,7 @@ export default function StaffHub() {
   const [code, setCode] = useState("");
   const [joining, setJoining] = useState(false);
   const [myPhone, setMyPhone] = useState("");
+  const [qrEvent, setQrEvent] = useState(null);
 
   useEffect(() => {
     load();
@@ -176,44 +178,43 @@ export default function StaffHub() {
             {events.map((event) => {
               const eventDate = moment(event.date);
               return (
-                <button
-                  key={event.id}
-                  onClick={() => navigate(`/scanner?event_id=${event.id}`)}
-                  className="w-full text-left group"
-                >
-                  <div className="relative rounded-2xl overflow-hidden bg-card border border-border hover:border-emerald-500/40 transition-all duration-200">
-                    {event.cover_image && (
-                      <div className="h-28 overflow-hidden">
-                        <img src={event.cover_image} alt={event.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent" />
-                      </div>
-                    )}
-                    <div className="p-4 flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-xl bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
-                        <ScanLine className="w-6 h-6 text-emerald-400" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-heading font-bold text-base text-foreground truncate">{event.title}</p>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-                          <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{eventDate.format("MMM D")}</span>
-                          <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{event.start_time}</span>
-                          {event.venue_name && (
-                            <span className="flex items-center gap-1 truncate"><MapPin className="w-3 h-3 flex-shrink-0" />{event.venue_name}</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end gap-1">
-                        <span className="text-[10px] uppercase tracking-wider text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded-full">{event.staffRole}</span>
-                        <span className="text-xs text-muted-foreground">Tap to scan →</span>
-                      </div>
+                <div key={event.id} className="relative rounded-2xl overflow-hidden bg-card border border-border hover:border-emerald-500/40 transition-all duration-200">
+                  {event.cover_image && (
+                    <div className="h-28 overflow-hidden">
+                      <img src={event.cover_image} alt={event.title} className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent" />
                     </div>
+                  )}
+                  <div className="p-4 flex items-center gap-3">
+                    <button onClick={() => navigate(`/scanner?event_id=${event.id}`)} className="w-12 h-12 rounded-xl bg-emerald-500/15 flex items-center justify-center flex-shrink-0 active:scale-95 transition-transform">
+                      <ScanLine className="w-6 h-6 text-emerald-400" />
+                    </button>
+                    <button onClick={() => navigate(`/scanner?event_id=${event.id}`)} className="flex-1 min-w-0 text-left">
+                      <p className="font-heading font-bold text-base text-foreground truncate">{event.title}</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 flex-wrap">
+                        <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{eventDate.format("MMM D")}</span>
+                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{event.start_time}</span>
+                        {event.venue_name && (
+                          <span className="flex items-center gap-1 truncate"><MapPin className="w-3 h-3 flex-shrink-0" />{event.venue_name}</span>
+                        )}
+                        {event.staffRole && (
+                          <span className="text-emerald-400 font-semibold">{event.staffRole}</span>
+                        )}
+                      </div>
+                    </button>
+                    <button onClick={() => setQrEvent(event)} className="flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg hover:bg-amber-500/10 transition-colors flex-shrink-0">
+                      <Ticket className="w-5 h-5 text-amber-400" />
+                      <span className="text-[9px] text-amber-400 uppercase tracking-wider font-semibold">Sell</span>
+                    </button>
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>
         )
       )}
+
+      {qrEvent && <TicketSalesQR event={qrEvent} onClose={() => setQrEvent(null)} />}
     </div>
   );
 }

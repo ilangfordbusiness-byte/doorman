@@ -1,0 +1,139 @@
+import { useState, useEffect, useRef } from "react";
+import { base44 } from "@/api/base44Client";
+import { Search, UserPlus, UserCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+// Search the app's people directory (everyone who has appeared on a guestlist)
+// by name, see mutual-friend counts, and send friend requests directly.
+export default function FriendsSearch({ me, friendEmails, sentSet, onSend }) {
+  const [query, setQuery] = useState("");
+  const [directory, setDirectory] = useState([]);
+  const [loadingDir, setLoadingDir] = useState(true);
+  const [mutuals, setMutuals] = useState({});
+  const [sendingTo, setSendingTo] = useState(null);
+  const mutualCache = useRef({});
+
+  useEffect(() => { loadDirectory(); }, []);
+
+  async function loadDirectory() {
+    try {
+      const entries = await base44.entities.GuestlistEntry.list("-created_date", 500);
+      const map = new Map();
+      entries.forEach((e) => {
+        if (!e.guest_email || e.guest_email === me?.email) return;
+        if (!map.has(e.guest_email)) {
+          map.set(e.guest_email, {
+            email: e.guest_email,
+            full_name: e.guest_name || e.guest_email,
+            profile_picture: "",
+          });
+        }
+      });
+      setDirectory([...map.values()]);
+    } catch {}
+    setLoadingDir(false);
+  }
+
+  const q = query.trim().toLowerCase();
+  const results = q
+    ? directory.filter((d) => String(d.full_name || "").toLowerCase().includes(q)).slice(0, 8)
+    : [];
+  const resultsKey = results.map((r) => r.email).join("|");
+
+  useEffect(() => {
+    if (!results.length) return;
+    const missing = results.filter((r) => !(r.email in mutualCache.current));
+    if (!missing.length) return;
+    Promise.all(
+      missing.map(async (r) => {
+        const [sent, received] = await Promise.all([
+          base44.entities.FriendRequest.filter({ sender_email: r.email, status: "accepted" }),
+          base44.entities.FriendRequest.filter({ receiver_email: r.email, status: "accepted" }),
+        ]);
+        const theirFriends = new Set([
+          ...sent.map((x) => x.receiver_email),
+          ...received.map((x) => x.sender_email),
+        ]);
+        let count = 0;
+        theirFriends.forEach((e) => { if (friendEmails.has(e)) count++; });
+        mutualCache.current[r.email] = count;
+        return [r.email, count];
+      })
+    )
+      .then((pairs) => {
+        setMutuals((prev) => {
+          const next = { ...prev };
+          pairs.forEach(([e, c]) => { next[e] = c; });
+          return next;
+        });
+      })
+      .catch(() => {});
+  }, [resultsKey, friendEmails]);
+
+  async function handleSend(target) {
+    setSendingTo(target.email);
+    await onSend(target);
+    setSendingTo(null);
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search people by name..."
+          className="w-full h-11 pl-10 pr-3 text-sm bg-secondary/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+        />
+      </div>
+
+      {loadingDir && <p className="text-xs text-muted-foreground text-center py-4">Loading people...</p>}
+
+      {!loadingDir && q && results.length === 0 && (
+        <div className="py-8 text-center">
+          <p className="text-sm text-muted-foreground">No one found matching "{query}"</p>
+        </div>
+      )}
+
+      {!loadingDir && !q && (
+        <div className="py-8 text-center">
+          <Search className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">Search for people by name to send a friend request.</p>
+        </div>
+      )}
+
+      {results.map((u) => {
+        const isFriend = friendEmails.has(u.email);
+        const sent = sentSet.has(u.email);
+        const mc = mutuals[u.email];
+        return (
+          <div key={u.email} className="flex items-center gap-3 bg-secondary/40 rounded-xl px-4 py-3 border border-border/50">
+            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
+              {u.profile_picture ? (
+                <img src={u.profile_picture} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <span className="font-bold text-primary text-sm">{(u.full_name || "?")[0].toUpperCase()}</span>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold truncate">{u.full_name}</p>
+              <p className="text-[11px] text-muted-foreground">
+                {mc !== undefined ? `${mc} mutual friend${mc === 1 ? "" : "s"}` : "Checking mutuals..."}
+              </p>
+            </div>
+            {isFriend ? (
+              <UserCheck className="w-4 h-4 text-emerald-400" />
+            ) : sent ? (
+              <span className="text-xs text-muted-foreground font-medium">Sent</span>
+            ) : (
+              <Button size="sm" className="rounded-full h-8 gap-1 text-xs" onClick={() => handleSend(u)} disabled={sendingTo === u.email}>
+                <UserPlus className="w-3.5 h-3.5" /> Add
+              </Button>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}

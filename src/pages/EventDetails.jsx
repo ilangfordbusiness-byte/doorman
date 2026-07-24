@@ -13,7 +13,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import {
   ArrowLeft, Calendar, Clock, MapPin, Shirt, Users, Share2,
-  QrCode, Shield, Edit, Trash2, UserPlus, Copy, Check, Plus, X, Ticket, BarChart3
+  QrCode, Shield, Edit, Trash2, UserPlus, Copy, Check, Plus, X, Ticket, BarChart3, Megaphone
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -55,7 +55,9 @@ export default function EventDetails() {
     if (payment) {
       window.history.replaceState({}, "", window.location.pathname);
     }
-  }, []);
+    const ref = params.get("ref");
+    if (ref) localStorage.setItem(`promoter_ref_${id}`, ref);
+  }, [id]);
 
   async function loadEvent() {
     const me = await base44.auth.me();
@@ -274,11 +276,18 @@ export default function EventDetails() {
               </Button>
             </div>
             {event.is_paid && (
-              <Link to={`/event/${id}/analytics`}>
-                <Button variant="outline" className="w-full h-12 rounded-xl gap-2 font-semibold">
-                  <BarChart3 className="w-4 h-4" /> Sales Analytics
-                </Button>
-              </Link>
+              <div className="flex gap-2">
+                <Link to={`/event/${id}/analytics`} className="flex-1">
+                  <Button variant="outline" className="w-full h-12 rounded-xl gap-2 font-semibold">
+                    <BarChart3 className="w-4 h-4" /> Analytics
+                  </Button>
+                </Link>
+                <Link to={`/event/${id}/promoters`} className="flex-1">
+                  <Button variant="outline" className="w-full h-12 rounded-xl gap-2 font-semibold">
+                    <Megaphone className="w-4 h-4" /> Promoters
+                  </Button>
+                </Link>
+              </div>
             )}
 
             {/* Staff Management */}

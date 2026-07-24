@@ -95,6 +95,22 @@ Deno.serve(async (req) => {
         stripe_payment_intent_id: session.payment_intent || '',
         guestlist_entry_id: entry.id,
       });
+
+      // Update promoter running totals on confirmed payment
+      if (order.promoter_id) {
+        try {
+          const promoter = await base44.asServiceRole.entities.Promoter.get(order.promoter_id);
+          if (promoter) {
+            await base44.asServiceRole.entities.Promoter.update(promoter.id, {
+              tickets_sold: Number(promoter.tickets_sold || 0) + Number(order.quantity || 1),
+              total_sales: Number(promoter.total_sales || 0) + Number(order.paid_amount || 0),
+              commission_owed: Number(promoter.commission_owed || 0) + Number(order.commission_amount || 0),
+            });
+          }
+        } catch (e) {
+          console.log('ticketWebhook promoter update error', e.message);
+        }
+      }
     }
 
     return Response.json({ received: true });

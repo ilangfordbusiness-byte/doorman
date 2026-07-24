@@ -71,9 +71,11 @@ export default function TicketCheckout() {
     }
     setPaying(true);
     try {
+      const promoterCode = localStorage.getItem(`promoter_ref_${id}`);
       const res = await base44.functions.invoke("createTicketCheckout", {
         tier_id: tier.id,
         promo_code: promo ? promoInput.trim() : null,
+        promoter_code: promoterCode || null,
         success_url: `${window.location.origin}/event/${id}?payment=success`,
         cancel_url: `${window.location.origin}/event/${id}?payment=cancelled`,
       });
