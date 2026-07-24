@@ -2,13 +2,15 @@ import { useState } from "react";
 import CoverPicker, { COVERS } from "../components/CoverPicker";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { ArrowLeft, Upload, Calendar, Clock, MapPin, Users, Shirt, FileText, Eye, Lock, Plus, Ticket } from "lucide-react";
+import { ArrowLeft, Upload, Calendar, Clock, MapPin, Users, Shirt, FileText, Eye, Lock, Plus, Ticket, Megaphone, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
+
+const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
 
 export default function CreateEvent() {
   const navigate = useNavigate();
@@ -36,10 +38,30 @@ export default function CreateEvent() {
     currency: "gbp",
     visibility: "show_names",
   });
+  const [promoters, setPromoters] = useState([]);
+  const [pName, setPName] = useState("");
+  const [pEmail, setPEmail] = useState("");
+  const [pType, setPType] = useState("percent");
+  const [pValue, setPValue] = useState("");
 
   function updateForm(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }));
     if (error) setError("");
+  }
+
+  function addPromoter() {
+    if (!pName.trim() || pValue === "") return;
+    setPromoters((prev) => [...prev, {
+      name: pName.trim(),
+      email: pEmail.trim().toLowerCase(),
+      commission_type: pType,
+      commission_value: Number(pValue),
+    }]);
+    setPName(""); setPEmail(""); setPValue("");
+  }
+
+  function removePromoter(i) {
+    setPromoters((prev) => prev.filter((_, idx) => idx !== i));
   }
 
   function handleCoverChange(e) {
@@ -93,6 +115,27 @@ export default function CreateEvent() {
       invite_code,
       ...(venue_lat && venue_lng ? { venue_lat, venue_lng } : {}),
     });
+
+    // Create promoters entered during setup
+    for (const p of promoters) {
+      if (!p.name) continue;
+      const code = Math.random().toString(36).substring(2, 10).toUpperCase();
+      try {
+        await base44.entities.Promoter.create({
+          event_id: event.id,
+          name: p.name,
+          email: p.email || undefined,
+          commission_type: p.commission_type,
+          commission_value: p.commission_value,
+          tracking_code: code,
+          status: "active",
+          tickets_sold: 0,
+          total_sales: 0,
+          commission_owed: 0,
+          commission_paid: 0,
+        });
+      } catch {}
+    }
 
     toast({ title: status === "published" ? "Event published!" : "Draft saved" });
     navigate(`/event/${event.id}`);
@@ -317,6 +360,60 @@ export default function CreateEvent() {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">Add ticket tiers & promo codes after creating the event — Edit Event → Ticketing.</p>
+
+              {/* Promoter setup */}
+              <div className="border-t border-border/50 pt-4 mt-4">
+                <h3 className="font-heading font-semibold text-sm flex items-center gap-2 mb-3">
+                  <Megaphone className="w-4 h-4 text-amber-400" /> Promoters
+                </h3>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Add promoters now to generate tracking links the moment your event is live. You can manage them later under Promoters.
+                </p>
+                {promoters.length > 0 && (
+                  <div className="space-y-2 mb-3">
+                    {promoters.map((p, i) => (
+                      <div key={i} className="flex items-center gap-2 bg-secondary/40 rounded-lg px-3 py-2 border border-border/50">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{p.name}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {p.commission_type === "flat"
+                              ? `${SYMBOL[form.currency] || ""}${Number(p.commission_value).toFixed(2)} / ticket`
+                              : `${p.commission_value}% per ticket`}
+                            {p.email ? ` · ${p.email}` : ""}
+                          </p>
+                        </div>
+                        <button onClick={() => removePromoter(i)} className="text-muted-foreground hover:text-destructive p-1 flex-shrink-0">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Input placeholder="Promoter name" value={pName} onChange={(e) => setPName(e.target.value)} className="h-10 bg-secondary/50" />
+                  <Input placeholder="Email (optional)" value={pEmail} onChange={(e) => setPEmail(e.target.value)} className="h-10 bg-secondary/50" />
+                  <div className="flex gap-2">
+                    <select
+                      value={pType}
+                      onChange={(e) => setPType(e.target.value)}
+                      className="h-10 px-2 rounded-lg bg-secondary/50 border border-border text-sm flex-shrink-0"
+                    >
+                      <option value="percent">% of ticket</option>
+                      <option value="flat">Flat per ticket</option>
+                    </select>
+                    <Input
+                      type="number"
+                      placeholder={pType === "percent" ? "e.g. 10" : `e.g. 2.00 (${SYMBOL[form.currency] || ""})`}
+                      value={pValue}
+                      onChange={(e) => setPValue(e.target.value)}
+                      className="h-10 flex-1 bg-secondary/50"
+                    />
+                    <Button type="button" variant="outline" size="icon" className="h-10 w-10 flex-shrink-0" onClick={addPromoter} disabled={!pName.trim() || pValue === ""}>
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
