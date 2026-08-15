@@ -2,19 +2,22 @@ import { useState } from "react";
 import CoverPicker, { COVERS } from "../components/CoverPicker";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { ArrowLeft, Upload, Calendar, Clock, MapPin, Users, Shirt, FileText, Eye, Lock, Plus, Ticket, Megaphone, Trash2 } from "lucide-react";
+import { ArrowLeft, Upload, Calendar, Clock, MapPin, Users, Shirt, FileText, Eye, Lock, Plus, Ticket, Megaphone, Trash2, CreditCard } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
+import { useStripeStatus } from "@/hooks/useStripeStatus";
 
 const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
 
 export default function CreateEvent() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { connected: stripeConnected } = useStripeStatus();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [coverFile, setCoverFile] = useState(null);
@@ -92,6 +95,11 @@ export default function CreateEvent() {
   async function handleSubmit(status) {
     if (!form.title || !form.date || !form.start_time) {
       setError("Please fill in the event name, date, and start time before continuing.");
+      return;
+    }
+
+    if (form.is_paid && status === "published" && stripeConnected === false) {
+      setError("Connect your Stripe account before publishing a paid event — go to Profile → Payouts & Earnings.");
       return;
     }
 
@@ -376,6 +384,15 @@ export default function CreateEvent() {
           </div>
           {form.is_paid && (
             <div className="space-y-3">
+              {stripeConnected === false && (
+                <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-amber-400">
+                  <CreditCard className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <div className="text-xs leading-relaxed">
+                    You need a connected Stripe account to sell tickets and receive payouts.{" "}
+                    <Link to="/profile" className="underline font-semibold">Connect Stripe in your Profile</Link> first.
+                  </div>
+                </div>
+              )}
               <div>
                 <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Currency</Label>
                 <select value={form.currency} onChange={(e) => updateForm("currency", e.target.value)} className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm">

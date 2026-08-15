@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { ArrowLeft, Ticket, TrendingUp, Wallet, MousePointerClick } from "lucide-react";
+import { ArrowLeft, Ticket, TrendingUp, Wallet, MousePointerClick, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { useStripeStatus } from "@/hooks/useStripeStatus";
 
 const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
 
@@ -16,6 +17,8 @@ export default function PromoterDashboard() {
   const [event, setEvent] = useState(null);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isOwner, setIsOwner] = useState(false);
+  const { connected: stripeConnected } = useStripeStatus();
 
   useEffect(() => {
     load();
@@ -33,6 +36,10 @@ export default function PromoterDashboard() {
       if (!proms.length) { setLoading(false); return; }
       const p = proms[0];
       setPromoter(p);
+      try {
+        const me = await base44.auth.me();
+        if (me?.email && p.email && me.email.toLowerCase() === p.email.toLowerCase()) setIsOwner(true);
+      } catch {}
       const [events, ords] = await Promise.all([
         base44.entities.Event.filter({ id: p.event_id }),
         base44.entities.TicketOrder.filter({ promoter_id: p.id, status: "paid" }),
@@ -75,6 +82,16 @@ export default function PromoterDashboard() {
         {event && <p className="text-sm text-muted-foreground">{event.title}</p>}
         <p className="text-[11px] text-muted-foreground mt-1">Commission: {rate}</p>
       </div>
+
+      {isOwner && stripeConnected === false && (
+        <div className="flex items-start gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 mb-4 text-amber-400">
+          <CreditCard className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <div className="text-xs leading-relaxed">
+            Connect a Stripe account to receive your commission payouts.{" "}
+            <Link to="/profile" className="underline font-semibold">Set up payouts in your Profile</Link>.
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-2 mb-4">
         <Stat icon={<Ticket className="w-4 h-4" />} label="Tickets Sold" value={String(ticketsSold)} />
