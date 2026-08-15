@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { CreditCard, Wallet, ExternalLink, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { CreditCard, Wallet, ExternalLink, CheckCircle2, AlertCircle, Loader2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -98,10 +98,22 @@ export default function StripeConnectPanel() {
               {connectError}
             </div>
           )}
-          <Button className="w-full rounded-xl" disabled={busy} onClick={handleConnect}>
-            {busy ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CreditCard className="w-4 h-4 mr-2" />}
-            Connect Stripe
-          </Button>
+          <div className="space-y-2">
+            <Button className="w-full rounded-xl" disabled={busy} onClick={handleConnect}>
+              {busy ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CreditCard className="w-4 h-4 mr-2" />}
+              Connect existing account
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full rounded-xl gap-2"
+              onClick={() => window.open("https://dashboard.stripe.com/register", "_blank", "noopener,noreferrer")}
+            >
+              <UserPlus className="w-4 h-4" /> Sign up to create one
+            </Button>
+            <p className="text-[11px] text-muted-foreground text-center pt-1 leading-relaxed">
+              New to Stripe? Create an account first, then come back and connect it.
+            </p>
+          </div>
         </div>
       ) : (
         <div className="space-y-3">
