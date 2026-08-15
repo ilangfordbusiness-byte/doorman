@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import LoadingSpinner from "../components/LoadingSpinner";
 import PromoterAccountSection from "../components/PromoterAccountSection";
+import StripeConnectPanel from "../components/StripeConnectPanel";
 
 export default function Profile() {
   const { toast } = useToast();
@@ -271,6 +272,8 @@ export default function Profile() {
       </div>
 
       <PromoterAccountSection email={user?.email} />
+
+      <StripeConnectPanel />
 
       {user?.role === "admin" && (
         <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 border border-primary/20 rounded-xl mb-4">
