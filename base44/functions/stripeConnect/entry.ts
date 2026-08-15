@@ -118,6 +118,12 @@ Deno.serve(async (req) => {
               needs_connect_signup: true,
             }, { status: 400 });
           }
+          if (/complete your platform profile/i.test(e.message)) {
+            return Response.json({
+              error: 'The platform owner must complete the Stripe Connect platform profile first. Visit https://dashboard.stripe.com/connect/accounts/overview to answer the questionnaire, then try again.',
+              needs_platform_profile: true,
+            }, { status: 400 });
+          }
           throw e;
         }
         accountId = acct.id;
