@@ -99,16 +99,27 @@ Deno.serve(async (req) => {
 
     if (action === 'onboard') {
       if (!accountId) {
-        const acct = await stripeApi('/accounts', {
-          method: 'POST',
-          body: formEncode({
-            type: 'express',
-            email: user.email,
-            'metadata[base44_app_id]': appId,
-            'metadata[user_id]': user.id,
-            'capabilities[transfers][requested]': 'true',
-          }),
-        });
+        let acct;
+        try {
+          acct = await stripeApi('/accounts', {
+            method: 'POST',
+            body: formEncode({
+              type: 'express',
+              email: user.email,
+              'metadata[base44_app_id]': appId,
+              'metadata[user_id]': user.id,
+              'capabilities[transfers][requested]': 'true',
+            }),
+          });
+        } catch (e) {
+          if (/signed up for Connect/i.test(e.message)) {
+            return Response.json({
+              error: 'Connect isn\'t enabled on this Stripe account yet. The account owner must sign up for Connect once at https://dashboard.stripe.com/connect, then try again.',
+              needs_connect_signup: true,
+            }, { status: 400 });
+          }
+          throw e;
+        }
         accountId = acct.id;
         await base44.auth.updateMe({ stripe_account_id: accountId, stripe_onboarding_status: 'pending' });
       }

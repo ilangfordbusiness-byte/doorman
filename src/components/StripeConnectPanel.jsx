@@ -16,6 +16,7 @@ export default function StripeConnectPanel() {
   const [busy, setBusy] = useState(false);
   const [account, setAccount] = useState(null);
   const [balances, setBalances] = useState([]);
+  const [connectError, setConnectError] = useState("");
 
   async function load() {
     setLoading(true);
@@ -39,10 +40,17 @@ export default function StripeConnectPanel() {
     setBusy(true);
     try {
       const res = await base44.functions.invoke("stripeConnect", { action: "onboard" });
-      if (res.data?.url) window.location.href = res.data.url;
-      else if (res.data?.error) throw new Error(res.data.error);
+      if (res.data?.url) {
+        window.location.href = res.data.url;
+      } else if (res.data?.error) {
+        throw new Error(res.data.error);
+      }
     } catch (e) {
-      toast({ title: "Couldn't start Stripe onboarding", description: e?.message, variant: "destructive" });
+      const msg = String(e?.message || "");
+      if (/Connect/i.test(msg)) {
+        setConnectError(msg);
+      }
+      toast({ title: "Couldn't start Stripe onboarding", description: msg, variant: "destructive" });
     }
     setBusy(false);
   }
@@ -85,6 +93,11 @@ export default function StripeConnectPanel() {
           <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
             Connect a Stripe account to receive your host and promoter earnings directly to your bank. Stripe handles identity verification and payouts.
           </p>
+          {connectError && (
+            <div className="mb-3 p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400 text-xs leading-relaxed">
+              {connectError}
+            </div>
+          )}
           <Button className="w-full rounded-xl" disabled={busy} onClick={handleConnect}>
             {busy ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CreditCard className="w-4 h-4 mr-2" />}
             Connect Stripe
