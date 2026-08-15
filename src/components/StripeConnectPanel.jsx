@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { CreditCard, Wallet, ArrowDownToLine, ExternalLink, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { CreditCard, Wallet, ExternalLink, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 
 const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
@@ -17,7 +16,6 @@ export default function StripeConnectPanel() {
   const [busy, setBusy] = useState(false);
   const [account, setAccount] = useState(null);
   const [balances, setBalances] = useState([]);
-  const [withdraw, setWithdraw] = useState({});
 
   async function load() {
     setLoading(true);
@@ -61,28 +59,6 @@ export default function StripeConnectPanel() {
       else if (res.data?.error) throw new Error(res.data.error);
     } catch (e) {
       toast({ title: "Couldn't open Stripe dashboard", description: e?.message, variant: "destructive" });
-    }
-    setBusy(false);
-  }
-
-  async function handleWithdraw(b) {
-    const amt = Number(withdraw[b.key] || 0);
-    if (!amt || amt <= 0) { toast({ title: "Enter an amount to withdraw" }); return; }
-    if (amt > b.available) { toast({ title: "Amount exceeds available balance", variant: "destructive" }); return; }
-    setBusy(true);
-    try {
-      const res = await base44.functions.invoke("stripeConnect", {
-        action: "withdraw",
-        amount: amt,
-        currency: b.currency,
-        role: b.role,
-      });
-      if (res.data?.error) throw new Error(res.data.error);
-      setWithdraw((s) => ({ ...s, [b.key]: "" }));
-      setBalances(res.data?.balances || []);
-      toast({ title: "Withdrawal initiated", description: "Funds are on the way to your Stripe account." });
-    } catch (e) {
-      toast({ title: "Withdrawal failed", description: e?.message, variant: "destructive" });
     }
     setBusy(false);
   }
@@ -135,46 +111,14 @@ export default function StripeConnectPanel() {
                   </span>
                   <Wallet className="w-3.5 h-3.5 text-muted-foreground" />
                 </div>
-                <div className="grid grid-cols-3 gap-2 text-center mb-3">
-                  <div>
-                    <p className="text-sm font-bold">{sym}{b.earned.toFixed(2)}</p>
-                    <p className="text-[9px] text-muted-foreground uppercase">Earned</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-muted-foreground">{sym}{b.withdrawn.toFixed(2)}</p>
-                    <p className="text-[9px] text-muted-foreground uppercase">Withdrawn</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-emerald-400">{sym}{b.available.toFixed(2)}</p>
-                    <p className="text-[9px] text-muted-foreground uppercase">Available</p>
-                  </div>
-                </div>
-                {active && b.available > 0 && (
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      inputMode="decimal"
-                      placeholder={b.available.toFixed(2)}
-                      value={withdraw[b.key] || ""}
-                      onChange={(e) => setWithdraw((s) => ({ ...s, [b.key]: e.target.value }))}
-                      className="h-9 bg-secondary/50 border-border rounded-lg flex-1"
-                    />
-                    <Button size="sm" className="rounded-lg" disabled={busy} onClick={() => handleWithdraw(b)}>
-                      <ArrowDownToLine className="w-3.5 h-3.5 mr-1" /> Withdraw
-                    </Button>
-                  </div>
-                )}
+                <p className="text-2xl font-bold font-heading text-emerald-400">{sym}{b.earned.toFixed(2)}</p>
               </div>
             );
           })}
 
-          <button
-            onClick={handleDashboard}
-            disabled={busy}
-            className="w-full flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-foreground border border-border/50 rounded-lg py-2"
-          >
-            <ExternalLink className="w-3.5 h-3.5" /> Open Stripe dashboard
-          </button>
+          <Button variant="outline" className="w-full rounded-xl gap-2" disabled={busy} onClick={handleDashboard}>
+            <ExternalLink className="w-4 h-4" /> Manage Payouts & Bank Details
+          </Button>
         </div>
       )}
     </div>

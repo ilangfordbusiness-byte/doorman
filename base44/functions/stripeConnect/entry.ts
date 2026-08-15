@@ -164,46 +164,6 @@ Deno.serve(async (req) => {
       return Response.json({ account, balances });
     }
 
-    if (action === 'withdraw') {
-      const { amount, currency, role } = body;
-      const cur = String(currency || 'gbp').toLowerCase();
-      const amt = Number(amount);
-      if (!amt || amt <= 0) return Response.json({ error: 'Enter an amount greater than 0' }, { status: 400 });
-      if (!accountId) return Response.json({ error: 'Connect your Stripe account first' }, { status: 400 });
-      const acct = await stripeApi(`/accounts/${accountId}`);
-      if (!acct.payouts_enabled) {
-        return Response.json({ error: 'Complete your Stripe account setup before withdrawing' }, { status: 400 });
-      }
-      const balances = await computeBalances();
-      const key = role === 'promoter' ? `promoter:${cur}` : cur;
-      const b = balances.find((x) => x.key === key);
-      if (!b || b.available < amt) {
-        return Response.json({ error: `Insufficient available balance in ${cur.toUpperCase()}` }, { status: 400 });
-      }
-      const tr = await stripeApi('/transfers', {
-        method: 'POST',
-        body: formEncode({
-          amount: toMinor(amt, cur),
-          currency: cur,
-          destination: accountId,
-          'metadata[base44_app_id]': appId,
-          'metadata[user_id]': user.id,
-          'metadata[role]': role || 'host',
-        }),
-      });
-      await srv.entities.Payout.create({
-        user_email: user.email,
-        user_id: user.id,
-        role: role || 'host',
-        amount: amt,
-        currency: cur,
-        stripe_transfer_id: tr.id,
-        status: 'paid',
-      });
-      const newBalances = await computeBalances();
-      return Response.json({ ok: true, transfer_id: tr.id, balances: newBalances });
-    }
-
     return Response.json({ error: 'Unknown action' }, { status: 400 });
   } catch (error) {
     console.error('stripeConnect error:', error);
