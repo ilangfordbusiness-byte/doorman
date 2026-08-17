@@ -86,9 +86,7 @@ Deno.serve(async (req) => {
       status: 'pending',
     });
 
-    // TEST MODE: use the test key so the full flow can be validated end-to-end
-    // before going live. Flip back to STRIPE_SECRET_KEY once testing is confirmed.
-    const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_TEST_SECRET_KEY') || Deno.env.get('STRIPE_SECRET_KEY');
+    const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY');
     const params = new URLSearchParams();
     params.append('payment_method_types[]', 'card');
     params.append('mode', 'payment');
