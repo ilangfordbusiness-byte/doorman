@@ -83,15 +83,6 @@ export default function PromoterPanel() {
     load();
   }
 
-  async function markPaid(p) {
-    await base44.entities.Promoter.update(p.id, {
-      commission_paid: Number(p.commission_paid || 0) + Number(p.commission_owed || 0),
-      commission_owed: 0,
-    });
-    toast({ title: "Commission marked as paid" });
-    load();
-  }
-
   function saveDomain() {
     const v = persistLinkDomain(domainInput);
     setLinkDomain(v);
@@ -113,7 +104,6 @@ export default function PromoterPanel() {
   const sym = SYMBOL[cur] || "";
   const totalTickets = promoters.reduce((s, p) => s + Number(p.tickets_sold || 0), 0);
   const totalOwed = promoters.reduce((s, p) => s + Number(p.commission_owed || 0), 0);
-  const totalPaid = promoters.reduce((s, p) => s + Number(p.commission_paid || 0), 0);
 
   return (
     <div className="max-w-lg mx-auto px-4 pt-4 pb-8">
@@ -140,9 +130,6 @@ export default function PromoterPanel() {
           <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Commission Owed</p>
         </div>
       </div>
-      {totalPaid > 0 && (
-        <p className="text-xs text-muted-foreground mb-4">Commission paid out so far: {sym}{totalPaid.toFixed(2)}</p>
-      )}
 
       {/* Public link domain */}
       <div className="bg-card rounded-2xl border border-border p-4 mb-5">
@@ -232,11 +219,6 @@ export default function PromoterPanel() {
               </div>
             </div>
 
-            {Number(p.commission_owed || 0) > 0 && (
-              <Button variant="outline" size="sm" className="w-full h-9 rounded-lg mt-3 text-xs" onClick={() => markPaid(p)}>
-                Mark commission paid
-              </Button>
-            )}
             <Link to={`/promoter/${p.tracking_code}`} className="flex items-center justify-center gap-1 text-[11px] text-muted-foreground hover:text-foreground mt-2">
               <ExternalLink className="w-3 h-3" /> Promoter dashboard
             </Link>
