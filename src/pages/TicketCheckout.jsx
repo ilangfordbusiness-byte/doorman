@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useToast } from "@/components/ui/use-toast";
-import { getStoredRef, captureRef, getLinkDomain } from "@/lib/promoterRef";
+import { getStoredRef, captureRef, getLinkDomain, getPromoterByCode, computePromoterDiscount, promoterDiscountActive, discountLabel, usesRemaining, MIN_PAID } from "@/lib/promoterRef";
 import CheckoutSuccess from "@/components/checkout/CheckoutSuccess";
 import CheckoutCancelled from "@/components/checkout/CheckoutCancelled";
 
@@ -35,6 +35,7 @@ export default function TicketCheckout() {
   const [promoMsg, setPromoMsg] = useState("");
   const [applyingPromo, setApplyingPromo] = useState(false);
   const [paying, setPaying] = useState(false);
+  const [promoter, setPromoter] = useState(null);
 
   // Auth gate — require a DoorMan account before checkout. Return here (with ref)
   // after login so the purchase resumes exactly where they left off.
@@ -65,6 +66,11 @@ export default function TicketCheckout() {
       setEvent(events[0]);
       t.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
       setTiers(t);
+      const refCode = ref || getStoredRef(id);
+      if (refCode) {
+        const p = await getPromoterByCode(id, refCode);
+        if (p) setPromoter(p);
+      }
     } catch {
       setLoadError("Couldn't load tickets. Please try again.");
     }
@@ -136,8 +142,13 @@ export default function TicketCheckout() {
   const sym = SYMBOL[cur] || "";
   const tier = tiers.find((t) => t.id === selected);
   const unit = tier ? Number(tier.price) : 0;
-  const discount = promo ? unit * (promo.discount_percent / 100) : 0;
-  const total = Math.max(0, unit - discount);
+  const discActive = promoterDiscountActive(promoter);
+  const promoterDiscount = discActive ? computePromoterDiscount(unit, promoter).discount : 0;
+  const promoDiscount = promo ? unit * (promo.discount_percent / 100) : 0;
+  let total = unit - promoterDiscount - promoDiscount;
+  if (total < MIN_PAID) total = MIN_PAID;
+  if (total > unit) total = unit;
+  const discExhausted = !discActive && promoter && promoter.discount_type && promoter.discount_type !== "none" && Number(promoter.discount_value || 0) > 0;
 
   return (
     <div className="max-w-lg mx-auto px-4 pt-4 pb-8">
@@ -148,6 +159,14 @@ export default function TicketCheckout() {
         <h1 className="font-heading font-bold text-xl">Get Tickets</h1>
       </div>
       <p className="text-sm text-muted-foreground mb-4">{event.title}</p>
+
+      {(discActive || discExhausted) && (
+        <div className={`rounded-xl p-3 border text-xs mb-4 ${discActive ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-300" : "bg-secondary/40 border-border/50 text-muted-foreground"}`}>
+          {discActive
+            ? <>🎉 Promoter discount applied — <span className="font-semibold">{discountLabel(promoter, sym)}</span>{usesRemaining(promoter) !== null ? ` · ${usesRemaining(promoter)} left` : ""}</>
+            : "Promo code no longer active — showing full price."}
+        </div>
+      )}
 
       <div className="space-y-2 mb-5">
         {tiers.map((t) => {
@@ -165,7 +184,16 @@ export default function TicketCheckout() {
                   <p className="text-sm font-semibold">{t.name}</p>
                   <p className="text-xs text-muted-foreground">{soldOut ? "Sold out" : `${left} left`}</p>
                 </div>
-                <p className="text-sm font-bold">{sym}{Number(t.price).toFixed(2)}</p>
+                <div className="text-right">
+                  {discActive ? (
+                    <>
+                      <p className="text-xs text-muted-foreground line-through">{sym}{Number(t.price).toFixed(2)}</p>
+                      <p className="text-sm font-bold text-emerald-400">{sym}{computePromoterDiscount(Number(t.price), promoter).paid.toFixed(2)}</p>
+                    </>
+                  ) : (
+                    <p className="text-sm font-bold">{sym}{Number(t.price).toFixed(2)}</p>
+                  )}
+                </div>
               </div>
             </button>
           );
@@ -189,7 +217,8 @@ export default function TicketCheckout() {
 
           <div className="bg-secondary/40 rounded-xl p-4 border border-border/50 space-y-1.5 text-sm">
             <div className="flex justify-between"><span className="text-muted-foreground">Ticket ({tier?.name})</span><span>{sym}{unit.toFixed(2)}</span></div>
-            {promo && <div className="flex justify-between text-emerald-400"><span>Discount ({promo.discount_percent}%)</span><span>-{sym}{discount.toFixed(2)}</span></div>}
+            {discActive && promoterDiscount > 0 && <div className="flex justify-between text-emerald-400"><span>Promoter discount</span><span>-{sym}{promoterDiscount.toFixed(2)}</span></div>}
+            {promo && <div className="flex justify-between text-emerald-400"><span>Promo ({promo.discount_percent}%)</span><span>-{sym}{promoDiscount.toFixed(2)}</span></div>}
             <div className="flex justify-between font-bold pt-1.5 border-t border-border/50"><span>Total</span><span>{sym}{total.toFixed(2)}</span></div>
           </div>
 

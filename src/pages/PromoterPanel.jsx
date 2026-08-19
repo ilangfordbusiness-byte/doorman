@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { getLinkDomain, setLinkDomain as persistLinkDomain } from "@/lib/promoterRef";
+import { getLinkDomain, setLinkDomain as persistLinkDomain, discountLabel, usesRemaining } from "@/lib/promoterRef";
 
 const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
 
@@ -25,6 +25,13 @@ export default function PromoterPanel() {
   const [copiedCode, setCopiedCode] = useState("");
   const [linkDomain, setLinkDomain] = useState(getLinkDomain());
   const [domainInput, setDomainInput] = useState(getLinkDomain());
+  const [dtype, setDtype] = useState("none");
+  const [dvalue, setDvalue] = useState("");
+  const [dmax, setDmax] = useState("");
+  const [editDiscountId, setEditDiscountId] = useState(null);
+  const [editDtype, setEditDtype] = useState("none");
+  const [editDvalue, setEditDvalue] = useState("");
+  const [editDmax, setEditDmax] = useState("");
 
   useEffect(() => { load(); }, [id]);
 
@@ -63,8 +70,13 @@ export default function PromoterPanel() {
         total_sales: 0,
         commission_owed: 0,
         commission_paid: 0,
+        discount_type: dtype,
+        discount_value: dtype === "none" ? 0 : Number(dvalue) || 0,
+        discount_max_uses: dtype === "none" ? 0 : (Number(dmax) || 0),
+        discount_used_count: 0,
+        discount_given: 0,
       });
-      setName(""); setEmail(""); setCvalue("");
+      setName(""); setEmail(""); setCvalue(""); setDtype("none"); setDvalue(""); setDmax("");
       toast({ title: "Promoter added!" });
       load();
     } catch {
@@ -81,6 +93,27 @@ export default function PromoterPanel() {
   async function removePromoter(p) {
     await base44.entities.Promoter.delete(p.id);
     load();
+  }
+
+  async function saveDiscount(p) {
+    const type = editDtype;
+    const value = type === "none" ? 0 : Number(editDvalue) || 0;
+    const maxUses = type === "none" ? 0 : (Number(editDmax) || 0);
+    await base44.entities.Promoter.update(p.id, {
+      discount_type: type,
+      discount_value: value,
+      discount_max_uses: maxUses,
+    });
+    toast({ title: "Discount updated" });
+    setEditDiscountId(null);
+    load();
+  }
+
+  function startEditDiscount(p) {
+    setEditDiscountId(p.id);
+    setEditDtype(p.discount_type || "none");
+    setEditDvalue(p.discount_type && p.discount_type !== "none" ? String(p.discount_value || "") : "");
+    setEditDmax(p.discount_max_uses ? String(p.discount_max_uses) : "");
   }
 
   function saveDomain() {
@@ -163,6 +196,36 @@ export default function PromoterPanel() {
             className="h-10 flex-1"
           />
         </div>
+        <div>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">Guest discount (optional)</p>
+          <div className="flex gap-2">
+            <select
+              value={dtype}
+              onChange={(e) => setDtype(e.target.value)}
+              className="h-10 px-2 rounded-lg bg-secondary/50 border border-border text-sm flex-shrink-0"
+            >
+              <option value="none">No discount</option>
+              <option value="percent">% off</option>
+              <option value="flat">Flat off</option>
+            </select>
+            <Input
+              type="number"
+              placeholder={dtype === "percent" ? "e.g. 15" : dtype === "flat" ? `e.g. 5.00 (${sym})` : ""}
+              value={dvalue}
+              onChange={(e) => setDvalue(e.target.value)}
+              disabled={dtype === "none"}
+              className="h-10 flex-1"
+            />
+            <Input
+              type="number"
+              placeholder="Max (0=∞)"
+              value={dmax}
+              onChange={(e) => setDmax(e.target.value)}
+              disabled={dtype === "none"}
+              className="h-10 w-28"
+            />
+          </div>
+        </div>
         <Button className="w-full h-11 rounded-xl" onClick={addPromoter} disabled={saving || !name.trim() || cvalue === "" || !email.trim()}>
           {saving ? "Adding..." : "Add Promoter & Generate Link"}
         </Button>
@@ -218,6 +281,50 @@ export default function PromoterPanel() {
                 <p className="text-[9px] text-muted-foreground uppercase">Owed</p>
               </div>
             </div>
+
+            <div className="mt-3 rounded-lg bg-secondary/40 border border-border/50 p-2.5 text-xs">
+              {(() => {
+                const label = discountLabel(p, sym);
+                const rem = usesRemaining(p);
+                const used = Number(p.discount_used_count || 0);
+                return (
+                  <>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Discount</span>
+                      <span className={label ? "font-medium text-emerald-400" : "text-muted-foreground"}>{label || "None"}</span>
+                    </div>
+                    {label && (
+                      <div className="flex justify-between items-center mt-1">
+                        <span className="text-muted-foreground">Used</span>
+                        <span className="font-medium">{used}{rem !== null ? ` · ${rem} left` : " · ∞"}</span>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+
+            {editDiscountId === p.id ? (
+              <div className="mt-2 space-y-2">
+                <div className="flex gap-2">
+                  <select value={editDtype} onChange={(e) => setEditDtype(e.target.value)} className="h-9 px-2 rounded-lg bg-secondary/50 border border-border text-xs flex-shrink-0">
+                    <option value="none">No discount</option>
+                    <option value="percent">% off</option>
+                    <option value="flat">Flat off</option>
+                  </select>
+                  <Input type="number" placeholder={editDtype === "percent" ? "e.g. 15" : editDtype === "flat" ? `e.g. 5.00 (${sym})` : ""} value={editDvalue} onChange={(e) => setEditDvalue(e.target.value)} disabled={editDtype === "none"} className="h-9 flex-1" />
+                  <Input type="number" placeholder="Max (0=∞)" value={editDmax} onChange={(e) => setEditDmax(e.target.value)} disabled={editDtype === "none"} className="h-9 w-24" />
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" className="h-9 rounded-lg flex-1" onClick={() => saveDiscount(p)}>Save</Button>
+                  <Button size="sm" variant="outline" className="h-9 rounded-lg" onClick={() => setEditDiscountId(null)}>Cancel</Button>
+                </div>
+              </div>
+            ) : (
+              <Button variant="ghost" size="sm" className="w-full h-8 rounded-lg mt-2 text-xs" onClick={() => startEditDiscount(p)}>
+                Edit discount
+              </Button>
+            )}
 
             <Link to={`/promoter/${p.tracking_code}`} className="flex items-center justify-center gap-1 text-[11px] text-muted-foreground hover:text-foreground mt-2">
               <ExternalLink className="w-3 h-3" /> Promoter dashboard

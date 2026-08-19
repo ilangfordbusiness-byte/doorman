@@ -5,6 +5,7 @@ import { ArrowLeft, Ticket, TrendingUp, Wallet, MousePointerClick, CreditCard } 
 import { Button } from "@/components/ui/button";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useStripeStatus } from "@/hooks/useStripeStatus";
+import { discountLabel, usesRemaining } from "@/lib/promoterRef";
 
 const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
 
@@ -81,6 +82,18 @@ export default function PromoterDashboard() {
         <p className="font-heading font-bold text-lg">{promoter.name}</p>
         {event && <p className="text-sm text-muted-foreground">{event.title}</p>}
         <p className="text-[11px] text-muted-foreground mt-1">Commission: {rate}</p>
+        {(() => {
+          const label = discountLabel(promoter, sym);
+          const rem = usesRemaining(promoter);
+          const used = Number(promoter.discount_used_count || 0);
+          if (!label) return <p className="text-[11px] text-muted-foreground mt-0.5">Guest discount: None</p>;
+          return (
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Guest discount: <span className="text-emerald-400 font-medium">{label}</span>
+              {" · "}{used} used{rem !== null ? ` · ${rem} left` : " · ∞"}
+            </p>
+          );
+        })()}
       </div>
 
       {isOwner && stripeConnected === false && (

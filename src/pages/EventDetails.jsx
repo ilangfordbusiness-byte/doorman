@@ -21,7 +21,7 @@ import StatusBadge from "../components/StatusBadge";
 import WhoIsGoing from "../components/WhoIsGoing";
 import EventChat from "../components/EventChat";
 import moment from "moment";
-import { captureRef, getLinkDomain } from "@/lib/promoterRef";
+import { captureRef, getLinkDomain, discountLabel, promoterDiscountActive } from "@/lib/promoterRef";
 
 export default function EventDetails() {
   const { id } = useParams();
@@ -61,7 +61,7 @@ export default function EventDetails() {
     const ref = params.get("ref");
     if (ref) {
       captureRef(id, ref)
-        .then((res) => setRefStatus(res.valid ? { valid: true, name: res.promoter?.name } : { valid: false }))
+        .then((res) => setRefStatus(res.valid ? { valid: true, name: res.promoter?.name, promoter: res.promoter } : { valid: false }))
         .catch(() => setRefStatus({ valid: false }));
     }
   }, [id]);
@@ -226,7 +226,15 @@ export default function EventDetails() {
         {refStatus && (
           <div className={`rounded-xl p-3 border text-xs ${refStatus.valid ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-300" : "bg-amber-500/10 border-amber-500/20 text-amber-300"}`}>
             {refStatus.valid
-              ? `Referred by ${refStatus.name || "a promoter"} — your ticket will be credited to them.`
+              ? (() => {
+                  const sym = ({ gbp: "£", eur: "€", usd: "$" })[String(event.currency || "gbp").toLowerCase()] || "";
+                  const label = discountLabel(refStatus.promoter, sym);
+                  const active = promoterDiscountActive(refStatus.promoter);
+                  const exhausted = refStatus.promoter && refStatus.promoter.discount_type && refStatus.promoter.discount_type !== "none" && Number(refStatus.promoter.discount_value || 0) > 0 && !active;
+                  if (label && active) return `Referred by ${refStatus.name || "a promoter"} — ${label} your ticket at checkout.`;
+                  if (exhausted) return `Referred by ${refStatus.name || "a promoter"} — promo code no longer active.`;
+                  return `Referred by ${refStatus.name || "a promoter"} — your ticket will be credited to them.`;
+                })()
               : "This referral code wasn't recognized — you can still buy tickets, but no promoter will be credited."}
           </div>
         )}
