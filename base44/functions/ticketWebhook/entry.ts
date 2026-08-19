@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
+import { sendTicketConfirmationEmail } from '../../shared/tickets.ts';
 
 // Verify a Stripe webhook signature using Web Crypto (async SubtleCrypto).
 async function verifyStripeSignature(rawBody, sigHeader, secret) {
@@ -100,6 +101,16 @@ Deno.serve(async (req) => {
         stripe_payment_intent_id: session.payment_intent || '',
         guestlist_entry_id: entry.id,
       });
+
+      // Email the guest their ticket (QR + pass link). Non-blocking: a failure
+      // is logged but never blocks the purchase.
+      try {
+        const events = await base44.asServiceRole.entities.Event.filter({ id: order.event_id });
+        const event = events[0];
+        if (event) await sendTicketConfirmationEmail(base44, entry, event);
+      } catch (e) {
+        console.log('ticketWebhook email send error', e?.message || String(e));
+      }
 
       // Update promoter running totals on confirmed payment
       if (order.promoter_id) {

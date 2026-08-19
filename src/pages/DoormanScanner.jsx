@@ -267,6 +267,8 @@ export default function DoormanScanner() {
           <div className={`w-full max-w-sm rounded-3xl p-8 text-center border-2 ${
             result.valid
               ? "bg-emerald-500/10 border-emerald-500/30"
+              : result.already_used
+              ? "bg-amber-500/10 border-amber-500/30"
               : "bg-red-500/10 border-red-500/30"
           }`}>
             {result.valid ? (
@@ -275,6 +277,11 @@ export default function DoormanScanner() {
                 <h2 className="font-heading font-bold text-2xl text-emerald-400 mb-1">
                   {result.checked_in ? "Checked In!" : "Valid"}
                 </h2>
+              </>
+            ) : result.already_used ? (
+              <>
+                <XCircle className="w-16 h-16 text-amber-400 mx-auto mb-4" />
+                <h2 className="font-heading font-bold text-2xl text-amber-400 mb-1">Already Used</h2>
               </>
             ) : (
               <>
@@ -289,7 +296,12 @@ export default function DoormanScanner() {
             {result.event_name && (
               <p className="text-sm text-zinc-400 mt-1">{result.event_name}</p>
             )}
-            {result.error && (
+            {result.already_used && result.checked_in_at_display && (
+              <p className="text-sm text-amber-300 mt-3 bg-amber-500/10 rounded-xl px-4 py-2">
+                {result.message || result.error}
+              </p>
+            )}
+            {result.error && !result.already_used && (
               <p className="text-sm text-red-400 mt-3 bg-red-500/10 rounded-xl px-4 py-2">{result.error}</p>
             )}
             {result.plus_one && (

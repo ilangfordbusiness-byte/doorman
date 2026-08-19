@@ -34,3 +34,99 @@ export function currencySymbol(code) {
 export function formatMoney(minor, code) {
   return currencySymbol(code) + toMajor(minor).toFixed(2);
 }
+
+// --- Static single-use QR + ticket email helpers ---
+
+// Build the static QR payload for a guestlist entry. This is generated once
+// (at ticket issue time) and never changes — the same payload is embedded in
+// the email QR and rendered on the guest pass. validateQR accepts this format.
+export function buildQrPayload(entry) {
+  const payload = JSON.stringify({
+    eid: entry.event_id,
+    gid: entry.id,
+    sec: entry.qr_secret,
+  });
+  return btoa(payload);
+}
+
+export function buildQrImageUrl(entry) {
+  const payload = buildQrPayload(entry);
+  return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(payload)}&bgcolor=FFFFFF&color=000000`;
+}
+
+function escapeHtml(str) {
+  return String(str || "").replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[c]);
+}
+
+function formatEventDate(dateStr) {
+  if (!dateStr) return "";
+  try {
+    return new Date(dateStr).toLocaleDateString("en-GB", {
+      weekday: "long", day: "numeric", month: "long", year: "numeric",
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
+export function buildTicketEmailHtml(entry, event) {
+  const qrImg = buildQrImageUrl(entry);
+  const passLink = `https://thedoorman.app/pass/${event.id}`;
+  const dateStr = formatEventDate(event.date);
+  const venueParts = [event.venue_name, event.address].filter(Boolean).join(" · ");
+  const title = escapeHtml(event.title);
+  const guestName = escapeHtml(entry.guest_name);
+  const tierNote = entry.notes ? escapeHtml(entry.notes) : "";
+
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#0a0a12;font-family:Inter,Segoe UI,Arial,sans-serif;">
+  <div style="max-width:480px;margin:0 auto;background:#0a0a12;color:#e8e8f0;padding:32px 24px;">
+    <p style="margin:0 0 24px;font-size:11px;letter-spacing:0.25em;text-transform:uppercase;color:#7a7a9a;text-align:center;">DoorMan · Ticket Confirmation</p>
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#ffffff;text-align:center;">${title}</h1>
+    ${guestName ? `<p style="margin:0 0 24px;text-align:center;color:#b0b0c8;">${guestName}</p>` : ""}
+    <div style="background:#15151f;border:1px solid #2a2a3a;border-radius:16px;padding:24px;text-align:center;">
+      <img src="${qrImg}" alt="Your QR ticket" width="240" height="240" style="display:block;margin:0 auto 16px;border-radius:12px;background:#ffffff;padding:8px;" />
+      <p style="margin:0 0 6px;font-size:13px;color:#7a7a9a;">Show this code at the door</p>
+      <p style="margin:0;font-size:11px;color:#5a5a7a;">Single-use · valid until first scan</p>
+    </div>
+    <div style="background:#15151f;border:1px solid #2a2a3a;border-radius:16px;padding:20px;margin-top:16px;">
+      <p style="margin:0 0 12px;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#7a7a9a;">Event Details</p>
+      <div style="font-size:14px;color:#e8e8f0;line-height:1.7;">
+        ${dateStr ? `<div><span style="color:#7a7a9a;">Date:</span> ${escapeHtml(dateStr)}</div>` : ""}
+        ${event.start_time ? `<div><span style="color:#7a7a9a;">Time:</span> ${escapeHtml(event.start_time)}${event.end_time ? " – " + escapeHtml(event.end_time) : ""}</div>` : ""}
+        ${venueParts ? `<div><span style="color:#7a7a9a;">Venue:</span> ${escapeHtml(venueParts)}</div>` : ""}
+        ${tierNote ? `<div><span style="color:#7a7a9a;">Ticket:</span> ${tierNote}</div>` : ""}
+      </div>
+    </div>
+    <div style="text-align:center;margin:24px 0 8px;">
+      <a href="${passLink}" style="display:inline-block;background:#7c3aed;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:14px 28px;border-radius:12px;">View My Ticket</a>
+    </div>
+    <p style="margin:8px 0 0;text-align:center;font-size:11px;color:#5a5a7a;">Or visit <a href="${passLink}" style="color:#7c3aed;">thedoorman.app</a> — log in with the email you used to purchase.</p>
+    <p style="margin:24px 0 0;text-align:center;font-size:10px;color:#3a3a4a;">Powered by DoorMan</p>
+  </div>
+</body>
+</html>`;
+}
+
+// Send the ticket confirmation email (with embedded QR + pass link).
+// Never throws — returns { sent, error } so callers can log failures without
+// blocking the purchase.
+export async function sendTicketConfirmationEmail(base44, entry, event) {
+  if (!entry || !entry.guest_email) return { sent: false, error: "No guest email" };
+  try {
+    const html = buildTicketEmailHtml(entry, event);
+    await base44.asServiceRole.integrations.Core.SendEmail({
+      to: entry.guest_email,
+      subject: `Your ticket for ${event.title}`,
+      body: html,
+    });
+    return { sent: true };
+  } catch (e) {
+    console.log("sendTicketConfirmationEmail error", e?.message || String(e));
+    return { sent: false, error: e?.message || String(e) };
+  }
+}

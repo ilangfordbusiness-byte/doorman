@@ -58,6 +58,10 @@ export default function GuestlistManagement() {
     }
     await base44.entities.GuestlistEntry.update(guest.id, updates);
     toast({ title: `Guest ${status}` });
+    // Email the guest their free ticket (QR + pass link) once approved.
+    if (status === "approved" && guest.guest_email && !event?.is_paid) {
+      base44.functions.invoke("sendTicketEmail", { entry_id: guest.id }).catch(() => {});
+    }
     loadData();
   }
 

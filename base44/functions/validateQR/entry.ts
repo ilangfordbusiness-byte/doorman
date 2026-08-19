@@ -22,16 +22,10 @@ Deno.serve(async (req) => {
       return Response.json({ valid: false, error: 'Invalid QR code format' });
     }
 
-    const { eid, gid, sec, ts, n } = payload;
+    const { eid, gid, sec } = payload;
 
-    if (!eid || !gid || !sec || !ts) {
+    if (!eid || !gid || !sec) {
       return Response.json({ valid: false, error: 'Incomplete QR data' });
-    }
-
-    // Check timestamp - QR valid for 90 seconds to allow for scan → review → check-in flow
-    const age = Date.now() - ts;
-    if (age > 90000 || age < -10000) {
-      return Response.json({ valid: false, error: 'QR code expired. Ask guest to refresh their pass.' });
     }
 
     // Fetch the guestlist entry
@@ -67,15 +61,21 @@ Deno.serve(async (req) => {
       return Response.json({ valid: false, error: "Not authorized for this event" }, { status: 403 });
     }
 
-    // Check if already checked in
+    // Single-use: a ticket that has already been scanned cannot be reused.
     if (entry.status === 'checked_in') {
+      const scannedAt = entry.checked_in_at
+        ? new Date(entry.checked_in_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
+        : 'previously';
       return Response.json({
         valid: false,
-        error: 'Already checked in',
+        already_used: true,
+        error: 'This ticket has already been used',
+        message: `Already checked in at ${scannedAt}`,
         guest_name: entry.guest_name,
         event_name: event?.title,
         status: 'checked_in',
         checked_in_at: entry.checked_in_at,
+        checked_in_at_display: scannedAt,
       });
     }
 
@@ -90,14 +90,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    // If action is check_in, mark the guest
+    // If action is check_in, mark the guest (single-use: status becomes checked_in)
     if (action === 'check_in') {
       await base44.asServiceRole.entities.GuestlistEntry.update(gid, {
         status: 'checked_in',
         checked_in_at: new Date().toISOString(),
         checked_in_by: user.email,
-        // Rotate the QR secret so old codes can't be reused
-        qr_secret: crypto.randomUUID(),
       });
 
       return Response.json({

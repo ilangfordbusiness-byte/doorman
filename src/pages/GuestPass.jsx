@@ -27,6 +27,11 @@ export default function GuestPass() {
   }, [id]);
 
   async function loadPass() {
+    const authed = await base44.auth.isAuthenticated();
+    if (!authed) {
+      base44.auth.redirectToLogin(window.location.href);
+      return;
+    }
     const me = await base44.auth.me();
     const events = await base44.entities.Event.filter({ id });
     if (!events.length) return navigate("/");
@@ -41,7 +46,6 @@ export default function GuestPass() {
 
     if (["approved", "invited"].includes(entries[0].status)) {
       generateQR(entries[0]);
-      intervalRef.current = setInterval(() => generateQR(entries[0]), 60000);
     }
 
     setLoading(false);
@@ -101,17 +105,12 @@ export default function GuestPass() {
   }
 
   function generateQR(entry) {
-    const timestamp = Date.now();
-    const nonce = Math.random().toString(36).substring(2, 10);
     const payload = JSON.stringify({
       eid: entry.event_id,
       gid: entry.id,
       sec: entry.qr_secret,
-      ts: timestamp,
-      n: nonce,
     });
-    const encoded = btoa(payload);
-    setQrData(encoded);
+    setQrData(btoa(payload));
   }
 
   if (loading) return <LoadingSpinner fullScreen />;
@@ -155,15 +154,10 @@ export default function GuestPass() {
                       key={qrData}
                     />
                   </div>
-                  {/* Refresh indicator */}
-                  <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-card border border-border rounded-full px-3 py-1">
-                    <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-                    <span className="text-[10px] text-muted-foreground font-medium">Live</span>
-                  </div>
                 </div>
                 <div className="flex items-center gap-1.5 mt-5 text-xs text-muted-foreground">
                   <Shield className="w-3.5 h-3.5" />
-                  <span>Secure rotating code · Do not screenshot</span>
+                  <span>Single-use code · Valid until first scan</span>
                 </div>
               </>
             )}
