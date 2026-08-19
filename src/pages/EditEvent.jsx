@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import LoadingSpinner from "../components/LoadingSpinner";
 import TicketingPanel from "../components/TicketingPanel";
+import AddressAutocomplete from "../components/AddressAutocomplete";
 
 export default function EditEvent() {
   const { id } = useParams();
@@ -22,6 +23,7 @@ export default function EditEvent() {
   const [coverFile, setCoverFile] = useState(null);
   const [coverId, setCoverId] = useState("");
   const [coverPreview, setCoverPreview] = useState(null);
+  const [pickedGeo, setPickedGeo] = useState(null);
   const [form, setForm] = useState({
     title: "",
     date: "",
@@ -102,9 +104,11 @@ export default function EditEvent() {
       cover_image = `__cover__${coverId}`;
     }
 
-    // Re-geocode if address changed
+    // Use coordinates captured from autocomplete; fall back to geocoding if address changed
     let geoFields = {};
-    if (form.address) {
+    if (pickedGeo) {
+      geoFields = { venue_lat: pickedGeo.lat, venue_lng: pickedGeo.lng };
+    } else if (form.address) {
       try {
         const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(form.address)}&limit=1`);
         const geoData = await geoRes.json();
@@ -187,7 +191,14 @@ export default function EditEvent() {
         <div>
           <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Venue</Label>
           <Input placeholder="Venue name" value={form.venue_name} onChange={(e) => updateForm("venue_name", e.target.value)} className="bg-secondary/50 border-border h-12 rounded-xl mb-2" />
-          <Input placeholder="Full address" value={form.address} onChange={(e) => updateForm("address", e.target.value)} className="bg-secondary/50 border-border h-12 rounded-xl" />
+          <AddressAutocomplete
+            value={form.address}
+            onChange={(v) => updateForm("address", v)}
+            onPick={(p) => {
+              setPickedGeo({ lat: p.lat, lng: p.lng });
+              if (p.venue_name && !form.venue_name) updateForm("venue_name", p.venue_name);
+            }}
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-3">

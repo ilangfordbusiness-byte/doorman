@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { useStripeStatus } from "@/hooks/useStripeStatus";
+import AddressAutocomplete from "../components/AddressAutocomplete";
 
 const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
 
@@ -41,6 +42,7 @@ export default function CreateEvent() {
     currency: "gbp",
     visibility: "show_names",
   });
+  const [pickedGeo, setPickedGeo] = useState(null);
   const [promoters, setPromoters] = useState([]);
   const [pName, setPName] = useState("");
   const [pEmail, setPEmail] = useState("");
@@ -119,10 +121,10 @@ export default function CreateEvent() {
       if (!me?.email) throw new Error("You must be signed in to create an event.");
       const invite_code = Math.random().toString(36).substring(2, 10).toUpperCase();
 
-      // Geocode address for location-based auto-checkout (5s timeout, never blocks publish)
-      let venue_lat = null;
-      let venue_lng = null;
-      if (form.address) {
+      // Use coordinates captured from autocomplete when available; fall back to geocoding
+      let venue_lat = pickedGeo?.lat || null;
+      let venue_lng = pickedGeo?.lng || null;
+      if (form.address && (!venue_lat || !venue_lng)) {
         try {
           const controller = new AbortController();
           const timeout = setTimeout(() => controller.abort(), 5000);
@@ -281,11 +283,13 @@ export default function CreateEvent() {
             onChange={(e) => updateForm("venue_name", e.target.value)}
             className="bg-secondary/50 border-border h-12 rounded-xl mb-2"
           />
-          <Input
-            placeholder="Full address"
+          <AddressAutocomplete
             value={form.address}
-            onChange={(e) => updateForm("address", e.target.value)}
-            className="bg-secondary/50 border-border h-12 rounded-xl"
+            onChange={(v) => updateForm("address", v)}
+            onPick={(p) => {
+              setPickedGeo({ lat: p.lat, lng: p.lng });
+              if (p.venue_name && !form.venue_name) updateForm("venue_name", p.venue_name);
+            }}
           />
         </div>
 
