@@ -117,11 +117,16 @@ Deno.serve(async (req) => {
         try {
           const promoter = await base44.asServiceRole.entities.Promoter.get(order.promoter_id);
           if (promoter) {
-            await base44.asServiceRole.entities.Promoter.update(promoter.id, {
+            const patch = {
               tickets_sold: Number(promoter.tickets_sold || 0) + Number(order.quantity || 1),
               total_sales: Number(promoter.total_sales || 0) + Number(order.paid_amount || 0),
               commission_owed: Number(promoter.commission_owed || 0) + Number(order.commission_amount || 0),
-            });
+            };
+            if (Number(order.promoter_discount_amount || 0) > 0) {
+              patch.discount_used_count = Number(promoter.discount_used_count || 0) + 1;
+              patch.discount_given = Number(promoter.discount_given || 0) + Number(order.promoter_discount_amount || 0);
+            }
+            await base44.asServiceRole.entities.Promoter.update(promoter.id, patch);
           }
         } catch (e) {
           console.log('ticketWebhook promoter update error', e.message);

@@ -26,6 +26,31 @@ export function applyDiscount(unitMinor, discountPercent) {
   return { discount, paid };
 }
 
+// Whether the promoter's auto-discount is configured and still has uses
+// remaining. max_uses = 0 means unlimited.
+export function promoterDiscountAvailable(promoter) {
+  if (!promoter) return false;
+  const type = promoter.discount_type;
+  if (!type || type === 'none' || Number(promoter.discount_value || 0) <= 0) return false;
+  const maxUses = Number(promoter.discount_max_uses || 0);
+  if (maxUses === 0) return true;
+  return Number(promoter.discount_used_count || 0) < maxUses;
+}
+
+// Compute the promoter discount amount (minor units) for a ticket face value.
+// Returns 0 if the promoter has no discount configured. Does not floor the paid
+// amount — the caller combines it with any promo-code discount and floors once.
+export function computePromoterDiscountMinor(unitMinor, promoter) {
+  if (!promoter) return 0;
+  const type = promoter.discount_type;
+  const value = Number(promoter.discount_value || 0);
+  if (!type || type === 'none' || value <= 0) return 0;
+  if (type === 'percent') {
+    return Math.min(unitMinor, Math.round(unitMinor * (value / 100)));
+  }
+  return Math.min(unitMinor, toMinor(value));
+}
+
 export function currencySymbol(code) {
   const map = { gbp: "£", eur: "€", usd: "$" };
   return map[String(code).toLowerCase()] || "";

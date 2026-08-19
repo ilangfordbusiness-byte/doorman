@@ -1,5 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
-import { toMinor, toMajor, computeFeeMinor, applyDiscount } from '../../shared/tickets.ts';
+import { toMinor, toMajor, computeFeeMinor, computePromoterDiscountMinor, promoterDiscountAvailable, MIN_PAID_MINOR } from '../../shared/tickets.ts';
 
 Deno.serve(async (req) => {
   try {
@@ -22,9 +22,25 @@ Deno.serve(async (req) => {
     const currency = String(event.currency || 'gbp').toLowerCase();
 
     const unitMinor = toMinor(tier.price);
+
+    // Promoter / affiliate attribution (last-touch, persisted client-side per event).
+    let promoterRecord = null;
+    if (promoter_code) {
+      const code = String(promoter_code).trim();
+      const promoters = await base44.asServiceRole.entities.Promoter.filter({ event_id: tier.event_id, tracking_code: code, status: 'active' });
+      promoterRecord = promoters[0] || null;
+    }
+
+    // Promoter auto-discount: applies automatically from the promoter's link while
+    // uses remain. Commission is later calculated on the discounted paid amount.
+    let promoterDiscountMinor = 0;
+    if (promoterRecord && promoterDiscountAvailable(promoterRecord)) {
+      promoterDiscountMinor = computePromoterDiscountMinor(unitMinor, promoterRecord);
+    }
+
+    // Promo code discount (percentage of face value), applied on top of the promoter discount.
     let discountPercent = 0;
     let promoRecord = null;
-
     if (promo_code) {
       const code = String(promo_code).trim().toUpperCase();
       const codes = await base44.asServiceRole.entities.PromoCode.filter({ event_id: tier.event_id, code });
@@ -40,20 +56,26 @@ Deno.serve(async (req) => {
       }
       discountPercent = Number(promoRecord.discount_percent || 0);
     }
+    const promoDiscountMinor = promoRecord ? Math.round(unitMinor * (discountPercent / 100)) : 0;
 
-    const { discount, paid } = applyDiscount(unitMinor, discountPercent);
+    // Combine discounts and floor the paid amount at the platform minimum. If the
+    // combined discount would breach the floor, the promo portion is reduced first
+    // (the promoter discount is the primary, auto-applied one).
+    const capDiscount = Math.max(0, unitMinor - MIN_PAID_MINOR);
+    let promoDiscountFinal = promoDiscountMinor;
+    let totalDiscountMinor = promoterDiscountMinor + promoDiscountFinal;
+    if (totalDiscountMinor > capDiscount) {
+      promoDiscountFinal = Math.max(0, capDiscount - promoterDiscountMinor);
+      totalDiscountMinor = promoterDiscountMinor + promoDiscountFinal;
+    }
+    const paid = unitMinor - totalDiscountMinor;
+
     const feeMinor = computeFeeMinor(paid);
     let hostNetMinor = paid - feeMinor;
 
-    // Promoter / affiliate attribution (last-touch, persisted client-side per event).
-    // Commission is deducted from what the host actually earns, on top of the platform fee.
-    let promoterRecord = null;
+    // Commission is deducted from what the host actually earns, on top of the
+    // platform fee, and is calculated on the discounted price the guest pays.
     let commissionMinor = 0;
-    if (promoter_code) {
-      const code = String(promoter_code).trim();
-      const promoters = await base44.asServiceRole.entities.Promoter.filter({ event_id: tier.event_id, tracking_code: code, status: 'active' });
-      promoterRecord = promoters[0] || null;
-    }
     if (promoterRecord) {
       if (promoterRecord.commission_type === 'flat') {
         commissionMinor = toMinor(promoterRecord.commission_value) * quantity;
@@ -75,7 +97,8 @@ Deno.serve(async (req) => {
       quantity,
       unit_price: toMajor(unitMinor),
       discount_percent: discountPercent,
-      discount_amount: toMajor(discount),
+      discount_amount: toMajor(totalDiscountMinor),
+      promoter_discount_amount: toMajor(promoterDiscountMinor),
       paid_amount: toMajor(paid),
       platform_fee: toMajor(feeMinor),
       host_net: toMajor(hostNetMinor),
