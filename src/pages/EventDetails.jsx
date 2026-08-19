@@ -241,14 +241,14 @@ export default function EventDetails() {
 
         {event.address && (
           <a
-            href={`https://www.google.com/maps/dir/?api=1${event.venue_lat && event.venue_lng ? `&destination=${event.venue_lat},${event.venue_lng}` : `&destination=${encodeURIComponent(event.address)}`}`}
+            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.address)}`}
             target="_blank"
             rel="noopener noreferrer"
             className="block bg-secondary/50 rounded-xl p-3 border border-border/50 hover:border-primary/50 hover:bg-secondary transition-colors group"
           >
             <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
               <MapPin className="w-3.5 h-3.5" />
-              <p className="text-xs uppercase tracking-wider">Address · Tap for directions</p>
+              <p className="text-xs uppercase tracking-wider">Address · Tap to open in maps</p>
             </div>
             <p className="text-sm text-foreground group-hover:text-primary transition-colors">{event.address}</p>
           </a>

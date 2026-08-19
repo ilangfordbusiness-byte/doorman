@@ -11,7 +11,6 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import LoadingSpinner from "../components/LoadingSpinner";
 import TicketingPanel from "../components/TicketingPanel";
-import AddressAutocomplete from "../components/AddressAutocomplete";
 
 export default function EditEvent() {
   const { id } = useParams();
@@ -23,8 +22,6 @@ export default function EditEvent() {
   const [coverFile, setCoverFile] = useState(null);
   const [coverId, setCoverId] = useState("");
   const [coverPreview, setCoverPreview] = useState(null);
-  const [pickedGeo, setPickedGeo] = useState(null);
-  const [addressConfirmed, setAddressConfirmed] = useState(false);
   const [form, setForm] = useState({
     title: "",
     date: "",
@@ -80,7 +77,6 @@ export default function EditEvent() {
       currency: evt.currency || "gbp",
       visibility: evt.visibility || "show_names",
     });
-    setAddressConfirmed(!!evt.address);
 
     setLoading(false);
   }
@@ -96,11 +92,6 @@ export default function EditEvent() {
       return;
     }
 
-    if (form.address && !addressConfirmed) {
-      setError("Please select your address from the autocomplete suggestions, or clear the field to skip.");
-      return;
-    }
-
     setSaving(true);
     let cover_image = coverPreview && !coverFile ? coverPreview : "";
 
@@ -111,14 +102,10 @@ export default function EditEvent() {
       cover_image = `__cover__${coverId}`;
     }
 
-    // Coordinates come from the Google Places autocomplete selection
-    let geoFields = pickedGeo ? { venue_lat: pickedGeo.lat, venue_lng: pickedGeo.lng } : {};
-
     await base44.entities.Event.update(id, {
       ...form,
       cover_image,
       capacity: form.capacity ? Number(form.capacity) : null,
-      ...geoFields,
     });
 
     toast({ title: "Event updated!" });
@@ -187,15 +174,7 @@ export default function EditEvent() {
         <div>
           <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Venue</Label>
           <Input placeholder="Venue name" value={form.venue_name} onChange={(e) => updateForm("venue_name", e.target.value)} className="bg-secondary/50 border-border h-12 rounded-xl mb-2" />
-          <AddressAutocomplete
-            value={form.address}
-            onChange={(v) => { updateForm("address", v); setAddressConfirmed(false); }}
-            onPick={(p) => {
-              setPickedGeo({ lat: p.lat, lng: p.lng });
-              setAddressConfirmed(true);
-              if (p.venue_name && !form.venue_name) updateForm("venue_name", p.venue_name);
-            }}
-          />
+          <Input placeholder="Full address" value={form.address} onChange={(e) => updateForm("address", e.target.value)} className="bg-secondary/50 border-border h-12 rounded-xl" />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
