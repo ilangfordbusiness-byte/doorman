@@ -1,12 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { ArrowLeft, UserPlus, Users, Check, X, UserCheck } from "lucide-react";
+import { ArrowLeft, UserPlus, Users, Check, X, UserCheck, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import LoadingSpinner from "../components/LoadingSpinner";
 import FriendProfile from "../components/FriendProfile";
 import FriendsSearch from "../components/FriendsSearch";
+
+const PAGE_SIZE = 20;
 
 export default function Friends() {
   const { toast } = useToast();
@@ -19,64 +21,71 @@ export default function Friends() {
   const [sentSet, setSentSet] = useState(new Set());
   const [viewingFriend, setViewingFriend] = useState(null);
 
+  // Paginated suggestions state
+  const [sugLoading, setSugLoading] = useState(false);
+  const [sugHasMore, setSugHasMore] = useState(false);
+  const [sugTotal, setSugTotal] = useState(0);
+  const sentinelRef = useRef(null);
+
   useEffect(() => {
     load();
   }, []);
 
   async function load() {
-    const user = await base44.auth.me();
-    setMe(user);
+    try {
+      const user = await base44.auth.me();
+      setMe(user);
 
-    // All friend requests involving me
-    const [sent, received, myEntries] = await Promise.all([
-      base44.entities.FriendRequest.filter({ sender_email: user.email }),
-      base44.entities.FriendRequest.filter({ receiver_email: user.email }),
-      base44.entities.GuestlistEntry.filter({ guest_email: user.email }),
-    ]);
+      const [sent, received] = await Promise.all([
+        base44.entities.FriendRequest.filter({ sender_email: user.email }),
+        base44.entities.FriendRequest.filter({ receiver_email: user.email }),
+      ]);
 
-    // Friends = accepted requests
-    const acceptedSent = sent.filter((r) => r.status === "accepted").map((r) => ({ email: r.receiver_email, name: r.receiver_name, picture: r.receiver_picture }));
-    const acceptedReceived = received.filter((r) => r.status === "accepted").map((r) => ({ email: r.sender_email, name: r.sender_name, picture: r.sender_picture }));
-    setFriends([...acceptedSent, ...acceptedReceived]);
+      // Friends = accepted requests
+      const acceptedSent = sent.filter((r) => r.status === "accepted").map((r) => ({ email: r.receiver_email, name: r.receiver_name, picture: r.receiver_picture }));
+      const acceptedReceived = received.filter((r) => r.status === "accepted").map((r) => ({ email: r.sender_email, name: r.sender_name, picture: r.sender_picture }));
+      setFriends([...acceptedSent, ...acceptedReceived]);
 
-    // Pending incoming requests
-    setRequests(received.filter((r) => r.status === "pending"));
+      // Pending incoming requests
+      setRequests(received.filter((r) => r.status === "pending"));
 
-    // Already connected emails
-    const sentEmails = new Set(sent.map((r) => r.receiver_email));
-    setSentSet(sentEmails);
-    const connectedEmails = new Set([
-      user.email,
-      ...sent.map((r) => r.receiver_email),
-      ...received.map((r) => r.sender_email),
-    ]);
-
-    // Suggestions from co-attendees only (no User.list() needed)
-    const myEventIds = [...new Set(myEntries.map((e) => e.event_id))];
-    const suggestedEmails = new Set();
-    const suggestedUsers = [];
-
-    if (myEventIds.length > 0) {
-      const coAttendees = await Promise.all(
-        myEventIds.map((eid) => base44.entities.GuestlistEntry.filter({ event_id: eid }))
-      );
-      const flat = coAttendees.flat().filter((e) => e.guest_email && !connectedEmails.has(e.guest_email));
-      flat.forEach((e) => {
-        if (!suggestedEmails.has(e.guest_email)) {
-          suggestedEmails.add(e.guest_email);
-          suggestedUsers.push({
-            email: e.guest_email,
-            full_name: e.guest_name || e.guest_email,
-            profile_picture: "",
-            reason: "Attended same event",
-          });
-        }
-      });
-    }
-
-    setSuggestions(suggestedUsers.slice(0, 20));
+      // Already-sent emails (for "Sent" label on suggestions)
+      setSentSet(new Set(sent.map((r) => r.receiver_email)));
+    } catch {}
     setLoading(false);
+    loadSuggestions(true);
   }
+
+  async function loadSuggestions(reset) {
+    if (sugLoading) return;
+    setSugLoading(true);
+    try {
+      const offset = reset ? 0 : suggestions.length;
+      const res = await base44.functions.invoke("getFriendSuggestions", { offset, limit: PAGE_SIZE });
+      const data = res.data;
+      if (data?.error) throw new Error(data.error);
+      const items = data.items || [];
+      setSuggestions(reset ? items : [...suggestions, ...items]);
+      setSugHasMore(!!data.hasMore);
+      setSugTotal(data.total || 0);
+    } catch {
+      if (reset) setSuggestions([]);
+    }
+    setSugLoading(false);
+  }
+
+  // Infinite scroll: when the sentinel is visible, load the next page.
+  useEffect(() => {
+    if (tab !== "suggestions" || !sugHasMore || sugLoading) return;
+    const el = sentinelRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) loadSuggestions(false); },
+      { rootMargin: "300px" }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [tab, sugHasMore, sugLoading, suggestions.length]);
 
   async function sendRequest(target) {
     setSentSet((prev) => new Set([...prev, target.email]));
@@ -158,18 +167,35 @@ export default function Friends() {
 
           {tab === "suggestions" && (
             <div className="space-y-2">
-              {suggestions.length === 0 && <Empty message="No suggestions right now" />}
-              {suggestions.map((u) => (
-                <UserRow key={u.email} user={u} reason={u.reason}>
-                  {sentSet.has(u.email) ? (
-                    <span className="text-xs text-muted-foreground font-medium">Sent</span>
-                  ) : (
-                    <Button size="sm" className="rounded-full h-8 gap-1 text-xs" onClick={() => sendRequest(u)}>
-                      <UserPlus className="w-3.5 h-3.5" /> Add
-                    </Button>
-                  )}
-                </UserRow>
-              ))}
+              {suggestions.length === 0 && !sugLoading && (
+                <Empty message="No suggestions right now" />
+              )}
+              {suggestions.map((u) => {
+                const mutual = Number(u.mutual || 0);
+                const reason = mutual > 0 ? `${mutual} mutual friend${mutual === 1 ? "" : "s"}` : "";
+                return (
+                  <UserRow key={u.email} user={u} reason={reason}>
+                    {sentSet.has(u.email) ? (
+                      <span className="text-xs text-muted-foreground font-medium">Sent</span>
+                    ) : (
+                      <Button size="sm" className="rounded-full h-8 gap-1 text-xs" onClick={() => sendRequest(u)}>
+                        <UserPlus className="w-3.5 h-3.5" /> Add
+                      </Button>
+                    )}
+                  </UserRow>
+                );
+              })}
+              {sugHasMore && <div ref={sentinelRef} className="h-10" />}
+              {sugLoading && (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
+                </div>
+              )}
+              {!sugHasMore && suggestions.length > 0 && !sugLoading && (
+                <p className="text-center text-xs text-muted-foreground py-4">
+                  {sugTotal > 0 ? `That's everyone (${sugTotal})` : ""}
+                </p>
+              )}
             </div>
           )}
 
