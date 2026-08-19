@@ -1,21 +1,26 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { ArrowLeft, Calendar, Clock, MapPin, Shirt, Shield } from "lucide-react";
+import { ArrowLeft, Shield, Send, ChevronLeft, ChevronRight, Clock as ClockIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import StatusBadge from "../components/StatusBadge";
 import LoadingSpinner from "../components/LoadingSpinner";
+import TransferTicketDialog from "../components/TransferTicketDialog";
 import moment from "moment";
 
 export default function GuestPass() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [event, setEvent] = useState(null);
+  const [entries, setEntries] = useState([]);
+  const [entryIndex, setEntryIndex] = useState(0);
   const [entry, setEntry] = useState(null);
   const [qrData, setQrData] = useState("");
   const [loading, setLoading] = useState(true);
   const [locationTracking, setLocationTracking] = useState(false);
   const [autoCheckedOut, setAutoCheckedOut] = useState(false);
+  const [showTransfer, setShowTransfer] = useState(false);
+  const [pendingTransfer, setPendingTransfer] = useState(null);
   const intervalRef = useRef(null);
   const watchIdRef = useRef(null);
 
@@ -37,22 +42,54 @@ export default function GuestPass() {
     if (!events.length) return navigate("/");
     setEvent(events[0]);
 
-    const entries = await base44.entities.GuestlistEntry.filter({
+    const allEntries = await base44.entities.GuestlistEntry.filter({
       event_id: id,
       guest_email: me.email,
     });
-    if (!entries.length) return navigate(`/event/${id}`);
-    setEntry(entries[0]);
+    if (!allEntries.length) return navigate(`/event/${id}`);
 
-    if (["approved", "invited"].includes(entries[0].status)) {
-      generateQR(entries[0]);
+    // Order: usable tickets (approved/invited) first, then the rest.
+    const rank = (s) => (["approved", "invited"].includes(s) ? 0 : s === "checked_in" ? 1 : 2);
+    allEntries.sort((a, b) => rank(a.status) - rank(b.status));
+
+    setEntries(allEntries);
+    setEntryIndex(0);
+    setEntry(allEntries[0]);
+
+    if (["approved", "invited"].includes(allEntries[0].status)) {
+      generateQR(allEntries[0]);
     }
+
+    loadPendingTransfer(allEntries[0].id);
 
     setLoading(false);
 
     // Start location watch if already checked in
-    if (entries[0].status === "checked_in" && !entries[0].checked_out_at) {
-      startLocationWatch(entries[0], events[0]);
+    if (allEntries[0].status === "checked_in" && !allEntries[0].checked_out_at) {
+      startLocationWatch(allEntries[0], events[0]);
+    }
+  }
+
+  async function loadPendingTransfer(entryId) {
+    try {
+      const t = await base44.entities.TicketTransfer.filter({ guestlist_entry_id: entryId, status: "pending" });
+      setPendingTransfer(t[0] || null);
+    } catch {
+      setPendingTransfer(null);
+    }
+  }
+
+  function selectEntry(idx) {
+    const e = entries[idx];
+    if (!e) return;
+    setEntryIndex(idx);
+    setEntry(e);
+    setQrData("");
+    if (["approved", "invited"].includes(e.status)) generateQR(e);
+    loadPendingTransfer(e.id);
+    stopLocationWatch();
+    if (e.status === "checked_in" && !e.checked_out_at) {
+      startLocationWatch(e, event);
     }
   }
 
@@ -113,6 +150,17 @@ export default function GuestPass() {
     setQrData(btoa(payload));
   }
 
+  async function cancelPendingTransfer() {
+    if (!pendingTransfer) return;
+    try {
+      await base44.entities.TicketTransfer.update(pendingTransfer.id, {
+        status: "cancelled",
+        cancelled_at: new Date().toISOString(),
+      });
+      setPendingTransfer(null);
+    } catch {}
+  }
+
   if (loading) return <LoadingSpinner fullScreen />;
 
   if (!event || !entry) return null;
@@ -121,6 +169,8 @@ export default function GuestPass() {
   const isApproved = ["approved", "invited"].includes(entry.status);
   const isCheckedIn = entry.status === "checked_in";
   const isDenied = entry.status === "denied" || entry.status === "revoked";
+  const hasMultiple = entries.length > 1;
+  const ticketLabel = entry.notes || entry.guest_name || "Ticket";
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -137,6 +187,17 @@ export default function GuestPass() {
         <div className="w-full max-w-sm bg-card rounded-3xl border border-border overflow-hidden shadow-2xl shadow-primary/5">
           {/* Top section */}
           <div className="bg-gradient-to-br from-primary/20 via-primary/5 to-transparent p-6 text-center border-b border-border/50">
+            {hasMultiple && (
+              <div className="flex items-center justify-center gap-3 mb-2">
+                <button onClick={() => selectEntry(Math.max(0, entryIndex - 1))} disabled={entryIndex === 0} className="text-muted-foreground disabled:opacity-30 hover:text-foreground">
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-[11px] text-muted-foreground uppercase tracking-wider">Ticket {entryIndex + 1} of {entries.length}</span>
+                <button onClick={() => selectEntry(Math.min(entries.length - 1, entryIndex + 1))} disabled={entryIndex === entries.length - 1} className="text-muted-foreground disabled:opacity-30 hover:text-foreground">
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
             <h2 className="font-heading font-bold text-xl text-foreground">{event.title}</h2>
             <p className="text-sm text-muted-foreground mt-1">{event.host_name}</p>
           </div>
@@ -165,7 +226,7 @@ export default function GuestPass() {
             {isCheckedIn && (
             <div className="py-8 text-center">
             <div className="w-20 h-20 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-4">
-              <span className="text-4xl">✓</span>
+            <span className="text-4xl">✓</span>
             </div>
             <p className="font-heading font-bold text-lg text-emerald-400">Checked In</p>
             <p className="text-sm text-muted-foreground mt-1">You're inside! Enjoy the event.</p>
@@ -269,8 +330,44 @@ export default function GuestPass() {
               </div>
             )}
           </div>
+
+          {/* Transfer section — only for usable, unscanned tickets */}
+          {isApproved && (
+            <div className="px-5 pb-5">
+              {pendingTransfer ? (
+                <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-3">
+                  <div className="flex items-center gap-2 text-amber-300 text-xs font-semibold mb-1">
+                    <ClockIcon className="w-3.5 h-3.5" /> Pending transfer
+                  </div>
+                  <p className="text-xs text-amber-200/80 mb-2">
+                    Sent to {pendingTransfer.recipient_name || pendingTransfer.recipient_email} — waiting for them to accept. Your QR is still valid for entry.
+                  </p>
+                  <Button variant="outline" size="sm" className="w-full h-9 rounded-lg text-xs" onClick={cancelPendingTransfer}>
+                    Cancel transfer
+                  </Button>
+                </div>
+              ) : (
+                <Button variant="outline" className="w-full h-11 rounded-xl gap-2" onClick={() => setShowTransfer(true)}>
+                  <Send className="w-4 h-4" /> Transfer ticket
+                </Button>
+              )}
+              {hasMultiple && (
+                <p className="text-[10px] text-muted-foreground text-center mt-2">Transferring: {ticketLabel}</p>
+              )}
+            </div>
+          )}
         </div>
       </div>
+
+      {showTransfer && (
+        <TransferTicketDialog
+          entry={entry}
+          event={event}
+          user={{ email: entry.guest_email }}
+          onClose={() => setShowTransfer(false)}
+          onTransferred={() => loadPendingTransfer(entry.id)}
+        />
+      )}
     </div>
   );
 }

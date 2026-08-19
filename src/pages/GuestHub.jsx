@@ -2,20 +2,26 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import PhonePrompt from "../components/PhonePrompt";
 import { base44 } from "@/api/base44Client";
-import { ArrowLeft, Sparkles, QrCode, Clock, CheckCircle2, Link as LinkIcon, Compass } from "lucide-react";
+import { ArrowLeft, Sparkles, QrCode, Clock, CheckCircle2, Link as LinkIcon, Compass, ArrowLeftRight, Check, X } from "lucide-react";
 import DiscoverEvents from "../components/DiscoverEvents";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast";
 import EventCard from "../components/EventCard";
 import LoadingSpinner from "../components/LoadingSpinner";
 
 export default function GuestHub() {
+  const { toast } = useToast();
   const [tab, setTab] = useState("invites");
   const [inviteEvents, setInviteEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [myPhone, setMyPhone] = useState("");
+  const [transfersIn, setTransfersIn] = useState([]);
+  const [transfersOut, setTransfersOut] = useState([]);
+  const [transferBusy, setTransferBusy] = useState(null);
 
   useEffect(() => {
     loadInvites();
+    loadTransfers();
   }, []);
 
   async function loadInvites() {
@@ -51,6 +57,56 @@ export default function GuestHub() {
     setLoading(false);
   }
 
+  async function loadTransfers() {
+    try {
+      const me = await base44.auth.me();
+      const [incoming, outgoing] = await Promise.all([
+        base44.entities.TicketTransfer.filter({ recipient_email: me.email, status: "pending" }, "-created_date"),
+        base44.entities.TicketTransfer.filter({ sender_email: me.email, status: "pending" }, "-created_date"),
+      ]);
+      setTransfersIn(incoming);
+      setTransfersOut(outgoing);
+    } catch {}
+  }
+
+  async function acceptTransfer(t) {
+    setTransferBusy(t.id);
+    try {
+      const res = await base44.functions.invoke("acceptTicketTransfer", { transfer_id: t.id });
+      if (res.data?.error) throw new Error(res.data.error);
+      toast({ title: "Ticket accepted!", description: "It's now in your invites." });
+      loadTransfers();
+      loadInvites();
+    } catch (e) {
+      toast({ title: "Couldn't accept", description: e.message, variant: "destructive" });
+    }
+    setTransferBusy(null);
+  }
+
+  async function declineTransfer(t) {
+    setTransferBusy(t.id);
+    try {
+      await base44.entities.TicketTransfer.update(t.id, { status: "declined" });
+      toast({ title: "Transfer declined" });
+      loadTransfers();
+    } catch {
+      toast({ title: "Couldn't decline", variant: "destructive" });
+    }
+    setTransferBusy(null);
+  }
+
+  async function cancelTransfer(t) {
+    setTransferBusy(t.id);
+    try {
+      await base44.entities.TicketTransfer.update(t.id, { status: "cancelled", cancelled_at: new Date().toISOString() });
+      toast({ title: "Transfer cancelled" });
+      loadTransfers();
+    } catch {
+      toast({ title: "Couldn't cancel", variant: "destructive" });
+    }
+    setTransferBusy(null);
+  }
+
   return (
     <div className="max-w-lg mx-auto px-4 pt-4 pb-8">
       <div className="flex items-center gap-3 mb-4">
@@ -82,12 +138,67 @@ export default function GuestHub() {
         >
           <Compass className="w-3.5 h-3.5" /> Discover
         </button>
+        <button
+          onClick={() => setTab("transfers")}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-colors ${
+            tab === "transfers" ? "bg-card text-foreground shadow" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <ArrowLeftRight className="w-3.5 h-3.5" /> Transfers
+          {transfersIn.length > 0 && (
+            <span className="ml-0.5 bg-primary text-primary-foreground text-[9px] font-bold rounded-full px-1.5 py-0.5 leading-none">{transfersIn.length}</span>
+          )}
+        </button>
       </div>
 
       {tab === "invites" && !myPhone && <PhonePrompt onSaved={(p) => { setMyPhone(p); loadInvites(); }} />}
 
       {tab === "discover" ? (
         <DiscoverEvents />
+      ) : tab === "transfers" ? (
+        <div className="space-y-5">
+          <div>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Incoming</p>
+            {transfersIn.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-6 text-center">No pending transfers for you.</p>
+            ) : (
+              <div className="space-y-2">
+                {transfersIn.map((t) => (
+                  <div key={t.id} className="bg-secondary/40 rounded-xl p-3 border border-border/50">
+                    <p className="text-sm font-semibold">{t.event_title || "Ticket"}</p>
+                    <p className="text-xs text-muted-foreground">From {t.sender_name || t.sender_email}</p>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" className="h-9 rounded-lg flex-1 gap-1" disabled={transferBusy === t.id} onClick={() => acceptTransfer(t)}>
+                        <Check className="w-4 h-4" /> Accept
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-9 rounded-lg" disabled={transferBusy === t.id} onClick={() => declineTransfer(t)}>
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Sent by you</p>
+            {transfersOut.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-6 text-center">You haven't sent any transfers.</p>
+            ) : (
+              <div className="space-y-2">
+                {transfersOut.map((t) => (
+                  <div key={t.id} className="bg-secondary/40 rounded-xl p-3 border border-border/50">
+                    <p className="text-sm font-semibold">{t.event_title || "Ticket"}</p>
+                    <p className="text-xs text-muted-foreground">To {t.recipient_name || t.recipient_email} · waiting</p>
+                    <Button size="sm" variant="outline" className="h-9 rounded-lg mt-2" disabled={transferBusy === t.id} onClick={() => cancelTransfer(t)}>
+                      Cancel transfer
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       ) : loading ? (
         <LoadingSpinner />
       ) : inviteEvents.length === 0 ? (
