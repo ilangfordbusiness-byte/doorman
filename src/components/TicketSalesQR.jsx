@@ -3,6 +3,15 @@ import { X, Download, Printer, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getLinkDomain } from "@/lib/promoterRef";
 
+function escapeHtml(str) {
+  return String(str == null ? "" : str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 // A QR for DOOR STAFF to display so walk-ups can scan & buy tickets.
 // This is deliberately separate from a guest's personal entry QR pass.
 export default function TicketSalesQR({ event, onClose }) {
@@ -32,10 +41,11 @@ export default function TicketSalesQR({ event, onClose }) {
   function handlePrint() {
     const w = window.open("", "_blank");
     if (!w) return;
+    const safeTitle = escapeHtml(event.title);
     w.document.write(
-      `<!doctype html><html><head><title>Scan to buy tickets — ${event.title}</title>` +
+      `<!doctype html><html><head><title>Scan to buy tickets — ${safeTitle}</title>` +
       `<style>body{font-family:system-ui,sans-serif;text-align:center;padding:48px;color:#0a0a0a}h2{margin:0 0 4px}p{margin:4px 0;color:#555}img{margin:16px 0}</style>` +
-    `</head><body><h2>Scan to buy tickets</h2><p>${event.title}</p>` +
+    `</head><body><h2>Scan to buy tickets</h2><p>${safeTitle}</p>` +
     `<img src="${qrUrl}" width="320" height="320"/>` +
     `<p style="word-break:break-all;font-size:12px">${ticketUrl}</p></body></html>`
     );

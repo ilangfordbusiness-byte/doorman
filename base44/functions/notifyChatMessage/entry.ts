@@ -11,7 +11,11 @@ function escapeHtml(str) {
 
 Deno.serve(async (req) => {
   try {
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const args = body.args ?? {};
+    if (args.trigger_secret !== Deno.env.get("DOORMAN_AUTOMATION_KEY")) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const base44 = createClientFromRequest(req);
 
     const { data: messageData } = body;

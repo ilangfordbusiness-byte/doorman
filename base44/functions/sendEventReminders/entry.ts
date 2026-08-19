@@ -1,7 +1,21 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
+function escapeHtml(str) {
+  return String(str == null ? "" : str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 Deno.serve(async (req) => {
   try {
+    const body = await req.json().catch(() => ({}));
+    const args = body.args ?? {};
+    if (args.trigger_secret !== Deno.env.get("DOORMAN_AUTOMATION_KEY")) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const base44 = createClientFromRequest(req);
 
     const today = new Date();
@@ -46,16 +60,16 @@ Deno.serve(async (req) => {
           to: guest.guest_email,
           subject: `${emoji} Reminder: ${event.title} is ${label}!`,
           body: `
-Hi ${guest.guest_name || "there"},
+Hi ${escapeHtml(guest.guest_name || "there")},
 
-This is a friendly reminder that <strong>${event.title}</strong> is happening <strong>${label}</strong>!
+This is a friendly reminder that <strong>${escapeHtml(event.title)}</strong> is happening <strong>${label}</strong>!
 
-📅 Date: ${event.date}
-🕐 Time: ${event.start_time}${event.end_time ? ` – ${event.end_time}` : ""}
-${event.venue_name ? `📍 Venue: ${event.venue_name}` : ""}
-${event.address ? `🗺️ Address: ${event.address}` : ""}
-${event.dress_code ? `👔 Dress Code: ${event.dress_code}` : ""}
-${event.entry_notes ? `📋 Entry Notes: ${event.entry_notes}` : ""}
+📅 Date: ${escapeHtml(event.date)}
+🕐 Time: ${escapeHtml(event.start_time)}${event.end_time ? ` – ${escapeHtml(event.end_time)}` : ""}
+${event.venue_name ? `📍 Venue: ${escapeHtml(event.venue_name)}` : ""}
+${event.address ? `🗺️ Address: ${escapeHtml(event.address)}` : ""}
+${event.dress_code ? `👔 Dress Code: ${escapeHtml(event.dress_code)}` : ""}
+${event.entry_notes ? `📋 Entry Notes: ${escapeHtml(event.entry_notes)}` : ""}
 
 <div style="margin-top:16px;display:flex;gap:12px;">
   <a href="${passUrl}" style="display:inline-block;padding:10px 20px;background:#7c3aed;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;margin-right:8px;">Open QR Pass</a>

@@ -1,8 +1,21 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
+function escapeHtml(str) {
+  return String(str == null ? "" : str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 Deno.serve(async (req) => {
   try {
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const args = body.args ?? {};
+    if (args.trigger_secret !== Deno.env.get("DOORMAN_AUTOMATION_KEY")) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const base44 = createClientFromRequest(req);
 
     const { data: eventData, old_data: oldEvent, changed_fields } = body;
@@ -75,11 +88,11 @@ Deno.serve(async (req) => {
         to: guest.guest_email,
         subject: `🔔 Update: ${event.title}`,
         body: `
-Hi ${guest.guest_name || "there"},
+Hi ${escapeHtml(guest.guest_name || "there")},
 
-The host has made updates to <strong>${event.title}</strong>:
+The host has made updates to <strong>${escapeHtml(event.title)}</strong>:
 
-${changes.map(c => `• ${c}`).join("\n")}
+${changes.map(c => `• ${escapeHtml(c)}`).join("\n")}
 
 <a href="${eventUrl}" style="display:inline-block;margin-top:12px;padding:10px 20px;background:#7c3aed;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;">View Event</a>
 
