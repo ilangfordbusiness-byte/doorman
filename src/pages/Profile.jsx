@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import { LogOut, User, Calendar, Camera, ArrowLeft, Pencil, Check, X, Shield, Trash2, AtSign, Clock, Users } from "lucide-react";
+import { LogOut, User, Calendar, Camera, ArrowLeft, Pencil, Check, X, Shield, Trash2, AtSign, Clock, Users, Mic2, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -154,6 +154,28 @@ export default function Profile() {
           </div>
         </div>
       </div>
+
+      {/* Host Mode */}
+      <Link to="/host" className="block group mb-4">
+        <div className="relative rounded-2xl border border-violet-500/20 hover:border-violet-400/60 bg-card overflow-hidden transition-all duration-300 active:scale-[0.99]">
+          <div className="h-[2px] w-full bg-gradient-to-r from-violet-500 to-fuchsia-500 opacity-60 group-hover:opacity-100 transition-opacity" />
+          <div className="flex items-center gap-4 p-4">
+            <div className="w-11 h-11 rounded-xl bg-violet-500/10 flex items-center justify-center flex-shrink-0 border border-white/5">
+              <Mic2 className="w-5 h-5 text-violet-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-0.5">
+                <p className="font-heading font-bold text-base text-foreground">Host Mode</p>
+                <span className="text-[9px] font-mono font-bold tracking-widest px-1.5 py-0.5 rounded border bg-violet-500/10 text-violet-400 border-violet-500/20">
+                  HOST
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground truncate">Create & manage your events</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-all" />
+          </div>
+        </div>
+      </Link>
 
       {/* Editable Info */}
       <div className="bg-card rounded-2xl border border-border overflow-hidden mb-4">
