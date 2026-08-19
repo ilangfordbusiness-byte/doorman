@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import LoadingSpinner from "../components/LoadingSpinner";
 import FriendProfile from "../components/FriendProfile";
+import SuggestionProfile from "../components/SuggestionProfile";
 import FriendsSearch from "../components/FriendsSearch";
 
 const PAGE_SIZE = 20;
@@ -20,6 +21,7 @@ export default function Friends() {
   const [loading, setLoading] = useState(true);
   const [sentSet, setSentSet] = useState(new Set());
   const [viewingFriend, setViewingFriend] = useState(null);
+  const [viewingSuggestion, setViewingSuggestion] = useState(null);
 
   // Paginated suggestions state
   const [sugLoading, setSugLoading] = useState(false);
@@ -152,6 +154,17 @@ export default function Friends() {
         />
       )}
 
+      {viewingSuggestion && (
+        <SuggestionProfile
+          user={viewingSuggestion}
+          myEmail={me?.email}
+          myFriends={friends}
+          sent={sentSet.has(viewingSuggestion.email)}
+          onSend={() => { sendRequest(viewingSuggestion); setViewingSuggestion(null); }}
+          onClose={() => setViewingSuggestion(null)}
+        />
+      )}
+
       {loading ? (
         <LoadingSpinner />
       ) : (
@@ -174,11 +187,11 @@ export default function Friends() {
                 const mutual = Number(u.mutual || 0);
                 const reason = mutual > 0 ? `${mutual} mutual friend${mutual === 1 ? "" : "s"}` : "";
                 return (
-                  <UserRow key={u.email} user={u} reason={reason}>
+                  <UserRow key={u.email} user={u} reason={reason} onClick={() => setViewingSuggestion(u)}>
                     {sentSet.has(u.email) ? (
                       <span className="text-xs text-muted-foreground font-medium">Sent</span>
                     ) : (
-                      <Button size="sm" className="rounded-full h-8 gap-1 text-xs" onClick={() => sendRequest(u)}>
+                      <Button size="sm" className="rounded-full h-8 gap-1 text-xs" onClick={(e) => { e.stopPropagation(); sendRequest(u); }}>
                         <UserPlus className="w-3.5 h-3.5" /> Add
                       </Button>
                     )}

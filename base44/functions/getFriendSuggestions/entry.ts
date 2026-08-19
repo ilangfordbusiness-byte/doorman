@@ -91,6 +91,7 @@ Deno.serve(async (req) => {
           email,
           full_name: u.full_name || email,
           profile_picture: u.profile_picture || '',
+          instagram: u.instagram || '',
           mutual: mutualMap.get(email) || 0,
         });
       }
