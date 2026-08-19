@@ -5,18 +5,6 @@ import { Mic2, Users, UserCircle, ChevronRight, HeartHandshake } from "lucide-re
 
 const roles = [
   {
-    to: "/host",
-    icon: Mic2,
-    label: "Host",
-    sublabel: "Create & manage your events",
-    border: "border-violet-500/20 hover:border-violet-400/60",
-    topBar: "from-violet-500 to-fuchsia-500",
-    iconColor: "text-violet-400",
-    iconBg: "bg-violet-500/10",
-    tag: "bg-violet-500/10 text-violet-400 border-violet-500/20",
-    tagText: "HOST",
-  },
-  {
     to: "/guest",
     icon: Users,
     label: "Discover",
@@ -39,6 +27,18 @@ const roles = [
     iconBg: "bg-pink-500/10",
     tag: "bg-pink-500/10 text-pink-400 border-pink-500/20",
     tagText: "SOCIAL",
+  },
+  {
+    to: "/host",
+    icon: Mic2,
+    label: "Host",
+    sublabel: "Create & manage your events",
+    border: "border-violet-500/20 hover:border-violet-400/60",
+    topBar: "from-violet-500 to-fuchsia-500",
+    iconColor: "text-violet-400",
+    iconBg: "bg-violet-500/10",
+    tag: "bg-violet-500/10 text-violet-400 border-violet-500/20",
+    tagText: "HOST",
   },
   {
     to: "/profile",
