@@ -29,25 +29,32 @@
   ],
   "rls": {
     "create": {
-      "data.sender_email": "{{user.email}}"
-    },
-    "read": {
       "$or": [
         {
           "data.sender_email": "{{user.email}}"
         },
         {
-          "Event.data.host_email": "{{user.email}}",
-          "Event.id": "$data.event_id"
-        },
-        {
-          "GuestlistEntry.data.guest_email": "{{user.email}}",
-          "GuestlistEntry.data.event_id": "$data.event_id"
+          "created_by_id": "{{user.id}}"
         }
       ]
     },
-    "update": {
+    "read": {
       "data.sender_email": "{{user.email}}"
+    },
+    "update": {
+      "$or": [
+        {
+          "data.sender_email": "{{user.email}}"
+        },
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
     },
     "delete": {
       "$or": [
@@ -55,8 +62,12 @@
           "data.sender_email": "{{user.email}}"
         },
         {
-          "Event.data.host_email": "{{user.email}}",
-          "Event.id": "$data.event_id"
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
         }
       ]
     }

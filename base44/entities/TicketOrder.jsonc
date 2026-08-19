@@ -110,11 +110,8 @@
   ],
   "rls": {
     "create": {
-      "$expr": {
-        "$eq": [
-          null,
-          "null"
-        ]
+      "user_condition": {
+        "role": "admin"
       }
     },
     "read": {
@@ -123,22 +120,31 @@
           "data.guest_email": "{{user.email}}"
         },
         {
-          "Event.data.host_email": "{{user.email}}",
-          "Event.id": "$data.event_id"
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
         }
       ]
     },
     "update": {
-      "$expr": {
-        "$eq": [
-          null,
-          "null"
-        ]
+      "user_condition": {
+        "role": "admin"
       }
     },
     "delete": {
-      "Event.data.host_email": "{{user.email}}",
-      "Event.id": "$data.event_id"
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
     }
   }
 }

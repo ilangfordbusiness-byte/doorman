@@ -37,9 +37,14 @@
   ],
   "rls": {
     "create": {
-      "user_condition": {
-        "isAuthenticated": true
-      }
+      "$or": [
+        {
+          "data.sender_email": "{{user.email}}"
+        },
+        {
+          "created_by_id": "{{user.id}}"
+        }
+      ]
     },
     "read": {
       "$or": [
@@ -48,11 +53,28 @@
         },
         {
           "data.receiver_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
         }
       ]
     },
     "update": {
-      "data.receiver_email": "{{user.email}}"
+      "$or": [
+        {
+          "data.receiver_email": "{{user.email}}"
+        },
+        {
+          "data.sender_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
     },
     "delete": {
       "$or": [
@@ -61,6 +83,11 @@
         },
         {
           "data.receiver_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
         }
       ]
     }

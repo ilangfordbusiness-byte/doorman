@@ -33,30 +33,55 @@
   ],
   "rls": {
     "create": {
-      "Event.data.host_email": "{{user.email}}",
-      "Event.id": "$data.event_id"
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
     },
     "read": {
       "$or": [
         {
-          "Event.data.host_email": "{{user.email}}",
-          "Event.id": "$data.event_id"
+          "created_by_id": "{{user.id}}"
         },
         {
           "data.staff_email": "{{user.email}}"
         },
         {
-          "data.staff_phone": "{{user.phone}}"
+          "user_condition": {
+            "role": "admin"
+          }
         }
       ]
     },
     "update": {
-      "Event.data.host_email": "{{user.email}}",
-      "Event.id": "$data.event_id"
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
     },
     "delete": {
-      "Event.data.host_email": "{{user.email}}",
-      "Event.id": "$data.event_id"
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
     }
   }
 }
