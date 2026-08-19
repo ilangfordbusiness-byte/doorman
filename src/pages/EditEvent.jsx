@@ -24,6 +24,7 @@ export default function EditEvent() {
   const [coverId, setCoverId] = useState("");
   const [coverPreview, setCoverPreview] = useState(null);
   const [pickedGeo, setPickedGeo] = useState(null);
+  const [addressConfirmed, setAddressConfirmed] = useState(false);
   const [form, setForm] = useState({
     title: "",
     date: "",
@@ -79,6 +80,7 @@ export default function EditEvent() {
       currency: evt.currency || "gbp",
       visibility: evt.visibility || "show_names",
     });
+    setAddressConfirmed(!!evt.address);
 
     setLoading(false);
   }
@@ -94,6 +96,11 @@ export default function EditEvent() {
       return;
     }
 
+    if (form.address && !addressConfirmed) {
+      setError("Please select your address from the autocomplete suggestions, or clear the field to skip.");
+      return;
+    }
+
     setSaving(true);
     let cover_image = coverPreview && !coverFile ? coverPreview : "";
 
@@ -104,19 +111,8 @@ export default function EditEvent() {
       cover_image = `__cover__${coverId}`;
     }
 
-    // Use coordinates captured from autocomplete; fall back to geocoding if address changed
-    let geoFields = {};
-    if (pickedGeo) {
-      geoFields = { venue_lat: pickedGeo.lat, venue_lng: pickedGeo.lng };
-    } else if (form.address) {
-      try {
-        const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(form.address)}&limit=1`);
-        const geoData = await geoRes.json();
-        if (geoData[0]) {
-          geoFields = { venue_lat: parseFloat(geoData[0].lat), venue_lng: parseFloat(geoData[0].lon) };
-        }
-      } catch {}
-    }
+    // Coordinates come from the Google Places autocomplete selection
+    let geoFields = pickedGeo ? { venue_lat: pickedGeo.lat, venue_lng: pickedGeo.lng } : {};
 
     await base44.entities.Event.update(id, {
       ...form,
@@ -193,9 +189,10 @@ export default function EditEvent() {
           <Input placeholder="Venue name" value={form.venue_name} onChange={(e) => updateForm("venue_name", e.target.value)} className="bg-secondary/50 border-border h-12 rounded-xl mb-2" />
           <AddressAutocomplete
             value={form.address}
-            onChange={(v) => updateForm("address", v)}
+            onChange={(v) => { updateForm("address", v); setAddressConfirmed(false); }}
             onPick={(p) => {
               setPickedGeo({ lat: p.lat, lng: p.lng });
+              setAddressConfirmed(true);
               if (p.venue_name && !form.venue_name) updateForm("venue_name", p.venue_name);
             }}
           />

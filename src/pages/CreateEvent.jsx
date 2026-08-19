@@ -43,6 +43,7 @@ export default function CreateEvent() {
     visibility: "show_names",
   });
   const [pickedGeo, setPickedGeo] = useState(null);
+  const [addressConfirmed, setAddressConfirmed] = useState(false);
   const [promoters, setPromoters] = useState([]);
   const [pName, setPName] = useState("");
   const [pEmail, setPEmail] = useState("");
@@ -105,6 +106,11 @@ export default function CreateEvent() {
       return;
     }
 
+    if (form.address && !addressConfirmed) {
+      setError("Please select your address from the autocomplete suggestions, or clear the field to skip.");
+      return;
+    }
+
     setSaving(true);
     setError("");
     try {
@@ -121,22 +127,9 @@ export default function CreateEvent() {
       if (!me?.email) throw new Error("You must be signed in to create an event.");
       const invite_code = Math.random().toString(36).substring(2, 10).toUpperCase();
 
-      // Use coordinates captured from autocomplete when available; fall back to geocoding
-      let venue_lat = pickedGeo?.lat || null;
-      let venue_lng = pickedGeo?.lng || null;
-      if (form.address && (!venue_lat || !venue_lng)) {
-        try {
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 5000);
-          const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(form.address)}&limit=1`, { signal: controller.signal });
-          clearTimeout(timeout);
-          const geoData = await geoRes.json();
-          if (geoData[0]) {
-            venue_lat = parseFloat(geoData[0].lat);
-            venue_lng = parseFloat(geoData[0].lon);
-          }
-        } catch {}
-      }
+      // Coordinates come from the Google Places autocomplete selection
+      const venue_lat = pickedGeo?.lat || null;
+      const venue_lng = pickedGeo?.lng || null;
 
       const event = await base44.entities.Event.create({
         ...form,
@@ -285,9 +278,10 @@ export default function CreateEvent() {
           />
           <AddressAutocomplete
             value={form.address}
-            onChange={(v) => updateForm("address", v)}
+            onChange={(v) => { updateForm("address", v); setAddressConfirmed(false); }}
             onPick={(p) => {
               setPickedGeo({ lat: p.lat, lng: p.lng });
+              setAddressConfirmed(true);
               if (p.venue_name && !form.venue_name) updateForm("venue_name", p.venue_name);
             }}
           />
