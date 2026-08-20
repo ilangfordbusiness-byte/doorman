@@ -22,7 +22,7 @@ import { useToast } from "@/components/ui/use-toast";
 import StatusBadge from "../components/StatusBadge";
 import WhoIsGoing from "../components/WhoIsGoing";
 import EventChat from "../components/EventChat";
-import Avatar from "../components/Avatar";
+import UserAvatar from "../components/UserAvatar";
 import HostProfileModal from "../components/HostProfileModal";
 import CoHostsSection from "../components/CoHostsSection";
 import EventJoinActions from "../components/EventJoinActions";
@@ -222,12 +222,12 @@ export default function EventDetails() {
           <h1 className="font-heading font-bold text-2xl text-foreground">{event.title}</h1>
           <div className="flex items-center gap-2 mt-2 flex-wrap">
             <button onClick={() => setShowHostModal(true)} className="flex items-center gap-2 group">
-              <Avatar src={event.host_picture} name={event.host_name} size="w-6 h-6" textClass="text-[10px]" />
+              <UserAvatar email={event.host_email} fallbackSrc={event.host_picture} name={event.host_name} size="w-6 h-6" textClass="text-[10px]" />
               <span className="text-sm text-muted-foreground group-hover:text-primary transition-colors">by {event.host_name}</span>
             </button>
             {acceptedCoHosts.map((c) => (
               <span key={c.email} className="flex items-center gap-1.5 bg-secondary/50 rounded-full pl-1 pr-2.5 py-0.5 border border-border/50">
-                <Avatar src={c.picture} name={c.name || c.email} size="w-5 h-5" textClass="text-[9px]" />
+                <UserAvatar email={c.email} fallbackSrc={c.picture} name={c.name || c.email} size="w-5 h-5" textClass="text-[9px]" />
                 <span className="text-xs text-muted-foreground">{c.name || c.email}</span>
               </span>
             ))}

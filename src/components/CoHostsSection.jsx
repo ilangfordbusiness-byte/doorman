@@ -2,7 +2,7 @@ import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Plus, X, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import Avatar from "./Avatar";
+import UserAvatar from "./UserAvatar";
 
 export default function CoHostsSection({ event, onUpdated }) {
   const [email, setEmail] = useState("");
@@ -46,7 +46,7 @@ export default function CoHostsSection({ event, onUpdated }) {
         <div className="space-y-2 mb-3">
           {coHosts.map((c) => (
             <div key={c.email} className="flex items-center gap-2 bg-secondary/50 rounded-xl px-3 py-2 border border-border/50">
-              <Avatar src={c.picture} name={c.name || c.email} size="w-8 h-8" textClass="text-xs" />
+              <UserAvatar email={c.email} fallbackSrc={c.picture} name={c.name || c.email} size="w-8 h-8" textClass="text-xs" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{c.name || c.email}</p>
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{c.status === "pending" ? "Pending invite" : "Co-host"}</p>

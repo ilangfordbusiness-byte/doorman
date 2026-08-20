@@ -24,6 +24,7 @@ export default async function(req: Request): Promise<Response> {
         date: ev.date,
         start_time: ev.start_time,
         host_name: ev.host_name,
+        host_email: ev.host_email,
         host_picture: ev.host_picture,
         cover_image: ev.cover_image,
       }));

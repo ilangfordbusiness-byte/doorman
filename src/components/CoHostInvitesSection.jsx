@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import Avatar from "./Avatar";
+import UserAvatar from "./UserAvatar";
 import moment from "moment";
 
 export default function CoHostInvitesSection({ invites }) {
@@ -37,7 +37,7 @@ export default function CoHostInvitesSection({ invites }) {
         {invites.map((inv) => (
           <div key={inv.event_id} className="bg-secondary/40 rounded-xl p-3 border border-border/50">
             <div className="flex items-center gap-2.5 mb-2.5">
-              <Avatar src={inv.host_picture} name={inv.host_name} size="w-8 h-8" />
+              <UserAvatar email={inv.host_email} fallbackSrc={inv.host_picture} name={inv.host_name} size="w-8 h-8" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold truncate">{inv.title}</p>
                 <p className="text-[11px] text-muted-foreground truncate">

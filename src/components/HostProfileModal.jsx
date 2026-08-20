@@ -2,7 +2,7 @@ import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { X, UserPlus, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import Avatar from "./Avatar";
+import UserAvatar from "./UserAvatar";
 
 export default function HostProfileModal({ host, me, onClose }) {
   const [sent, setSent] = useState(false);
@@ -34,7 +34,7 @@ export default function HostProfileModal({ host, me, onClose }) {
         <button onClick={onClose} className="absolute top-3 right-3 w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground">
           <X className="w-4 h-4" />
         </button>
-        <Avatar src={host.picture} name={host.name} size="w-20 h-20" textClass="text-2xl" className="mx-auto mb-3" />
+        <UserAvatar email={host.email} fallbackSrc={host.picture} name={host.name} size="w-20 h-20" textClass="text-2xl" className="mx-auto mb-3" />
         <h2 className="font-heading font-bold text-lg">{host.name || "Host"}</h2>
         <p className="text-sm text-muted-foreground mb-2 truncate">{host.email}</p>
         <span className="inline-block text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full font-semibold mb-4 uppercase tracking-wider">Event Host</span>
