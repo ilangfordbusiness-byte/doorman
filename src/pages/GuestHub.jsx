@@ -11,61 +11,25 @@ import { useToast } from "@/components/ui/use-toast";
 import EventCard from "../components/EventCard";
 import LoadingSpinner from "../components/LoadingSpinner";
 
-async function loadInvites(me) {
-  const byEmail = await base44.entities.GuestlistEntry.filter({ guest_email: me.email }, "-created_date");
-  const byPhone = me.phone
-    ? await base44.entities.GuestlistEntry.filter({ guest_phone: me.phone }, "-created_date")
-    : [];
-  const seen = new Set();
-  const entries = [...byEmail, ...byPhone].filter((e) => {
-    if (seen.has(e.id)) return false;
-    seen.add(e.id);
-    return true;
-  });
-
-  if (entries.length === 0) return [];
-
-  const eventIds = [...new Set(entries.map((g) => g.event_id))];
-  const events = await Promise.all(
-    eventIds.map(async (eid) => {
-      const evts = await base44.entities.Event.filter({ id: eid });
-      const evt = evts[0];
-      const entry = entries.find((g) => g.event_id === eid);
-      return evt ? { ...evt, guestStatus: entry?.status, entryId: entry?.id } : null;
-    })
-  );
-  return events.filter(Boolean);
-}
-
-async function loadTransfers(me) {
-  const [incoming, outgoing] = await Promise.all([
-    base44.entities.TicketTransfer.filter({ recipient_email: me.email, status: "pending" }, "-created_date"),
-    base44.entities.TicketTransfer.filter({ sender_email: me.email, status: "pending" }, "-created_date"),
-  ]);
-  return { incoming, outgoing };
-}
-
 export default function GuestHub() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get("tab") || "discover";
   const { data: me } = useCurrentUser();
-  const { data: inviteEvents = [], isLoading: loading } = useQuery({
-    queryKey: ["guestInvites"],
-    queryFn: () => loadInvites(me),
-    enabled: !!me,
-    staleTime: 60 * 1000,
-  });
-  const { data: transfers } = useQuery({
-    queryKey: ["transfers"],
-    queryFn: () => loadTransfers(me),
+  const { data: dashboard, isLoading: loading } = useQuery({
+    queryKey: ["guestDashboard"],
+    queryFn: async () => {
+      const res = await base44.functions.invoke("getGuestDashboard");
+      return res.data;
+    },
     enabled: !!me,
     staleTime: 60 * 1000,
   });
   const myPhone = me?.phone || "";
-  const transfersIn = transfers?.incoming ?? [];
-  const transfersOut = transfers?.outgoing ?? [];
+  const inviteEvents = dashboard?.inviteEvents ?? [];
+  const transfersIn = dashboard?.transfers?.incoming ?? [];
+  const transfersOut = dashboard?.transfers?.outgoing ?? [];
   const [transferBusy, setTransferBusy] = useState(null);
 
   async function acceptTransfer(t) {
@@ -74,8 +38,7 @@ export default function GuestHub() {
       const res = await base44.functions.invoke("acceptTicketTransfer", { transfer_id: t.id });
       if (res.data?.error) throw new Error(res.data.error);
       toast({ title: "Ticket accepted!", description: "It's now in your invites." });
-      queryClient.invalidateQueries(["transfers"]);
-      queryClient.invalidateQueries(["guestInvites"]);
+      queryClient.invalidateQueries(["guestDashboard"]);
     } catch (e) {
       toast({ title: "Couldn't accept", description: e.message, variant: "destructive" });
     }
@@ -87,7 +50,7 @@ export default function GuestHub() {
     try {
       await base44.entities.TicketTransfer.update(t.id, { status: "declined" });
       toast({ title: "Transfer declined" });
-      queryClient.invalidateQueries(["transfers"]);
+      queryClient.invalidateQueries(["guestDashboard"]);
     } catch {
       toast({ title: "Couldn't decline", variant: "destructive" });
     }
@@ -99,7 +62,7 @@ export default function GuestHub() {
     try {
       await base44.entities.TicketTransfer.update(t.id, { status: "cancelled", cancelled_at: new Date().toISOString() });
       toast({ title: "Transfer cancelled" });
-      queryClient.invalidateQueries(["transfers"]);
+      queryClient.invalidateQueries(["guestDashboard"]);
     } catch {
       toast({ title: "Couldn't cancel", variant: "destructive" });
     }
@@ -150,7 +113,7 @@ export default function GuestHub() {
         </button>
       </div>
 
-      {tab === "invites" && !myPhone && <PhonePrompt onSaved={(p) => { queryClient.invalidateQueries(["currentUser"]); queryClient.invalidateQueries(["guestInvites"]); }} />}
+      {tab === "invites" && !myPhone && <PhonePrompt onSaved={(p) => { queryClient.invalidateQueries(["currentUser"]); queryClient.invalidateQueries(["guestDashboard"]); }} />}
 
       {tab === "discover" ? (
         <DiscoverEvents />
