@@ -19,9 +19,8 @@ export default function FriendProfile({ friend, myEmail, myFriends, onClose }) {
   async function load() {
     setLoading(true);
 
-    // Load user profile from User entity
-    const users = await base44.entities.User.filter({ email: friend.email });
-    const profileData = users[0] || { email: friend.email, full_name: friend.name, profile_picture: friend.picture };
+    // User entity is admin-only; use the friend data passed in (name/email/picture).
+    const profileData = { email: friend.email, full_name: friend.name, profile_picture: friend.picture, instagram: friend.instagram };
     setProfile(profileData);
 
     // Load friend's guestlist entries & hosted events in parallel with my own
