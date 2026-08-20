@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import GuestCard from "../components/GuestCard";
 import LoadingSpinner from "../components/LoadingSpinner";
+import { useProfiles } from "@/hooks/useProfiles";
 
 export default function GuestlistManagement() {
   const { id } = useParams();
@@ -25,6 +26,7 @@ export default function GuestlistManagement() {
   const [adding, setAdding] = useState(false);
   const [friends, setFriends] = useState([]);
   const [me, setMe] = useState(null);
+  const { data: profiles } = useProfiles(guests.map((g) => g.guest_email).filter(Boolean));
 
   useEffect(() => {
     loadData();
@@ -266,6 +268,7 @@ export default function GuestlistManagement() {
               <GuestCard
                 key={g.id}
                 guest={g}
+                picture={profiles?.[g.guest_email?.toLowerCase()]?.picture}
                 onApprove={(g) => updateStatus(g, "approved")}
                 onDeny={(g) => updateStatus(g, "denied")}
                 onWaitlist={(g) => updateStatus(g, "waitlist")}
@@ -282,6 +285,7 @@ export default function GuestlistManagement() {
               <GuestCard
                 key={g.id}
                 guest={g}
+                picture={profiles?.[g.guest_email?.toLowerCase()]?.picture}
                 onDeny={(g) => updateStatus(g, "revoked")}
                 onToggleChat={toggleChat}
                 showActions={true}
@@ -295,7 +299,7 @@ export default function GuestlistManagement() {
             <EmptyTab message="No check-ins yet" />
           ) : (
             checkedIn.map((g) => (
-              <GuestCard key={g.id} guest={g} onToggleChat={toggleChat} showActions={true} />
+              <GuestCard key={g.id} guest={g} picture={profiles?.[g.guest_email?.toLowerCase()]?.picture} onToggleChat={toggleChat} showActions={true} />
             ))
           )}
         </TabsContent>
@@ -308,6 +312,7 @@ export default function GuestlistManagement() {
                 <GuestCard
                   key={g.id}
                   guest={g}
+                  picture={profiles?.[g.guest_email?.toLowerCase()]?.picture}
                   onApprove={(g) => updateStatus(g, "approved")}
                   onDeny={(g) => updateStatus(g, "denied")}
                 />
@@ -321,6 +326,7 @@ export default function GuestlistManagement() {
                 <GuestCard
                   key={g.id}
                   guest={g}
+                  picture={profiles?.[g.guest_email?.toLowerCase()]?.picture}
                   onApprove={(g) => updateStatus(g, "approved")}
                   showActions={true}
                 />

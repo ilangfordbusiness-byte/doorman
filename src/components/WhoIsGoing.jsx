@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Users, Lock } from "lucide-react";
+import Avatar from "./Avatar";
+import { useProfiles } from "@/hooks/useProfiles";
 
 export default function WhoIsGoing({ eventId, myEmail, visibility = "show_names", unlocked = false }) {
   const [guests, setGuests] = useState([]);
   const [friends, setFriends] = useState(new Set());
   const [loading, setLoading] = useState(true);
+  const { data: profiles } = useProfiles(guests.map((g) => g.guest_email).filter(Boolean));
 
   useEffect(() => {
     (async () => {
@@ -73,11 +76,7 @@ export default function WhoIsGoing({ eventId, myEmail, visibility = "show_names"
       <div className="space-y-2">
         {shown.slice(0, 10).map((g) => (
           <div key={g.id} className="flex items-center gap-3 bg-secondary/40 rounded-xl px-3 py-2.5 border border-border/50">
-            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-              <span className="text-xs font-bold text-primary">
-                {(g.guest_name || g.guest_email || "?")[0].toUpperCase()}
-              </span>
-            </div>
+            <Avatar src={profiles?.[g.guest_email?.toLowerCase()]?.picture} name={g.guest_name || g.guest_email} size="w-8 h-8" textClass="text-xs" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate">{g.guest_name || g.guest_email}</p>
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider">

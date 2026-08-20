@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import StatusBadge from "./StatusBadge";
 import Avatar from "./Avatar";
 
-export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, onToggleChat, showActions = true }) {
+export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, onToggleChat, showActions = true, picture }) {
   const canApprove = ["requested", "waitlist", "denied"].includes(guest.status);
   const canDeny = ["requested", "waitlist", "approved", "invited"].includes(guest.status);
   const canWaitlist = ["requested"].includes(guest.status);
@@ -12,7 +12,7 @@ export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, onTogg
   return (
     <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/50 border border-border/50">
       {/* Avatar */}
-      <Avatar name={guest.guest_name || guest.guest_email} size="w-10 h-10" textClass="text-sm" />
+      <Avatar src={picture} name={guest.guest_name || guest.guest_email} size="w-10 h-10" textClass="text-sm" />
 
       {/* Info */}
       <div className="flex-1 min-w-0">
