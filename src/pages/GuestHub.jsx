@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import PhonePrompt from "../components/PhonePrompt";
 import { base44 } from "@/api/base44Client";
 import { ArrowLeft, Sparkles, QrCode, Clock, CheckCircle2, Link as LinkIcon, Compass, ArrowLeftRight, Check, X } from "lucide-react";
@@ -11,7 +11,8 @@ import LoadingSpinner from "../components/LoadingSpinner";
 
 export default function GuestHub() {
   const { toast } = useToast();
-  const [tab, setTab] = useState("invites");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = searchParams.get("tab") || "discover";
   const [inviteEvents, setInviteEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [myPhone, setMyPhone] = useState("");
@@ -123,7 +124,7 @@ export default function GuestHub() {
       {/* Tabs */}
       <div className="flex gap-1 bg-secondary/50 rounded-xl p-1 mb-5">
         <button
-          onClick={() => setTab("invites")}
+          onClick={() => setSearchParams({ tab: "invites" })}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-colors ${
             tab === "invites" ? "bg-card text-foreground shadow" : "text-muted-foreground hover:text-foreground"
           }`}
@@ -131,7 +132,7 @@ export default function GuestHub() {
           <QrCode className="w-3.5 h-3.5" /> My Invites
         </button>
         <button
-          onClick={() => setTab("discover")}
+          onClick={() => setSearchParams({ tab: "discover" })}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-colors ${
             tab === "discover" ? "bg-card text-foreground shadow" : "text-muted-foreground hover:text-foreground"
           }`}
@@ -139,7 +140,7 @@ export default function GuestHub() {
           <Compass className="w-3.5 h-3.5" /> Discover
         </button>
         <button
-          onClick={() => setTab("transfers")}
+          onClick={() => setSearchParams({ tab: "transfers" })}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-colors ${
             tab === "transfers" ? "bg-card text-foreground shadow" : "text-muted-foreground hover:text-foreground"
           }`}

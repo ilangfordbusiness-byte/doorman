@@ -2,7 +2,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Users, HeartHandshake, UserCircle } from "lucide-react";
 
 const tabs = [
-  { path: "/guest", icon: Users, label: "Discover" },
+  { path: "/guest", query: "?tab=discover", icon: Users, label: "Discover" },
   { path: "/friends", icon: HeartHandshake, label: "Friends" },
   { path: "/profile", icon: UserCircle, label: "Account" },
 ];
@@ -24,14 +24,15 @@ export default function BottomNav() {
       <div className="h-px w-full" style={{ background: "linear-gradient(90deg, transparent, hsl(270 90% 65% / 0.5), hsl(180 100% 50% / 0.4), transparent)" }} />
       <div className="bg-black/80 backdrop-blur-2xl border-t border-white/5">
         <div className="flex items-stretch max-w-lg mx-auto">
-          {tabs.map(({ path, icon: Icon, label }) => {
+          {tabs.map(({ path, query, icon: Icon, label }) => {
             const active = location.pathname === path || location.pathname.startsWith(path + "/");
             return (
               <button
                 key={path}
                 onClick={() => {
-                  if (location.pathname === path) return;
-                  navigate(path);
+                  const target = path + (query || "");
+                  if (location.pathname + location.search === target) return;
+                  navigate(target);
                 }}
                 className={`flex-1 flex flex-col items-center justify-center py-2.5 gap-1 select-none transition-all min-h-[52px] relative`}
               >
