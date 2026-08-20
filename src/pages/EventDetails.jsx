@@ -13,7 +13,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import {
   ArrowLeft, Calendar, Clock, MapPin, Shirt, Users, Share2,
-  QrCode, Shield, Edit, Trash2, UserPlus, Copy, Check, Plus, X, Ticket, BarChart3, Megaphone
+  QrCode, Shield, Edit, Trash2, UserPlus, Copy, Check, Plus, X, Ticket, BarChart3, Megaphone, Instagram
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -274,6 +274,21 @@ export default function EventDetails() {
             <p className="text-xs text-accent uppercase tracking-wider font-semibold mb-1">Entry Notes</p>
             <p className="text-sm text-foreground/80">{event.entry_notes}</p>
           </div>
+        )}
+
+        {event.instagram && (
+          <a
+            href={`https://instagram.com/${event.instagram.replace(/^@/, "")}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 bg-secondary/50 rounded-xl p-3 border border-border/50 hover:border-primary/50 hover:bg-secondary transition-colors group"
+          >
+            <Instagram className="w-4 h-4 text-primary" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Instagram · Tap to view</p>
+              <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate">@{event.instagram.replace(/^@/, "")}</p>
+            </div>
+          </a>
         )}
 
         {/* Host Dashboard */}
