@@ -58,8 +58,8 @@ export default function SuggestionProfile({ user, myEmail, myFriends, sent, onSe
   }
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end justify-center px-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}>
-      <div className="bg-card rounded-3xl border border-border w-full max-w-lg max-h-[85vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end md:items-center justify-center px-4 pb-4 md:pb-0">
+      <div className="bg-card rounded-3xl border border-border w-full max-w-lg max-h-[85vh] md:max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-card/95 backdrop-blur-sm rounded-t-3xl px-5 pt-5 pb-3 flex items-center justify-between border-b border-border/50 z-10">
           <h2 className="font-heading font-bold text-lg">Profile</h2>
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
