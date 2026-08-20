@@ -51,7 +51,8 @@ export default function EditEvent() {
     const events = await base44.entities.Event.filter({ id });
     if (!events.length) return navigate("/");
     const evt = events[0];
-    if (evt.host_email !== me.email) return navigate(`/event/${id}`);
+    const coHostEmails = Array.isArray(evt.co_host_emails) ? evt.co_host_emails : [];
+    if (evt.host_email !== me.email && !coHostEmails.includes(me.email)) return navigate(`/event/${id}`);
 
     // Parse cover
     if (evt.cover_image?.startsWith("__cover__")) {

@@ -22,6 +22,9 @@ import { useToast } from "@/components/ui/use-toast";
 import StatusBadge from "../components/StatusBadge";
 import WhoIsGoing from "../components/WhoIsGoing";
 import EventChat from "../components/EventChat";
+import Avatar from "../components/Avatar";
+import HostProfileModal from "../components/HostProfileModal";
+import CoHostsSection from "../components/CoHostsSection";
 import moment from "moment";
 import { captureRef, getLinkDomain, discountLabel, promoterDiscountActive } from "@/lib/promoterRef";
 
@@ -86,8 +89,27 @@ export default function EventDetails() {
   const [newStaffEmail, setNewStaffEmail] = useState("");
   const [addingStaff, setAddingStaff] = useState(false);
   const [refStatus, setRefStatus] = useState(null);
+  const [showHostModal, setShowHostModal] = useState(false);
+  const [accepting, setAccepting] = useState(false);
 
   const isHost = user && event && event.host_email === user.email;
+  const coHosts = event ? (Array.isArray(event.co_hosts) ? event.co_hosts : []) : [];
+  const acceptedCoHosts = coHosts.filter((c) => c.status === "accepted");
+  const isCoHost = user && coHosts.some((c) => c.email === user.email && c.status === "accepted");
+  const canManage = isHost || isCoHost;
+  const myCoHostInvite = user ? coHosts.find((c) => c.email === user.email && c.status === "pending") : null;
+
+  async function handleAcceptCoHost() {
+    setAccepting(true);
+    try {
+      await base44.functions.invoke("acceptCoHost", { event_id: id });
+      await queryClient.invalidateQueries(["event", id]);
+      toast({ title: "You're now a co-host!" });
+    } catch (e) {
+      toast({ title: e?.message || "Could not accept", variant: "destructive" });
+    }
+    setAccepting(false);
+  }
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -216,8 +238,31 @@ export default function EventDetails() {
             {event.is_public && <span className="text-[10px] text-muted-foreground uppercase font-semibold">Public</span>}
           </div>
           <h1 className="font-heading font-bold text-2xl text-foreground">{event.title}</h1>
-          <p className="text-sm text-muted-foreground mt-1">by {event.host_name}</p>
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
+            <button onClick={() => setShowHostModal(true)} className="flex items-center gap-2 group">
+              <Avatar src={event.host_picture} name={event.host_name} size="w-6 h-6" textClass="text-[10px]" />
+              <span className="text-sm text-muted-foreground group-hover:text-primary transition-colors">by {event.host_name}</span>
+            </button>
+            {acceptedCoHosts.map((c) => (
+              <span key={c.email} className="flex items-center gap-1.5 bg-secondary/50 rounded-full pl-1 pr-2.5 py-0.5 border border-border/50">
+                <Avatar src={c.picture} name={c.name || c.email} size="w-5 h-5" textClass="text-[9px]" />
+                <span className="text-xs text-muted-foreground">{c.name || c.email}</span>
+              </span>
+            ))}
+          </div>
         </div>
+
+        {myCoHostInvite && (
+          <div className="bg-primary/10 border border-primary/30 rounded-xl p-3 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-primary">You're invited as a co-host</p>
+              <p className="text-xs text-muted-foreground">Help run this event and edit its details.</p>
+            </div>
+            <Button size="sm" onClick={handleAcceptCoHost} disabled={accepting}>
+              {accepting ? "Accepting..." : "Accept"}
+            </Button>
+          </div>
+        )}
 
         {refStatus && (
           <div className={`rounded-xl p-3 border text-xs ${refStatus.valid ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-300" : "bg-amber-500/10 border-amber-500/20 text-amber-300"}`}>
@@ -288,9 +333,9 @@ export default function EventDetails() {
         )}
 
         {/* Host Dashboard */}
-        {isHost && (
+        {canManage && (
           <div className="space-y-4">
-            <h2 className="font-heading font-bold text-lg">Event Dashboard</h2>
+            <h2 className="font-heading font-bold text-lg">{isHost ? "Event Dashboard" : "Co-Host Dashboard"}</h2>
             <div className="grid grid-cols-4 gap-2">
               <StatCard label="Total" value={stats.total} />
               <StatCard label="Invited" value={stats.invited} color="text-blue-400" />
@@ -344,6 +389,9 @@ export default function EventDetails() {
               </div>
             )}
 
+            {/* Co-Hosts */}
+            <CoHostsSection event={event} onUpdated={() => queryClient.invalidateQueries(["event", id])} />
+
             {/* Staff Management */}
             <div>
               <h3 className="font-heading font-semibold text-sm mb-3">Door Staff</h3>
@@ -388,12 +436,12 @@ export default function EventDetails() {
         )}
 
         {/* Chat — visible to host and approved/checked-in guests */}
-        {(isHost || (myEntry && ["approved", "invited", "checked_in"].includes(myEntry.status))) && (
+        {(canManage || (myEntry && ["approved", "invited", "checked_in"].includes(myEntry.status))) && (
           <EventChat eventId={id} user={user} isHost={isHost} canChat={isHost || myEntry?.can_chat === true} />
         )}
 
         {/* Guest Actions */}
-        {!isHost && (
+        {!canManage && (
           <div className="space-y-3">
             {event.is_paid && (
               <div className="bg-secondary/40 rounded-2xl p-4 border border-border/50">
@@ -465,6 +513,13 @@ export default function EventDetails() {
               </div>
             )}
           </div>
+        )}
+        {showHostModal && (
+          <HostProfileModal
+            host={{ name: event.host_name, email: event.host_email, picture: event.host_picture }}
+            me={user}
+            onClose={() => setShowHostModal(false)}
+          />
         )}
       </div>
     </div>

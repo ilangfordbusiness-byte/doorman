@@ -127,6 +127,7 @@ export default function CreateEvent() {
         capacity: form.capacity ? Number(form.capacity) : null,
         host_email: me.email,
         host_name: me.full_name,
+        host_picture: me.profile_picture || "",
         status,
         invite_code,
       });
