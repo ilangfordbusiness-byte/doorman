@@ -1,8 +1,8 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { Home as HomeIcon, Heart, UserCircle } from "lucide-react";
+import { Compass, Heart, UserCircle } from "lucide-react";
 
 const tabs = [
-  { path: "/", icon: HomeIcon, label: "Home" },
+  { path: "/guest?tab=discover", icon: Compass, label: "Discover" },
   { path: "/friends", icon: Heart, label: "Activity" },
   { path: "/profile", icon: UserCircle, label: "Profile" },
 ];
@@ -25,7 +25,8 @@ export default function BottomNav() {
       <div className="bg-black/80 backdrop-blur-2xl border-t border-white/5">
         <div className="flex items-stretch max-w-lg mx-auto">
           {tabs.map(({ path, icon: Icon, label }) => {
-            const active = path === "/" ? location.pathname === "/" : location.pathname === path || location.pathname.startsWith(path + "/");
+            const tabPath = path.split("?")[0];
+            const active = tabPath === "/" ? location.pathname === "/" : location.pathname === tabPath || location.pathname.startsWith(tabPath + "/");
             return (
               <button
                 key={path}
