@@ -148,30 +148,47 @@ Deno.serve(async (req) => {
       let acctInfo = null;
       try { acctInfo = await stripeApi(`/accounts/${accountId}`); } catch (e) { console.error('acct fetch failed', e.message); }
       const fullyEnabled = acctInfo && acctInfo.charges_enabled && acctInfo.payouts_enabled;
-      const link = await stripeApi('/account_links', {
-        method: 'POST',
-        body: formEncode({
-          account: accountId,
-          refresh_url: `${origin}/profile`,
-          return_url: `${origin}/profile`,
-          type: fullyEnabled ? 'account_dashboard' : 'account_onboarding',
-        }),
-      });
-      return Response.json({ url: link.url });
+      try {
+        const link = await stripeApi('/account_links', {
+          method: 'POST',
+          body: formEncode({
+            account: accountId,
+            refresh_url: `${origin}/profile`,
+            return_url: `${origin}/profile`,
+            type: fullyEnabled ? 'account_dashboard' : 'account_onboarding',
+          }),
+        });
+        return Response.json({ url: link.url });
+      } catch (e) {
+        if (/responsible for collecting onboarding|account ID needs to be/i.test(e.message)) {
+          return Response.json({ url: 'https://dashboard.stripe.com/' });
+        }
+        throw e;
+      }
     }
 
     if (action === 'dashboard_link') {
       if (!accountId) return Response.json({ error: 'No Stripe account connected' }, { status: 400 });
-      const link = await stripeApi('/account_links', {
-        method: 'POST',
-        body: formEncode({
-          account: accountId,
-          refresh_url: `${origin}/profile`,
-          return_url: `${origin}/profile`,
-          type: 'account_dashboard',
-        }),
-      });
-      return Response.json({ url: link.url });
+      try {
+        const link = await stripeApi('/account_links', {
+          method: 'POST',
+          body: formEncode({
+            account: accountId,
+            refresh_url: `${origin}/profile`,
+            return_url: `${origin}/profile`,
+            type: 'account_dashboard',
+          }),
+        });
+        return Response.json({ url: link.url });
+      } catch (e) {
+        // The linked account is Stripe-managed (Stripe collects requirements,
+        // not this platform), so Account Links aren't available for it. Send
+        // the user straight to the Stripe dashboard instead.
+        if (/responsible for collecting onboarding|account ID needs to be/i.test(e.message)) {
+          return Response.json({ url: 'https://dashboard.stripe.com/' });
+        }
+        throw e;
+      }
     }
 
     if (action === 'status') {
