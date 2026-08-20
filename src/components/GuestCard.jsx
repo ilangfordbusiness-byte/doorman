@@ -1,6 +1,7 @@
 import { Check, X, Clock, UserPlus, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import StatusBadge from "./StatusBadge";
+import Avatar from "./Avatar";
 
 export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, onToggleChat, showActions = true }) {
   const canApprove = ["requested", "waitlist", "denied"].includes(guest.status);
@@ -11,11 +12,7 @@ export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, onTogg
   return (
     <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/50 border border-border/50">
       {/* Avatar */}
-      <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-        <span className="text-sm font-bold text-primary">
-          {(guest.guest_name || guest.guest_email || "?")[0].toUpperCase()}
-        </span>
-      </div>
+      <Avatar name={guest.guest_name || guest.guest_email} size="w-10 h-10" textClass="text-sm" />
 
       {/* Info */}
       <div className="flex-1 min-w-0">

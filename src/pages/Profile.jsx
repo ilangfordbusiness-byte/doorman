@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/use-toast";
 import LoadingSpinner from "../components/LoadingSpinner";
 import PromoterAccountSection from "../components/PromoterAccountSection";
 import StripeConnectPanel from "../components/StripeConnectPanel";
+import ProfilePictureEditor from "../components/ProfilePictureEditor";
 
 export default function Profile() {
   const { toast } = useToast();
@@ -23,6 +24,7 @@ export default function Profile() {
   const [adminPin, setAdminPin] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [pendingPhoto, setPendingPhoto] = useState(null);
   const fileInputRef = useRef(null);
 
   async function handleDeleteAccount() {
@@ -50,14 +52,20 @@ export default function Profile() {
     setLoading(false);
   }
 
-  async function handlePhotoChange(e) {
+  function handlePhotoChange(e) {
     const file = e.target.files?.[0];
     if (!file) return;
+    setPendingPhoto(file);
+    e.target.value = "";
+  }
+
+  async function handlePhotoSave(file_url) {
     setUploadingPhoto(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
     await base44.auth.updateMe({ profile_picture: file_url });
     setUser((prev) => ({ ...prev, profile_picture: file_url }));
+    setPendingPhoto(null);
     setUploadingPhoto(false);
+    toast({ title: "Photo updated" });
   }
 
   function startEdit(field) {
@@ -353,6 +361,14 @@ export default function Profile() {
             </div>
           </div>
         </div>
+      )}
+
+      {pendingPhoto && (
+        <ProfilePictureEditor
+          file={pendingPhoto}
+          onSave={handlePhotoSave}
+          onClose={() => setPendingPhoto(null)}
+        />
       )}
 
       {showAdminPin && (

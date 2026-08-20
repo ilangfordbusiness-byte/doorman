@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { Send, MessageCircle } from "lucide-react";
+import Avatar from "./Avatar";
 
 export default function EventChat({ eventId, user, isHost, canChat }) {
   const canSend = isHost || canChat === true;
@@ -62,13 +63,7 @@ export default function EventChat({ eventId, user, isHost, canChat }) {
             const isMe = msg.sender_email === user.email;
             return (
               <div key={msg.id} className={`flex gap-2 ${isMe ? "flex-row-reverse" : "flex-row"}`}>
-                <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary flex-shrink-0 overflow-hidden">
-                  {msg.sender_picture ? (
-                    <img src={msg.sender_picture} className="w-full h-full object-cover" />
-                  ) : (
-                    (msg.sender_name || msg.sender_email)[0].toUpperCase()
-                  )}
-                </div>
+                <Avatar src={msg.sender_picture} name={msg.sender_name || msg.sender_email} size="w-7 h-7" textClass="text-xs" />
                 <div className={`max-w-[70%] ${isMe ? "items-end" : "items-start"} flex flex-col gap-0.5`}>
                   <div className="flex items-center gap-1.5">
                     <span className={`text-[10px] text-muted-foreground ${isMe ? "order-last" : ""}`}>
