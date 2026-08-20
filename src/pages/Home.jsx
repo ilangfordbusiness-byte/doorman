@@ -74,27 +74,27 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col px-4 pt-5 pb-8 max-w-lg mx-auto">
       {/* Header */}
-      <div className="flex items-center gap-2">
+      <div className="relative flex items-center justify-center">
         <img
           src="https://media.base44.com/images/public/69d556d1ae7f4cada8ab83ef/e327a8610_logotransparent.png"
           alt="DoorMan"
-          className="w-8 h-8 object-contain"
+          className="w-8 h-8 object-contain absolute left-0"
         />
-        <span className="font-heading font-bold text-xl tracking-widest text-foreground uppercase">
+        <span className="font-heading font-bold text-4xl tracking-widest text-foreground uppercase">
           Door<span className="text-primary" style={{ textShadow: "0 0 20px hsl(270 90% 65% / 0.8)" }}>Man</span>
         </span>
-        <div className="ml-auto flex items-center gap-1.5 px-2 py-1 rounded-full border border-accent/30 bg-accent/5">
+        <div className="absolute right-0 flex items-center gap-1.5 px-2 py-1 rounded-full border border-accent/30 bg-accent/5">
           <div className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" style={{ boxShadow: "0 0 6px hsl(180 100% 50%)" }} />
           <span className="text-[10px] font-mono text-accent tracking-widest">LIVE</span>
         </div>
       </div>
 
       {/* Greeting */}
-      <div className="mt-4">
-        <h1 className="font-heading font-bold text-3xl text-foreground leading-tight">
+      <div className="mt-3">
+        <h1 className="font-heading font-bold text-base text-foreground leading-tight">
           Hey, {firstName ? <span className="text-primary">{firstName}</span> : "there"}
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">Your night starts here.</p>
+        <p className="text-xs text-muted-foreground mt-0.5">Your night starts here.</p>
       </div>
 
       {/* Upcoming event hero */}
