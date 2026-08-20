@@ -25,7 +25,9 @@ export default function Profile() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [pendingPhoto, setPendingPhoto] = useState(null);
+  const [showPhotoMenu, setShowPhotoMenu] = useState(false);
   const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
 
   async function handleDeleteAccount() {
     if (deleteConfirmText !== "DELETE") return;
@@ -56,6 +58,7 @@ export default function Profile() {
     const file = e.target.files?.[0];
     if (!file) return;
     setPendingPhoto(file);
+    setShowPhotoMenu(false);
     e.target.value = "";
   }
 
@@ -134,7 +137,7 @@ export default function Profile() {
             </div>
             <button
               className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-primary flex items-center justify-center border-2 border-card"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => setShowPhotoMenu((s) => !s)}
               disabled={uploadingPhoto}
             >
               {uploadingPhoto ? (
@@ -143,7 +146,24 @@ export default function Profile() {
                 <Camera className="w-3 h-3 text-white" />
               )}
             </button>
+            {showPhotoMenu && (
+              <div className="absolute top-full right-0 mt-2 z-20 bg-card border border-border rounded-xl shadow-xl py-1 w-40">
+                <button
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-secondary flex items-center gap-2"
+                  onClick={() => { cameraInputRef.current?.click(); }}
+                >
+                  <Camera className="w-4 h-4 text-primary" /> Take Photo
+                </button>
+                <button
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-secondary flex items-center gap-2"
+                  onClick={() => { fileInputRef.current?.click(); }}
+                >
+                  <Camera className="w-4 h-4 text-muted-foreground" /> Choose Photo
+                </button>
+              </div>
+            )}
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
+            <input ref={cameraInputRef} type="file" accept="image/*" capture="user" className="hidden" onChange={handlePhotoChange} />
           </div>
           <div>
             <h2 className="font-heading font-bold text-lg">{user?.full_name}</h2>
