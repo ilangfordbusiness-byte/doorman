@@ -64,6 +64,11 @@
       "default": false,
       "description": "Public or private event"
     },
+    "discoverable": {
+      "type": "boolean",
+      "default": false,
+      "description": "For private events: whether it appears on the Discover page (true) or is only visible via shared link (false). Public events are always discoverable."
+    },
     "capacity": {
       "type": "number",
       "description": "Max capacity"

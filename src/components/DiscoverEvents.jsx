@@ -12,8 +12,8 @@ export default function DiscoverEvents() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    base44.entities.Event.filter({ status: "published", is_public: true }, "-date").then((data) => {
-      setEvents(data);
+    base44.entities.Event.filter({ status: "published" }, "-date").then((data) => {
+      setEvents(data.filter((e) => e.is_public || e.discoverable));
       setLoading(false);
     });
   }, []);

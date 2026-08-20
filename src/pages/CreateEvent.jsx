@@ -38,6 +38,7 @@ export default function CreateEvent({ business = null }) {
     entry_notes: "",
     host_notes: "",
     is_public: false,
+    discoverable: false,
     plus_one_allowed: false,
     capacity: "",
     is_paid: false,
@@ -381,6 +382,27 @@ export default function CreateEvent({ business = null }) {
                   </div>
                 </label>
               </div>
+              {!form.is_public && (
+                <div className="mt-3 pl-1">
+                  <p className="text-xs text-muted-foreground mb-2">Who can find this event?</p>
+                  <div className="space-y-2">
+                    <label className={`flex items-start gap-2 rounded-xl p-2.5 border cursor-pointer ${form.discoverable ? "border-primary bg-primary/10" : "border-border bg-secondary/40"}`}>
+                      <input type="radio" name="discovermode" checked={form.discoverable} onChange={() => updateForm("discoverable", true)} className="mt-0.5 accent-primary" />
+                      <div>
+                        <p className="text-sm font-medium">Show on Discover</p>
+                        <p className="text-xs text-muted-foreground">Anyone can find it and request to join.</p>
+                      </div>
+                    </label>
+                    <label className={`flex items-start gap-2 rounded-xl p-2.5 border cursor-pointer ${!form.discoverable ? "border-primary bg-primary/10" : "border-border bg-secondary/40"}`}>
+                      <input type="radio" name="discovermode" checked={!form.discoverable} onChange={() => updateForm("discoverable", false)} className="mt-0.5 accent-primary" />
+                      <div>
+                        <p className="text-sm font-medium">Link only</p>
+                        <p className="text-xs text-muted-foreground">Only people with the shared link can request to join.</p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              )}
               <div className="mt-4">
                 <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Who's Going Visibility</Label>
                 <div className="space-y-2">
