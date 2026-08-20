@@ -86,6 +86,46 @@
       "type": "string",
       "description": "Host display name"
     },
+    "host_picture": {
+      "type": "string",
+      "description": "Host profile picture URL (denormalized)"
+    },
+    "co_hosts": {
+      "type": "array",
+      "description": "Co-hosts invited to help run the event",
+      "items": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "picture": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "accepted",
+              "declined"
+            ],
+            "default": "pending"
+          }
+        }
+      },
+      "default": []
+    },
+    "co_host_emails": {
+      "type": "array",
+      "description": "Emails of accepted co-hosts (plain list for access control)",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
     "status": {
       "type": "string",
       "enum": [
@@ -137,7 +177,18 @@
     },
     "read": {},
     "update": {
-      "data.host_email": "{{user.email}}"
+      "$or": [
+        {
+          "data.host_email": "{{user.email}}"
+        },
+        {
+          "data.co_host_emails": {
+            "$in": [
+              "{{user.email}}"
+            ]
+          }
+        }
+      ]
     },
     "delete": {
       "data.host_email": "{{user.email}}"
