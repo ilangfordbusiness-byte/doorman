@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Instagram, Heart, Plus } from "lucide-react";
+import { Instagram, Heart, Plus, QrCode } from "lucide-react";
 
 function Action({ to, icon: Icon, label, sub, color }) {
   return (
@@ -19,13 +19,23 @@ export default function QuickActions({ user }) {
   const hasIg = !!user?.instagram;
   return (
     <div className="flex items-stretch bg-card border border-border rounded-2xl overflow-hidden">
-      <Action
-        to="/profile"
-        icon={Instagram}
-        label={hasIg ? "Instagram" : "Connect Instagram"}
-        sub={hasIg ? `@${user.instagram}` : "Add to your profile"}
-        color="text-pink-400"
-      />
+      {hasIg ? (
+        <Action
+          to="/guest?tab=invites"
+          icon={QrCode}
+          label="My Invites"
+          sub="Your passes"
+          color="text-emerald-400"
+        />
+      ) : (
+        <Action
+          to="/profile"
+          icon={Instagram}
+          label="Connect Instagram"
+          sub="Add to your profile"
+          color="text-pink-400"
+        />
+      )}
       <Divider />
       <Action to="/friends" icon={Heart} label="Requests" sub="New activity" color="text-primary" />
       <Divider />
