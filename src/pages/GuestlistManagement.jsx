@@ -13,6 +13,7 @@ import GuestCard from "../components/GuestCard";
 import LoadingSpinner from "../components/LoadingSpinner";
 import Avatar from "../components/Avatar";
 import { useProfiles } from "@/hooks/useProfiles";
+import FriendProfile from "../components/FriendProfile";
 
 export default function GuestlistManagement() {
   const { id } = useParams();
@@ -27,6 +28,7 @@ export default function GuestlistManagement() {
   const [adding, setAdding] = useState(false);
   const [friends, setFriends] = useState([]);
   const [me, setMe] = useState(null);
+  const [viewProfile, setViewProfile] = useState(null);
   const { data: profiles } = useProfiles(guests.map((g) => g.guest_email).filter(Boolean));
 
   useEffect(() => {
@@ -264,6 +266,7 @@ export default function GuestlistManagement() {
                 key={g.id}
                 guest={g}
                 picture={profiles?.[g.guest_email?.toLowerCase()]?.picture}
+                onViewProfile={setViewProfile}
                 onApprove={(g) => updateStatus(g, "approved")}
                 onDeny={(g) => updateStatus(g, "denied")}
                 onWaitlist={(g) => updateStatus(g, "waitlist")}
@@ -281,6 +284,7 @@ export default function GuestlistManagement() {
                 key={g.id}
                 guest={g}
                 picture={profiles?.[g.guest_email?.toLowerCase()]?.picture}
+                onViewProfile={setViewProfile}
                 onDeny={(g) => updateStatus(g, "revoked")}
                 onToggleChat={toggleChat}
                 showActions={true}
@@ -294,7 +298,8 @@ export default function GuestlistManagement() {
             <EmptyTab message="No check-ins yet" />
           ) : (
             checkedIn.map((g) => (
-              <GuestCard key={g.id} guest={g} picture={profiles?.[g.guest_email?.toLowerCase()]?.picture} onToggleChat={toggleChat} showActions={true} />
+              <GuestCard key={g.id} guest={g} picture={profiles?.[g.guest_email?.toLowerCase()]?.picture}
+                onViewProfile={setViewProfile} onToggleChat={toggleChat} showActions={true} />
             ))
           )}
         </TabsContent>
@@ -308,6 +313,7 @@ export default function GuestlistManagement() {
                   key={g.id}
                   guest={g}
                   picture={profiles?.[g.guest_email?.toLowerCase()]?.picture}
+                onViewProfile={setViewProfile}
                   onApprove={(g) => updateStatus(g, "approved")}
                   onDeny={(g) => updateStatus(g, "denied")}
                 />
@@ -322,6 +328,7 @@ export default function GuestlistManagement() {
                   key={g.id}
                   guest={g}
                   picture={profiles?.[g.guest_email?.toLowerCase()]?.picture}
+                onViewProfile={setViewProfile}
                   onApprove={(g) => updateStatus(g, "approved")}
                   showActions={true}
                 />
@@ -333,6 +340,19 @@ export default function GuestlistManagement() {
           )}
         </TabsContent>
       </Tabs>
+
+      {viewProfile && (
+        <FriendProfile
+          friend={{
+            email: viewProfile.guest_email,
+            name: viewProfile.guest_name,
+            picture: profiles?.[viewProfile.guest_email?.toLowerCase()]?.picture,
+          }}
+          myEmail={me?.email}
+          myFriends={friends}
+          onClose={() => setViewProfile(null)}
+        />
+      )}
     </div>
   );
 }

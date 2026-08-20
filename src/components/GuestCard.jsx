@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import StatusBadge from "./StatusBadge";
 import Avatar from "./Avatar";
 
-export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, onToggleChat, showActions = true, picture }) {
+export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, onToggleChat, showActions = true, picture, onViewProfile }) {
   const canApprove = ["requested", "waitlist", "denied"].includes(guest.status);
   const canDeny = ["requested", "waitlist", "approved", "invited"].includes(guest.status);
   const canWaitlist = ["requested"].includes(guest.status);
@@ -11,23 +11,29 @@ export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, onTogg
 
   return (
     <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/50 border border-border/50">
-      {/* Avatar */}
-      <Avatar src={picture} name={guest.guest_name || guest.guest_email} size="w-10 h-10" textClass="text-sm" />
+      {/* Avatar + Info — clickable to open profile */}
+      <button
+        type="button"
+        onClick={onViewProfile ? () => onViewProfile(guest) : undefined}
+        disabled={!onViewProfile}
+        className={`flex items-center gap-3 flex-1 min-w-0 text-left ${onViewProfile ? "cursor-pointer" : "cursor-default"}`}
+      >
+        <Avatar src={picture} name={guest.guest_name || guest.guest_email} size="w-10 h-10" textClass="text-sm" />
 
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <p className="font-semibold text-sm text-foreground truncate">
-          {guest.guest_name || "Unknown"}
-        </p>
-        <p className="text-xs text-muted-foreground truncate">
-          {guest.guest_phone || guest.guest_email}
-        </p>
-        {guest.plus_one && (
-          <span className="inline-flex items-center gap-1 text-[10px] text-accent mt-0.5">
-            <UserPlus className="w-3 h-3" /> +1 {guest.plus_one_name || ""}
-          </span>
-        )}
-      </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-sm text-foreground truncate">
+            {guest.guest_name || "Unknown"}
+          </p>
+          <p className="text-xs text-muted-foreground truncate">
+            {guest.guest_phone || guest.guest_email}
+          </p>
+          {guest.plus_one && (
+            <span className="inline-flex items-center gap-1 text-[10px] text-accent mt-0.5">
+              <UserPlus className="w-3 h-3" /> +1 {guest.plus_one_name || ""}
+            </span>
+          )}
+        </div>
+      </button>
 
       {/* Status + Actions */}
       <div className="flex items-center gap-2 flex-shrink-0">
