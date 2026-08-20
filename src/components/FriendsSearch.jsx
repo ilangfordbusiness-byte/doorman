@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { Search, UserPlus, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import Avatar from "./Avatar";
 
 // Search the app's people directory (everyone who has appeared on a guestlist)
 // by name, see mutual-friend counts, and send friend requests directly.
@@ -122,13 +123,7 @@ export default function FriendsSearch({ me, friendEmails, sentSet, onSend }) {
         const mc = mutuals[u.email];
         return (
           <div key={u.email} className="flex items-center gap-3 bg-secondary/40 rounded-xl px-4 py-3 border border-border/50">
-            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
-              {u.profile_picture ? (
-                <img src={u.profile_picture} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <span className="font-bold text-primary text-sm">{(u.full_name || "?")[0].toUpperCase()}</span>
-              )}
-            </div>
+            <Avatar src={u.profile_picture} name={u.full_name || u.email} size="w-10 h-10" textClass="text-sm" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold truncate">{u.full_name}</p>
               <p className="text-[11px] text-muted-foreground">

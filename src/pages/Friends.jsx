@@ -7,6 +7,7 @@ import { ArrowLeft, UserPlus, Users, Check, X, UserCheck, Loader2 } from "lucide
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import LoadingSpinner from "../components/LoadingSpinner";
+import Avatar from "../components/Avatar";
 import FriendProfile from "../components/FriendProfile";
 import SuggestionProfile from "../components/SuggestionProfile";
 import FriendsSearch from "../components/FriendsSearch";
@@ -254,13 +255,7 @@ function UserRow({ user, reason, children, onClick }) {
       className={`flex items-center gap-3 bg-secondary/40 rounded-xl px-4 py-3 border border-border/50 ${onClick ? "cursor-pointer hover:border-primary/30 transition-colors active:scale-[0.99]" : ""}`}
       onClick={onClick}
     >
-      <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
-        {user.profile_picture ? (
-          <img src={user.profile_picture} alt="" className="w-full h-full object-cover" />
-        ) : (
-          <span className="font-bold text-primary text-sm">{(user.full_name || "?")[0].toUpperCase()}</span>
-        )}
-      </div>
+      <Avatar src={user.profile_picture} name={user.full_name || user.email} size="w-10 h-10" textClass="text-sm" />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold truncate">{user.full_name || user.email}</p>
         {reason && <p className="text-[11px] text-muted-foreground">{reason}</p>}

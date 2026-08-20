@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { useSwitchAccount } from "@/hooks/useActiveAccount";
 import ProfilePictureEditor from "@/components/ProfilePictureEditor";
+import Avatar from "@/components/Avatar";
 import { Building2, Camera, Loader2 } from "lucide-react";
 
 export default function CreateBusinessDialog({ user, onClose }) {
@@ -59,9 +60,7 @@ export default function CreateBusinessDialog({ user, onClose }) {
 
         <div className="flex items-center gap-3 mb-4">
           <div className="relative">
-            <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden">
-              {picture ? <img src={picture} alt="" className="w-full h-full object-cover" /> : <span className="text-2xl font-bold text-primary">{(name || "?")[0].toUpperCase()}</span>}
-            </div>
+            <Avatar src={picture} name={name} size="w-16 h-16" textClass="text-2xl" />
             <button className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-primary flex items-center justify-center border-2 border-card" onClick={() => fileRef.current?.click()}>
               <Camera className="w-3 h-3 text-white" />
             </button>

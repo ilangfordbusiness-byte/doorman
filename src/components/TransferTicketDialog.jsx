@@ -4,6 +4,7 @@ import { X, Search, Send, ArrowLeft, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import LoadingSpinner from "./LoadingSpinner";
+import Avatar from "./Avatar";
 
 // Modal for a guest to send a ticket (GuestlistEntry) to a friend.
 // The recipient is chosen from the sender's accepted-friends list. The transfer
@@ -97,9 +98,7 @@ export default function TransferTicketDialog({ entry, event, user, onClose, onTr
               <div className="space-y-2">
                 {filtered.map((f) => (
                   <button key={f.email} onClick={() => { setSelected(f); setStage("confirm"); }} className="w-full flex items-center gap-3 bg-secondary/40 rounded-xl px-3 py-2.5 border border-border/50 hover:border-primary/40 transition-colors text-left">
-                    <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                      {f.picture ? <img src={f.picture} alt="" className="w-full h-full object-cover" /> : <span className="font-bold text-primary text-sm">{(f.name || "?")[0].toUpperCase()}</span>}
-                    </div>
+                    <Avatar src={f.picture} name={f.name || f.email} size="w-9 h-9" textClass="text-sm" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold truncate">{f.name}</p>
                       <p className="text-[11px] text-muted-foreground truncate">{f.email}</p>

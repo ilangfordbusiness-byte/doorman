@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { MapPin, Clock, Bookmark, ArrowRight, Sparkles } from "lucide-react";
 import { COVERS } from "@/components/CoverPicker";
+import Avatar from "@/components/Avatar";
 import moment from "moment";
 
 function coverStyle(cover_image) {
@@ -107,13 +108,7 @@ export default function UpcomingEventHero({ event, isHosting, friendsGoing, atte
                   <>
                     <div className="flex -space-x-2 flex-shrink-0">
                       {shownFriends.map((f) => (
-                        <div key={f.email} className="w-7 h-7 rounded-full bg-secondary border-2 border-black/60 overflow-hidden flex items-center justify-center">
-                          {f.picture ? (
-                            <img src={f.picture} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-[9px] font-bold text-white">{(f.name || "?")[0].toUpperCase()}</span>
-                          )}
-                        </div>
+                        <Avatar key={f.email} src={f.picture} name={f.name} size="w-7 h-7" textClass="text-[9px] text-white" className="border-2 border-black/60 bg-secondary" />
                       ))}
                       {extraFriends > 0 && (
                         <div className="w-7 h-7 rounded-full bg-black/60 border-2 border-black/60 flex items-center justify-center">

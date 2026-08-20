@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import GuestCard from "../components/GuestCard";
 import LoadingSpinner from "../components/LoadingSpinner";
+import Avatar from "../components/Avatar";
 import { useProfiles } from "@/hooks/useProfiles";
 
 export default function GuestlistManagement() {
@@ -177,13 +178,7 @@ export default function GuestlistManagement() {
                       const alreadyAdded = guests.some((g) => g.guest_email === f.email);
                       return (
                         <div key={f.email} className="flex items-center gap-3 bg-secondary/50 rounded-xl px-3 py-2 border border-border/50">
-                          {f.picture ? (
-                            <img src={f.picture} className="w-7 h-7 rounded-full object-cover" />
-                          ) : (
-                            <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
-                              {(f.name || f.email)[0].toUpperCase()}
-                            </div>
-                          )}
+                          <Avatar src={f.picture} name={f.name || f.email} size="w-7 h-7" textClass="text-xs" />
                           <span className="flex-1 text-sm font-medium text-foreground truncate">{f.name || f.email}</span>
                           <button
                             onClick={() => addFriendToGuestlist(f)}

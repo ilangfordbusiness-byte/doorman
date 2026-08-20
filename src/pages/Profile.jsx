@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import LoadingSpinner from "../components/LoadingSpinner";
+import Avatar from "../components/Avatar";
 import PromoterAccountSection from "../components/PromoterAccountSection";
 import StripeConnectPanel from "../components/StripeConnectPanel";
 import ProfilePictureEditor from "../components/ProfilePictureEditor";
@@ -146,15 +147,7 @@ export default function Profile() {
       <div className="bg-card rounded-2xl border border-border p-6 mb-6">
         <div className="flex items-center gap-4">
           <div className="relative">
-            <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden">
-              {user?.profile_picture ? (
-                <img src={user.profile_picture} alt="Profile" className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-2xl font-bold text-primary font-heading">
-                  {(user?.full_name || "?")[0].toUpperCase()}
-                </span>
-              )}
-            </div>
+            <Avatar src={user?.profile_picture} name={user?.full_name} size="w-16 h-16" textClass="text-2xl" />
             <button
               className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-primary flex items-center justify-center border-2 border-card"
               onClick={() => setShowPhotoMenu((s) => !s)}
@@ -243,9 +236,7 @@ export default function Profile() {
           <div className="space-y-2">
             {businessAccounts.map((b) => (
               <div key={b.id} className="flex items-center gap-3 bg-secondary/40 rounded-xl p-3 border border-border/50">
-                <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden flex-shrink-0">
-                  {b.business_picture ? <img src={b.business_picture} alt="" className="w-full h-full object-cover" /> : <span className="text-sm font-bold text-primary">{(b.business_name || "?")[0].toUpperCase()}</span>}
-                </div>
+                <Avatar src={b.business_picture} name={b.business_name} size="w-9 h-9" textClass="text-sm" className="flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold truncate">{b.business_name}</p>
                   <p className="text-[10px] text-muted-foreground truncate">{b.business_email}</p>

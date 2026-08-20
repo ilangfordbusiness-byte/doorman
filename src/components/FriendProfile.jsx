@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { X, Instagram, Users, Calendar, Clock, PartyPopper } from "lucide-react";
 import { Link } from "react-router-dom";
 import LoadingSpinner from "./LoadingSpinner";
+import Avatar from "./Avatar";
 import moment from "moment";
 
 export default function FriendProfile({ friend, myEmail, myFriends, onClose }) {
@@ -111,15 +112,7 @@ export default function FriendProfile({ friend, myEmail, myFriends, onClose }) {
           <div className="px-5 py-5 space-y-5">
             {/* Identity */}
             <div className="flex items-center gap-4">
-              <div className="w-20 h-20 rounded-2xl bg-primary/20 flex items-center justify-center overflow-hidden flex-shrink-0">
-                {(profile?.profile_picture || friend.picture) ? (
-                  <img src={profile?.profile_picture || friend.picture} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-3xl font-bold text-primary font-heading">
-                    {(profile?.full_name || friend.name || "?")[0].toUpperCase()}
-                  </span>
-                )}
-              </div>
+              <Avatar src={profile?.profile_picture || friend.picture} name={profile?.full_name || friend.name} size="w-20 h-20" rounded="rounded-2xl" textClass="text-3xl" className="flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <h3 className="font-heading font-bold text-xl leading-tight">{profile?.full_name || friend.name}</h3>
                 {profile?.instagram && (
@@ -160,13 +153,7 @@ export default function FriendProfile({ friend, myEmail, myFriends, onClose }) {
                 <div className="flex flex-wrap gap-2">
                   {mutualFriends.map((mf) => (
                     <div key={mf.email} className="flex items-center gap-2 bg-secondary/50 rounded-full px-3 py-1.5 border border-border/50">
-                      <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden flex-shrink-0">
-                        {mf.picture ? (
-                          <img src={mf.picture} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-[9px] font-bold text-primary">{(mf.name || "?")[0].toUpperCase()}</span>
-                        )}
-                      </div>
+                      <Avatar src={mf.picture} name={mf.name} size="w-5 h-5" textClass="text-[9px]" />
                       <span className="text-xs font-medium">{mf.name}</span>
                     </div>
                   ))}
