@@ -1,10 +1,10 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { Users, HeartHandshake, UserCircle } from "lucide-react";
+import { Home as HomeIcon, Heart, UserCircle } from "lucide-react";
 
 const tabs = [
-  { path: "/guest", query: "?tab=discover", icon: Users, label: "Discover" },
-  { path: "/friends", icon: HeartHandshake, label: "Friends" },
-  { path: "/profile", icon: UserCircle, label: "Account" },
+  { path: "/", icon: HomeIcon, label: "Home" },
+  { path: "/friends", icon: Heart, label: "Activity" },
+  { path: "/profile", icon: UserCircle, label: "Profile" },
 ];
 
 export default function BottomNav() {
@@ -24,17 +24,16 @@ export default function BottomNav() {
       <div className="h-px w-full" style={{ background: "linear-gradient(90deg, transparent, hsl(270 90% 65% / 0.5), hsl(180 100% 50% / 0.4), transparent)" }} />
       <div className="bg-black/80 backdrop-blur-2xl border-t border-white/5">
         <div className="flex items-stretch max-w-lg mx-auto">
-          {tabs.map(({ path, query, icon: Icon, label }) => {
-            const active = location.pathname === path || location.pathname.startsWith(path + "/");
+          {tabs.map(({ path, icon: Icon, label }) => {
+            const active = path === "/" ? location.pathname === "/" : location.pathname === path || location.pathname.startsWith(path + "/");
             return (
               <button
                 key={path}
                 onClick={() => {
-                  const target = path + (query || "");
-                  if (location.pathname + location.search === target) return;
-                  navigate(target);
+                  if (location.pathname === path) return;
+                  navigate(path);
                 }}
-                className={`flex-1 flex flex-col items-center justify-center py-2.5 gap-1 select-none transition-all min-h-[52px] relative`}
+                className="flex-1 flex flex-col items-center justify-center py-2.5 gap-1 select-none transition-all min-h-[52px] relative"
               >
                 {active && (
                   <div

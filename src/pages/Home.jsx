@@ -1,136 +1,122 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { Mic2, Users, UserCircle, ChevronRight, HeartHandshake } from "lucide-react";
-
-const roles = [
-  {
-    to: "/guest",
-    icon: Users,
-    label: "Discover",
-    sublabel: "View your invites & passes",
-    border: "border-amber-500/20 hover:border-amber-400/60",
-    topBar: "from-amber-400 to-orange-500",
-    iconColor: "text-amber-400",
-    iconBg: "bg-amber-500/10",
-    tag: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-    tagText: "DISCOVER",
-  },
-  {
-    to: "/friends",
-    icon: HeartHandshake,
-    label: "Friends",
-    sublabel: "Suggestions, requests & connections",
-    border: "border-pink-500/20 hover:border-pink-400/60",
-    topBar: "from-pink-500 to-rose-500",
-    iconColor: "text-pink-400",
-    iconBg: "bg-pink-500/10",
-    tag: "bg-pink-500/10 text-pink-400 border-pink-500/20",
-    tagText: "SOCIAL",
-  },
-  {
-    to: "/host",
-    icon: Mic2,
-    label: "Host",
-    sublabel: "Create & manage your events",
-    border: "border-violet-500/20 hover:border-violet-400/60",
-    topBar: "from-violet-500 to-fuchsia-500",
-    iconColor: "text-violet-400",
-    iconBg: "bg-violet-500/10",
-    tag: "bg-violet-500/10 text-violet-400 border-violet-500/20",
-    tagText: "HOST",
-  },
-  {
-    to: "/profile",
-    icon: UserCircle,
-    label: "Account",
-    sublabel: "Profile & settings",
-    border: "border-sky-500/20 hover:border-sky-400/60",
-    topBar: "from-sky-400 to-blue-500",
-    iconColor: "text-sky-400",
-    iconBg: "bg-sky-500/10",
-    tag: "bg-sky-500/10 text-sky-400 border-sky-500/20",
-    tagText: "YOU",
-  },
-];
+import moment from "moment";
+import UpcomingEventHero from "@/components/home/UpcomingEventHero";
+import QuickActions from "@/components/home/QuickActions";
+import SectionGrid from "@/components/home/SectionGrid";
 
 export default function Home() {
-  const [userName, setUserName] = useState("");
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [event, setEvent] = useState(null);
+  const [isHosting, setIsHosting] = useState(false);
+  const [friendsGoing, setFriendsGoing] = useState([]);
+  const [attendeeCount, setAttendeeCount] = useState(0);
 
   useEffect(() => {
-    base44.auth.me().then((me) => setUserName(me?.full_name?.split(" ")[0] || ""));
+    load();
   }, []);
 
+  async function load() {
+    const me = await base44.auth.me();
+    setUser(me);
+    const today = moment().startOf("day").format("YYYY-MM-DD");
+
+    const [entries, hosted] = await Promise.all([
+      base44.entities.GuestlistEntry.filter({ guest_email: me.email }),
+      base44.entities.Event.filter({ host_email: me.email }),
+    ]);
+
+    const attendingIds = [...new Set(
+      entries.filter((e) => ["approved", "invited", "checked_in"].includes(e.status)).map((e) => e.event_id)
+    )];
+
+    const attendingEvents = await Promise.all(
+      attendingIds.map((eid) =>
+        base44.entities.Event.filter({ id: eid }).then((r) => r[0]).catch(() => null)
+      )
+    );
+
+    const seen = new Set();
+    const upcoming = [...attendingEvents.filter(Boolean), ...hosted]
+      .filter((ev) => {
+        if (seen.has(ev.id)) return false;
+        seen.add(ev.id);
+        return ev.date >= today && ev.status !== "cancelled";
+      })
+      .sort((a, b) => (a.date > b.date ? 1 : -1));
+
+    if (upcoming.length > 0) {
+      const ev = upcoming[0];
+      setEvent(ev);
+      setIsHosting(hosted.some((h) => h.id === ev.id));
+
+      const [attendees, sent, received] = await Promise.all([
+        base44.entities.GuestlistEntry.filter({ event_id: ev.id }),
+        base44.entities.FriendRequest.filter({ sender_email: me.email }),
+        base44.entities.FriendRequest.filter({ receiver_email: me.email }),
+      ]);
+      const going = new Set(
+        attendees.filter((a) => ["approved", "invited", "checked_in"].includes(a.status)).map((a) => a.guest_email)
+      );
+      setAttendeeCount(going.size);
+      const friends = [
+        ...sent.filter((r) => r.status === "accepted").map((r) => ({ email: r.receiver_email, name: r.receiver_name, picture: r.receiver_picture })),
+        ...received.filter((r) => r.status === "accepted").map((r) => ({ email: r.sender_email, name: r.sender_name, picture: r.sender_picture })),
+      ];
+      setFriendsGoing(friends.filter((f) => going.has(f.email)));
+    }
+    setLoading(false);
+  }
+
+  const firstName = user?.full_name?.split(" ")[0] || "";
+
   return (
-    <div className="min-h-screen flex flex-col px-4 pt-6 pb-6 max-w-lg mx-auto">
-      {/* Brand */}
-      <div className="mb-6">
-        <div className="flex items-center gap-2 mb-1">
-          <img
-            src="https://media.base44.com/images/public/69d556d1ae7f4cada8ab83ef/e327a8610_logotransparent.png"
-            alt="DoorMan"
-            className="w-10 h-10 object-contain"
-          />
-          <span className="font-heading font-bold text-2xl tracking-widest text-foreground uppercase">
-            Door<span className="text-primary" style={{ textShadow: "0 0 20px hsl(270 90% 65% / 0.8)" }}>Man</span>
-          </span>
-          <div className="ml-auto flex items-center gap-1.5 px-2 py-1 rounded-full border border-accent/30 bg-accent/5">
-            <div className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" style={{ boxShadow: "0 0 6px hsl(180 100% 50%)" }} />
-            <span className="text-[10px] font-mono text-accent tracking-widest">LIVE</span>
-          </div>
-        </div>
-
-        <div className="mt-4 pl-1">
-          <p className="text-[10px] font-mono text-muted-foreground tracking-[0.25em] uppercase mb-1">
-            // welcome back
-          </p>
-          <h1 className="font-heading font-bold text-3xl text-foreground leading-tight">
-            {userName ? (
-              <>Hey, <span className="text-primary" style={{ textShadow: "0 0 25px hsl(270 90% 65% / 0.6)" }}>{userName}</span></>
-            ) : (
-              "Hey there 👋"
-            )}
-          </h1>
-          <p className="text-xs text-muted-foreground mt-1">What are you here for tonight?</p>
+    <div className="min-h-screen flex flex-col px-4 pt-5 pb-8 max-w-lg mx-auto">
+      {/* Header */}
+      <div className="flex items-center gap-2">
+        <img
+          src="https://media.base44.com/images/public/69d556d1ae7f4cada8ab83ef/e327a8610_logotransparent.png"
+          alt="DoorMan"
+          className="w-8 h-8 object-contain"
+        />
+        <span className="font-heading font-bold text-xl tracking-widest text-foreground uppercase">
+          Door<span className="text-primary" style={{ textShadow: "0 0 20px hsl(270 90% 65% / 0.8)" }}>Man</span>
+        </span>
+        <div className="ml-auto flex items-center gap-1.5 px-2 py-1 rounded-full border border-accent/30 bg-accent/5">
+          <div className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" style={{ boxShadow: "0 0 6px hsl(180 100% 50%)" }} />
+          <span className="text-[10px] font-mono text-accent tracking-widest">LIVE</span>
         </div>
       </div>
 
-      {/* Role cards */}
-      <div className="flex flex-col gap-3 flex-1">
-        {roles.map((role) => (
-          <Link key={role.to} to={role.to} className="block group">
-            <div className={`relative rounded-2xl border bg-card overflow-hidden transition-all duration-300 active:scale-[0.98] ${role.border}`}>
-              <div className={`h-[2px] w-full bg-gradient-to-r ${role.topBar} opacity-60 group-hover:opacity-100 transition-opacity`} />
-              <div className="flex items-center gap-4 p-4">
-                <div className={`w-11 h-11 rounded-xl ${role.iconBg} flex items-center justify-center flex-shrink-0 border border-white/5`}>
-                  <role.icon className={`w-5 h-5 ${role.iconColor}`} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <p className="font-heading font-bold text-base text-foreground">{role.label}</p>
-                    <span className={`text-[9px] font-mono font-bold tracking-widest px-1.5 py-0.5 rounded border ${role.tag}`}>
-                      {role.tagText}
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground truncate">{role.sublabel}</p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-all" />
-              </div>
-              <div
-                className="absolute inset-0 pointer-events-none opacity-[0.02]"
-                style={{
-                  backgroundImage: "linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)",
-                  backgroundSize: "20px 20px",
-                }}
-              />
-            </div>
-          </Link>
-        ))}
+      {/* Greeting */}
+      <div className="mt-4">
+        <h1 className="font-heading font-bold text-3xl text-foreground leading-tight">
+          Hey, {firstName ? <span className="text-primary">{firstName}</span> : "there"}
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">Your night starts here.</p>
       </div>
 
-      <p className="text-center text-[10px] font-mono text-muted-foreground/40 tracking-widest mt-6 uppercase">
-        Access Granted — v1.0
-      </p>
+      {/* Upcoming event hero */}
+      <div className="mt-5">
+        <UpcomingEventHero
+          event={event}
+          isHosting={isHosting}
+          friendsGoing={friendsGoing}
+          attendeeCount={attendeeCount}
+          loading={loading}
+        />
+      </div>
+
+      {/* Quick actions */}
+      <div className="mt-5">
+        <QuickActions user={user} />
+      </div>
+
+      {/* Main sections 2x2 grid */}
+      <div className="mt-5">
+        <SectionGrid />
+      </div>
     </div>
   );
 }
