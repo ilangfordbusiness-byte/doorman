@@ -124,6 +124,12 @@ Deno.serve(async (req) => {
               needs_platform_profile: true,
             }, { status: 400 });
           }
+          if (/responsibilities of managing losses|platform-profile|platform profile/i.test(e.message)) {
+            return Response.json({
+              error: 'Stripe needs the platform owner to complete the Connect platform profile first. Open https://dashboard.stripe.com/settings/connect/platform-profile, answer the "responsibilities of managing losses" questionnaire, then try again.',
+              needs_platform_profile: true,
+            }, { status: 400 });
+          }
           throw e;
         }
         accountId = acct.id;
