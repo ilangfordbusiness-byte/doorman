@@ -11,13 +11,16 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { useStripeStatus } from "@/hooks/useStripeStatus";
+import { useBusinessStripeStatus } from "@/hooks/useBusinessStripeStatus";
 
 const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
 
-export default function CreateEvent() {
+export default function CreateEvent({ business = null }) {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { connected: stripeConnected } = useStripeStatus();
+  const { connected: personalConnected } = useStripeStatus();
+  const { connected: businessConnected } = useBusinessStripeStatus(business?.id);
+  const stripeConnected = business ? businessConnected : personalConnected;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [coverFile, setCoverFile] = useState(null);
@@ -126,8 +129,9 @@ export default function CreateEvent() {
         cover_image,
         capacity: form.capacity ? Number(form.capacity) : null,
         host_email: me.email,
-        host_name: me.full_name,
-        host_picture: me.profile_picture || "",
+        host_name: business ? business.business_name : me.full_name,
+        host_picture: business ? (business.business_picture || "") : (me.profile_picture || ""),
+        business_id: business ? business.id : "",
         status,
         invite_code,
       });
@@ -388,7 +392,7 @@ export default function CreateEvent() {
                   <CreditCard className="w-4 h-4 mt-0.5 flex-shrink-0" />
                   <div className="text-xs leading-relaxed">
                     You need a connected Stripe account to sell tickets and receive payouts.{" "}
-                    <Link to="/profile" className="underline font-semibold">Connect Stripe in your Profile</Link> first.
+                    <Link to={business ? "/business/create-event" : "/profile"} className="underline font-semibold">Connect Stripe first</Link>.
                   </div>
                 </div>
               )}

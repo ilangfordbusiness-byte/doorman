@@ -126,6 +126,10 @@
       },
       "default": []
     },
+    "business_id": {
+      "type": "string",
+      "description": "BusinessAccount id this event belongs to (empty for personal events)"
+    },
     "status": {
       "type": "string",
       "enum": [

@@ -217,6 +217,128 @@ Deno.serve(async (req) => {
       return Response.json({ account, balances });
     }
 
+    // ---- Business account Stripe (separate account per business) ----
+    async function loadOwnedBusiness(businessId) {
+      if (!businessId) return null;
+      const list = await srv.entities.BusinessAccount.filter({ id: businessId });
+      if (!list.length) return null;
+      const b = list[0];
+      if (b.owner_email !== user.email) return null;
+      return b;
+    }
+
+    async function computeBusinessBalances(businessId) {
+      const balances = {};
+      const events = await srv.entities.Event.filter({ business_id: businessId });
+      for (const ev of events) {
+        const cur = String(ev.currency || 'gbp').toLowerCase();
+        if (!balances[cur]) balances[cur] = { earned: 0 };
+        const ords = await srv.entities.TicketOrder.filter({ event_id: ev.id, status: 'paid' });
+        for (const o of ords) balances[cur].earned += Number(o.host_net || 0);
+      }
+      return Object.entries(balances).map(([cur, b]) => ({
+        key: cur, role: 'host', currency: cur,
+        earned: Number(b.earned.toFixed(2)),
+        withdrawn: 0,
+        available: Number(b.earned.toFixed(2)),
+      }));
+    }
+
+    if (action === 'business_onboard') {
+      const business = await loadOwnedBusiness(body.business_id);
+      if (!business) return Response.json({ error: 'Business account not found' }, { status: 403 });
+      let accountId = business.stripe_account_id;
+      if (!accountId) {
+        let acct = null;
+        try {
+          const list = await stripeApi('/accounts?limit=100');
+          acct = (list.data || []).find((a) => a.email === business.business_email) || null;
+        } catch (e) {
+          console.error('business account lookup failed:', e.message);
+        }
+        if (!acct) {
+          try {
+            acct = await stripeApi('/accounts', {
+              method: 'POST',
+              body: formEncode({
+                type: 'express',
+                email: business.business_email,
+                'metadata[base44_app_id]': appId,
+                'metadata[business_id]': business.id,
+                'capabilities[transfers][requested]': 'true',
+              }),
+            });
+          } catch (e) {
+            if (/signed up for Connect/i.test(e.message)) {
+              return Response.json({ error: 'Connect isn\'t enabled on this Stripe account yet. The account owner must sign up for Connect once at https://dashboard.stripe.com/connect, then try again.', needs_connect_signup: true }, { status: 400 });
+            }
+            throw e;
+          }
+        }
+        accountId = acct.id;
+        const status = acct.charges_enabled && acct.payouts_enabled ? 'active' : 'pending';
+        await srv.entities.BusinessAccount.update(business.id, { stripe_account_id: accountId, stripe_onboarding_status: status });
+      }
+      let acctInfo = null;
+      try { acctInfo = await stripeApi(`/accounts/${accountId}`); } catch (e) { console.error('biz acct fetch failed', e.message); }
+      const fullyEnabled = acctInfo && acctInfo.charges_enabled && acctInfo.payouts_enabled;
+      try {
+        const link = await stripeApi('/account_links', {
+          method: 'POST',
+          body: formEncode({
+            account: accountId,
+            refresh_url: `${origin}/business/create-event`,
+            return_url: `${origin}/business/create-event`,
+            type: fullyEnabled ? 'account_dashboard' : 'account_onboarding',
+          }),
+        });
+        return Response.json({ url: link.url });
+      } catch (e) {
+        if (/responsible for collecting onboarding|account ID needs to be/i.test(e.message)) {
+          return Response.json({ url: 'https://dashboard.stripe.com/' });
+        }
+        throw e;
+      }
+    }
+
+    if (action === 'business_status') {
+      const business = await loadOwnedBusiness(body.business_id);
+      if (!business) return Response.json({ error: 'Business account not found' }, { status: 403 });
+      let account = null;
+      if (business.stripe_account_id) {
+        try {
+          const acct = await stripeApi(`/accounts/${business.stripe_account_id}`);
+          account = { id: acct.id, charges_enabled: acct.charges_enabled, payouts_enabled: acct.payouts_enabled, details_submitted: acct.details_submitted };
+          const status = acct.charges_enabled && acct.payouts_enabled ? 'active' : (acct.details_submitted ? 'restricted' : 'pending');
+          if (business.stripe_onboarding_status !== status) {
+            await srv.entities.BusinessAccount.update(business.id, { stripe_onboarding_status: status });
+          }
+        } catch (e) { account = { error: e.message }; }
+      }
+      const balances = await computeBusinessBalances(business.id);
+      return Response.json({ account, balances });
+    }
+
+    if (action === 'business_dashboard_link') {
+      const business = await loadOwnedBusiness(body.business_id);
+      if (!business || !business.stripe_account_id) return Response.json({ error: 'No Stripe account connected' }, { status: 400 });
+      try {
+        const link = await stripeApi('/account_links', {
+          method: 'POST',
+          body: formEncode({
+            account: business.stripe_account_id,
+            refresh_url: `${origin}/business/create-event`,
+            return_url: `${origin}/business/create-event`,
+            type: 'account_dashboard',
+          }),
+        });
+        return Response.json({ url: link.url });
+      } catch (e) {
+        if (/responsible for collecting onboarding|account ID needs to be/i.test(e.message)) return Response.json({ url: 'https://dashboard.stripe.com/' });
+        throw e;
+      }
+    }
+
     return Response.json({ error: 'Unknown action' }, { status: 400 });
   } catch (error) {
     console.error('stripeConnect error:', error);

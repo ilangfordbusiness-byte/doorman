@@ -34,6 +34,10 @@
       ],
       "default": "none",
       "description": "Status of the host's Stripe Connect onboarding"
+    },
+    "active_business_id": {
+      "type": "string",
+      "description": "BusinessAccount id the user is currently acting as (null = personal account)"
     }
   },
   "required": [

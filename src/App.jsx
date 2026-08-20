@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
@@ -25,6 +25,9 @@ const TicketCheckout = lazy(() => import('./pages/TicketCheckout'));
 const EventAnalytics = lazy(() => import('./pages/EventAnalytics'));
 const PromoterPanel = lazy(() => import('./pages/PromoterPanel'));
 const PromoterDashboard = lazy(() => import('./pages/PromoterDashboard'));
+const BusinessLayout = lazy(() => import('./components/BusinessLayout'));
+const BusinessCreateEvent = lazy(() => import('./pages/business/BusinessCreateEvent'));
+const BusinessPastEvents = lazy(() => import('./pages/business/BusinessPastEvents'));
 
 const PageLoader = () => (
   <div className="fixed inset-0 flex items-center justify-center bg-background">
@@ -88,6 +91,11 @@ const AuthenticatedApp = () => {
       </Route>
       <Route path="/pass/:id" element={<GuestPass />} />
       <Route path="/scanner" element={<DoormanScanner />} />
+      <Route element={<BusinessLayout />}>
+        <Route path="/business/create-event" element={<BusinessCreateEvent />} />
+        <Route path="/business/past-events" element={<BusinessPastEvents />} />
+      </Route>
+      <Route path="/business" element={<Navigate to="/business/create-event" replace />} />
     </Routes>
     </Suspense>
   );

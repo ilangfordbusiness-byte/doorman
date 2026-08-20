@@ -11,7 +11,10 @@ export default function HostHub() {
   const { data: me } = useCurrentUser();
   const { data: events = [], isLoading: loading } = useQuery({
     queryKey: ["hostEvents"],
-    queryFn: () => base44.entities.Event.filter({ host_email: me.email }, "-date"),
+    queryFn: async () => {
+      const evs = await base44.entities.Event.filter({ host_email: me.email }, "-date");
+      return evs.filter((e) => !e.business_id);
+    },
     enabled: !!me,
     staleTime: 60 * 1000,
   });

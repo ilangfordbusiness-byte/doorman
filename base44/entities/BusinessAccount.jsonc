@@ -1,0 +1,55 @@
+{
+  "name": "BusinessAccount",
+  "type": "object",
+  "properties": {
+    "owner_email": {
+      "type": "string",
+      "description": "Personal user email that owns this business account"
+    },
+    "business_email": {
+      "type": "string",
+      "description": "Contact email for the business (used for its Stripe account)"
+    },
+    "business_name": {
+      "type": "string",
+      "description": "Business display name"
+    },
+    "business_picture": {
+      "type": "string",
+      "description": "Business profile picture URL"
+    },
+    "stripe_account_id": {
+      "type": "string",
+      "description": "Separate Stripe Connect account for the business (independent from the owner's personal account)"
+    },
+    "stripe_onboarding_status": {
+      "type": "string",
+      "enum": [
+        "none",
+        "pending",
+        "restricted",
+        "active"
+      ],
+      "default": "none"
+    }
+  },
+  "required": [
+    "owner_email",
+    "business_email",
+    "business_name"
+  ],
+  "rls": {
+    "create": {
+      "created_by_id": "{{user.id}}"
+    },
+    "read": {
+      "created_by_id": "{{user.id}}"
+    },
+    "update": {
+      "created_by_id": "{{user.id}}"
+    },
+    "delete": {
+      "created_by_id": "{{user.id}}"
+    }
+  }
+}

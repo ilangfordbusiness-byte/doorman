@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import { LogOut, User, Calendar, Camera, ArrowLeft, Pencil, Check, X, Shield, Trash2, AtSign, Clock, Users, Mic2, ChevronRight } from "lucide-react";
-import { Link } from "react-router-dom";
+import { LogOut, User, Calendar, Camera, ArrowLeft, Pencil, Check, X, Shield, Trash2, AtSign, Clock, Users, Mic2, ChevronRight, Building2, ArrowLeftRight } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
@@ -9,9 +9,13 @@ import LoadingSpinner from "../components/LoadingSpinner";
 import PromoterAccountSection from "../components/PromoterAccountSection";
 import StripeConnectPanel from "../components/StripeConnectPanel";
 import ProfilePictureEditor from "../components/ProfilePictureEditor";
+import CreateBusinessDialog from "../components/business/CreateBusinessDialog";
+import { useSwitchAccount } from "@/hooks/useActiveAccount";
 
 export default function Profile() {
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const { switchToBusiness } = useSwitchAccount();
   const [user, setUser] = useState(null);
   const [stats, setStats] = useState({ hosted: 0, attended: 0 });
   const [loading, setLoading] = useState(true);
@@ -26,6 +30,8 @@ export default function Profile() {
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [pendingPhoto, setPendingPhoto] = useState(null);
   const [showPhotoMenu, setShowPhotoMenu] = useState(false);
+  const [businessAccounts, setBusinessAccounts] = useState([]);
+  const [showCreateBiz, setShowCreateBiz] = useState(false);
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
 
@@ -47,8 +53,10 @@ export default function Profile() {
       base44.entities.GuestlistEntry.filter({ guest_email: me.email }),
     ]);
 
+    const businesses = await base44.entities.BusinessAccount.filter({ owner_email: me.email });
+    setBusinessAccounts(businesses);
     setStats({
-      hosted: events.length,
+      hosted: events.filter((e) => !e.business_id).length,
       attended: entries.filter((e) => ["checked_in", "checked_out"].includes(e.status) || e.checked_in_at).length,
     });
     setLoading(false);
@@ -107,6 +115,11 @@ export default function Profile() {
       toast({ title: "Incorrect PIN" });
       setAdminPin("");
     }
+  }
+
+  async function handleSwitchBusiness(id) {
+    await switchToBusiness(id);
+    navigate("/business/create-event");
   }
 
   if (loading) return <LoadingSpinner fullScreen />;
@@ -204,6 +217,38 @@ export default function Profile() {
           </div>
         </div>
       </Link>
+
+      {/* Business Account */}
+      <div className="bg-card rounded-2xl border border-border p-4 mb-4">
+        <h3 className="font-heading font-semibold text-sm flex items-center gap-2 mb-3">
+          <Building2 className="w-4 h-4" /> Business Account
+        </h3>
+        {businessAccounts.length === 0 ? (
+          <>
+            <p className="text-xs text-muted-foreground mb-3">Create a separate account for your company's events with its own payouts.</p>
+            <Button variant="outline" className="w-full rounded-xl gap-2" onClick={() => setShowCreateBiz(true)}>
+              <Building2 className="w-4 h-4" /> Create business account
+            </Button>
+          </>
+        ) : (
+          <div className="space-y-2">
+            {businessAccounts.map((b) => (
+              <div key={b.id} className="flex items-center gap-3 bg-secondary/40 rounded-xl p-3 border border-border/50">
+                <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {b.business_picture ? <img src={b.business_picture} alt="" className="w-full h-full object-cover" /> : <span className="text-sm font-bold text-primary">{(b.business_name || "?")[0].toUpperCase()}</span>}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold truncate">{b.business_name}</p>
+                  <p className="text-[10px] text-muted-foreground truncate">{b.business_email}</p>
+                </div>
+                <Button size="sm" className="rounded-lg gap-1.5" onClick={() => handleSwitchBusiness(b.id)}>
+                  <ArrowLeftRight className="w-3.5 h-3.5" /> Switch
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Editable Info */}
       <div className="bg-card rounded-2xl border border-border overflow-hidden mb-4">
@@ -389,6 +434,10 @@ export default function Profile() {
           onSave={handlePhotoSave}
           onClose={() => setPendingPhoto(null)}
         />
+      )}
+
+      {showCreateBiz && (
+        <CreateBusinessDialog user={user} onClose={() => setShowCreateBiz(false)} />
       )}
 
       {showAdminPin && (
