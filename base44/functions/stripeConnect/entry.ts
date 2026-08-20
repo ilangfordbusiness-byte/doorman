@@ -99,49 +99,62 @@ Deno.serve(async (req) => {
 
     if (action === 'onboard') {
       if (!accountId) {
-        let acct;
+        // Reuse an existing connected account with the same email instead of
+        // creating a duplicate. Stripe blocks NEW account creation until the
+        // platform-profile "responsibilities of managing losses" review is done,
+        // but accounts that already exist remain fully usable — so linking the
+        // existing one lets the host onboard without that manual review.
+        let acct = null;
         try {
-          acct = await stripeApi('/accounts', {
-            method: 'POST',
-            body: formEncode({
-              type: 'express',
-              email: user.email,
-              'metadata[base44_app_id]': appId,
-              'metadata[user_id]': user.id,
-              'capabilities[transfers][requested]': 'true',
-            }),
-          });
+          const list = await stripeApi('/accounts?limit=100');
+          acct = (list.data || []).find((a) => a.email === user.email) || null;
         } catch (e) {
-          if (/signed up for Connect/i.test(e.message)) {
-            return Response.json({
-              error: 'Connect isn\'t enabled on this Stripe account yet. The account owner must sign up for Connect once at https://dashboard.stripe.com/connect, then try again.',
-              needs_connect_signup: true,
-            }, { status: 400 });
+          console.error('stripeConnect account lookup failed:', e.message);
+        }
+        if (!acct) {
+          try {
+            acct = await stripeApi('/accounts', {
+              method: 'POST',
+              body: formEncode({
+                type: 'express',
+                email: user.email,
+                'metadata[base44_app_id]': appId,
+                'metadata[user_id]': user.id,
+                'capabilities[transfers][requested]': 'true',
+              }),
+            });
+          } catch (e) {
+            if (/signed up for Connect/i.test(e.message)) {
+              return Response.json({
+                error: 'Connect isn\'t enabled on this Stripe account yet. The account owner must sign up for Connect once at https://dashboard.stripe.com/connect, then try again.',
+                needs_connect_signup: true,
+              }, { status: 400 });
+            }
+            if (/responsibilities of managing losses|platform-profile|platform profile|complete your platform profile/i.test(e.message)) {
+              return Response.json({
+                error: 'Stripe needs the platform owner to complete the Connect platform profile first. Open https://dashboard.stripe.com/settings/connect/platform-profile, answer the "responsibilities of managing losses" questionnaire, then try again.',
+                needs_platform_profile: true,
+              }, { status: 400 });
+            }
+            throw e;
           }
-          if (/complete your platform profile/i.test(e.message)) {
-            return Response.json({
-              error: 'The platform owner must complete the Stripe Connect platform profile first. Visit https://dashboard.stripe.com/connect/accounts/overview to answer the questionnaire, then try again.',
-              needs_platform_profile: true,
-            }, { status: 400 });
-          }
-          if (/responsibilities of managing losses|platform-profile|platform profile/i.test(e.message)) {
-            return Response.json({
-              error: 'Stripe needs the platform owner to complete the Connect platform profile first. Open https://dashboard.stripe.com/settings/connect/platform-profile, answer the "responsibilities of managing losses" questionnaire, then try again.',
-              needs_platform_profile: true,
-            }, { status: 400 });
-          }
-          throw e;
         }
         accountId = acct.id;
-        await base44.auth.updateMe({ stripe_account_id: accountId, stripe_onboarding_status: 'pending' });
+        const status = acct.charges_enabled && acct.payouts_enabled ? 'active' : 'pending';
+        await base44.auth.updateMe({ stripe_account_id: accountId, stripe_onboarding_status: status });
       }
+      // If the linked account is already fully enabled, send the user to their
+      // Stripe dashboard rather than re-running onboarding.
+      let acctInfo = null;
+      try { acctInfo = await stripeApi(`/accounts/${accountId}`); } catch (e) { console.error('acct fetch failed', e.message); }
+      const fullyEnabled = acctInfo && acctInfo.charges_enabled && acctInfo.payouts_enabled;
       const link = await stripeApi('/account_links', {
         method: 'POST',
         body: formEncode({
           account: accountId,
           refresh_url: `${origin}/profile`,
           return_url: `${origin}/profile`,
-          type: 'account_onboarding',
+          type: fullyEnabled ? 'account_dashboard' : 'account_onboarding',
         }),
       });
       return Response.json({ url: link.url });
