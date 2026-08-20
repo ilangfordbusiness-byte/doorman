@@ -1,25 +1,20 @@
-import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Plus, ArrowLeft, Mic2, Users, QrCode, Share2, ScanLine, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import EventCard from "../components/EventCard";
 import LoadingSpinner from "../components/LoadingSpinner";
 
 export default function HostHub() {
-  const [events, setEvents] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadEvents();
-  }, []);
-
-  async function loadEvents() {
-    const me = await base44.auth.me();
-    const data = await base44.entities.Event.filter({ host_email: me.email }, "-date");
-    setEvents(data);
-    setLoading(false);
-  }
+  const { data: me } = useCurrentUser();
+  const { data: events = [], isLoading: loading } = useQuery({
+    queryKey: ["hostEvents"],
+    queryFn: () => base44.entities.Event.filter({ host_email: me.email }, "-date"),
+    enabled: !!me,
+    staleTime: 60 * 1000,
+  });
 
   return (
     <div className="max-w-lg mx-auto px-4 pt-4 pb-8">

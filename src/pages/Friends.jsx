@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { ArrowLeft, UserPlus, Users, Check, X, UserCheck, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -11,52 +13,48 @@ import FriendsSearch from "../components/FriendsSearch";
 
 const PAGE_SIZE = 20;
 
+async function loadFriendsData(me) {
+  const [sent, received] = await Promise.all([
+    base44.entities.FriendRequest.filter({ sender_email: me.email }),
+    base44.entities.FriendRequest.filter({ receiver_email: me.email }),
+  ]);
+  const acceptedSent = sent.filter((r) => r.status === "accepted").map((r) => ({ email: r.receiver_email, name: r.receiver_name, picture: r.receiver_picture }));
+  const acceptedReceived = received.filter((r) => r.status === "accepted").map((r) => ({ email: r.sender_email, name: r.sender_name, picture: r.sender_picture }));
+  return {
+    me,
+    friends: [...acceptedSent, ...acceptedReceived],
+    requests: received.filter((r) => r.status === "pending"),
+    sentSet: new Set(sent.map((r) => r.receiver_email)),
+  };
+}
+
 export default function Friends() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState("suggestions");
-  const [me, setMe] = useState(null);
-  const [suggestions, setSuggestions] = useState([]);
-  const [requests, setRequests] = useState([]);
-  const [friends, setFriends] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [sentSet, setSentSet] = useState(new Set());
+  const { data: me } = useCurrentUser();
+  const { data: fd, isLoading: loading } = useQuery({
+    queryKey: ["friendsData"],
+    queryFn: () => loadFriendsData(me),
+    enabled: !!me,
+    staleTime: 60 * 1000,
+  });
+  const friends = fd?.friends ?? [];
+  const requests = fd?.requests ?? [];
+  const sentSet = fd?.sentSet ?? new Set();
   const [viewingFriend, setViewingFriend] = useState(null);
   const [viewingSuggestion, setViewingSuggestion] = useState(null);
 
   // Paginated suggestions state
+  const [suggestions, setSuggestions] = useState([]);
   const [sugLoading, setSugLoading] = useState(false);
   const [sugHasMore, setSugHasMore] = useState(false);
   const [sugTotal, setSugTotal] = useState(0);
   const sentinelRef = useRef(null);
 
   useEffect(() => {
-    load();
-  }, []);
-
-  async function load() {
-    try {
-      const user = await base44.auth.me();
-      setMe(user);
-
-      const [sent, received] = await Promise.all([
-        base44.entities.FriendRequest.filter({ sender_email: user.email }),
-        base44.entities.FriendRequest.filter({ receiver_email: user.email }),
-      ]);
-
-      // Friends = accepted requests
-      const acceptedSent = sent.filter((r) => r.status === "accepted").map((r) => ({ email: r.receiver_email, name: r.receiver_name, picture: r.receiver_picture }));
-      const acceptedReceived = received.filter((r) => r.status === "accepted").map((r) => ({ email: r.sender_email, name: r.sender_name, picture: r.sender_picture }));
-      setFriends([...acceptedSent, ...acceptedReceived]);
-
-      // Pending incoming requests
-      setRequests(received.filter((r) => r.status === "pending"));
-
-      // Already-sent emails (for "Sent" label on suggestions)
-      setSentSet(new Set(sent.map((r) => r.receiver_email)));
-    } catch {}
-    setLoading(false);
     loadSuggestions(true);
-  }
+  }, []);
 
   async function loadSuggestions(reset) {
     if (sugLoading) return;
@@ -90,7 +88,6 @@ export default function Friends() {
   }, [tab, sugHasMore, sugLoading, suggestions.length]);
 
   async function sendRequest(target) {
-    setSentSet((prev) => new Set([...prev, target.email]));
     await base44.entities.FriendRequest.create({
       sender_email: me.email,
       sender_name: me.full_name,
@@ -100,14 +97,14 @@ export default function Friends() {
       receiver_picture: target.profile_picture || "",
       status: "pending",
     });
+    queryClient.invalidateQueries(["friendsData"]);
     toast({ title: "Friend request sent!" });
   }
 
   async function respond(req, status) {
     await base44.entities.FriendRequest.update(req.id, { status });
-    setRequests((prev) => prev.filter((r) => r.id !== req.id));
+    queryClient.invalidateQueries(["friendsData"]);
     if (status === "accepted") {
-      setFriends((prev) => [...prev, { email: req.sender_email, name: req.sender_name, picture: req.sender_picture }]);
       toast({ title: "Friend added!" });
     }
   }

@@ -1,7 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import PhonePrompt from "../components/PhonePrompt";
 import { base44 } from "@/api/base44Client";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { ArrowLeft, Sparkles, QrCode, Clock, CheckCircle2, Link as LinkIcon, Compass, ArrowLeftRight, Check, X } from "lucide-react";
 import DiscoverEvents from "../components/DiscoverEvents";
 import { Button } from "@/components/ui/button";
@@ -9,66 +11,62 @@ import { useToast } from "@/components/ui/use-toast";
 import EventCard from "../components/EventCard";
 import LoadingSpinner from "../components/LoadingSpinner";
 
+async function loadInvites(me) {
+  const byEmail = await base44.entities.GuestlistEntry.filter({ guest_email: me.email }, "-created_date");
+  const byPhone = me.phone
+    ? await base44.entities.GuestlistEntry.filter({ guest_phone: me.phone }, "-created_date")
+    : [];
+  const seen = new Set();
+  const entries = [...byEmail, ...byPhone].filter((e) => {
+    if (seen.has(e.id)) return false;
+    seen.add(e.id);
+    return true;
+  });
+
+  if (entries.length === 0) return [];
+
+  const eventIds = [...new Set(entries.map((g) => g.event_id))];
+  const events = await Promise.all(
+    eventIds.map(async (eid) => {
+      const evts = await base44.entities.Event.filter({ id: eid });
+      const evt = evts[0];
+      const entry = entries.find((g) => g.event_id === eid);
+      return evt ? { ...evt, guestStatus: entry?.status, entryId: entry?.id } : null;
+    })
+  );
+  return events.filter(Boolean);
+}
+
+async function loadTransfers(me) {
+  const [incoming, outgoing] = await Promise.all([
+    base44.entities.TicketTransfer.filter({ recipient_email: me.email, status: "pending" }, "-created_date"),
+    base44.entities.TicketTransfer.filter({ sender_email: me.email, status: "pending" }, "-created_date"),
+  ]);
+  return { incoming, outgoing };
+}
+
 export default function GuestHub() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get("tab") || "discover";
-  const [inviteEvents, setInviteEvents] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [myPhone, setMyPhone] = useState("");
-  const [transfersIn, setTransfersIn] = useState([]);
-  const [transfersOut, setTransfersOut] = useState([]);
+  const { data: me } = useCurrentUser();
+  const { data: inviteEvents = [], isLoading: loading } = useQuery({
+    queryKey: ["guestInvites"],
+    queryFn: () => loadInvites(me),
+    enabled: !!me,
+    staleTime: 60 * 1000,
+  });
+  const { data: transfers } = useQuery({
+    queryKey: ["transfers"],
+    queryFn: () => loadTransfers(me),
+    enabled: !!me,
+    staleTime: 60 * 1000,
+  });
+  const myPhone = me?.phone || "";
+  const transfersIn = transfers?.incoming ?? [];
+  const transfersOut = transfers?.outgoing ?? [];
   const [transferBusy, setTransferBusy] = useState(null);
-
-  useEffect(() => {
-    loadInvites();
-    loadTransfers();
-  }, []);
-
-  async function loadInvites() {
-    const me = await base44.auth.me();
-    setMyPhone(me.phone || "");
-
-    const byEmail = await base44.entities.GuestlistEntry.filter({ guest_email: me.email }, "-created_date");
-    const byPhone = me.phone
-      ? await base44.entities.GuestlistEntry.filter({ guest_phone: me.phone }, "-created_date")
-      : [];
-    const seen = new Set();
-    const entries = [...byEmail, ...byPhone].filter((e) => {
-      if (seen.has(e.id)) return false;
-      seen.add(e.id);
-      return true;
-    });
-
-    if (entries.length === 0) {
-      setLoading(false);
-      return;
-    }
-
-    const eventIds = [...new Set(entries.map((g) => g.event_id))];
-    const events = await Promise.all(
-      eventIds.map(async (eid) => {
-        const evts = await base44.entities.Event.filter({ id: eid });
-        const evt = evts[0];
-        const entry = entries.find((g) => g.event_id === eid);
-        return evt ? { ...evt, guestStatus: entry?.status, entryId: entry?.id } : null;
-      })
-    );
-    setInviteEvents(events.filter(Boolean));
-    setLoading(false);
-  }
-
-  async function loadTransfers() {
-    try {
-      const me = await base44.auth.me();
-      const [incoming, outgoing] = await Promise.all([
-        base44.entities.TicketTransfer.filter({ recipient_email: me.email, status: "pending" }, "-created_date"),
-        base44.entities.TicketTransfer.filter({ sender_email: me.email, status: "pending" }, "-created_date"),
-      ]);
-      setTransfersIn(incoming);
-      setTransfersOut(outgoing);
-    } catch {}
-  }
 
   async function acceptTransfer(t) {
     setTransferBusy(t.id);
@@ -76,8 +74,8 @@ export default function GuestHub() {
       const res = await base44.functions.invoke("acceptTicketTransfer", { transfer_id: t.id });
       if (res.data?.error) throw new Error(res.data.error);
       toast({ title: "Ticket accepted!", description: "It's now in your invites." });
-      loadTransfers();
-      loadInvites();
+      queryClient.invalidateQueries(["transfers"]);
+      queryClient.invalidateQueries(["guestInvites"]);
     } catch (e) {
       toast({ title: "Couldn't accept", description: e.message, variant: "destructive" });
     }
@@ -89,7 +87,7 @@ export default function GuestHub() {
     try {
       await base44.entities.TicketTransfer.update(t.id, { status: "declined" });
       toast({ title: "Transfer declined" });
-      loadTransfers();
+      queryClient.invalidateQueries(["transfers"]);
     } catch {
       toast({ title: "Couldn't decline", variant: "destructive" });
     }
@@ -101,7 +99,7 @@ export default function GuestHub() {
     try {
       await base44.entities.TicketTransfer.update(t.id, { status: "cancelled", cancelled_at: new Date().toISOString() });
       toast({ title: "Transfer cancelled" });
-      loadTransfers();
+      queryClient.invalidateQueries(["transfers"]);
     } catch {
       toast({ title: "Couldn't cancel", variant: "destructive" });
     }
@@ -152,7 +150,7 @@ export default function GuestHub() {
         </button>
       </div>
 
-      {tab === "invites" && !myPhone && <PhonePrompt onSaved={(p) => { setMyPhone(p); loadInvites(); }} />}
+      {tab === "invites" && !myPhone && <PhonePrompt onSaved={(p) => { queryClient.invalidateQueries(["currentUser"]); queryClient.invalidateQueries(["guestInvites"]); }} />}
 
       {tab === "discover" ? (
         <DiscoverEvents />

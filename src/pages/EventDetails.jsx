@@ -11,6 +11,8 @@ function getCoverStyle(cover_image) {
 }
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   ArrowLeft, Calendar, Clock, MapPin, Shirt, Users, Share2,
   QrCode, Shield, Edit, Trash2, UserPlus, Copy, Check, Plus, X, Ticket, BarChart3, Megaphone, Instagram
@@ -23,29 +25,69 @@ import EventChat from "../components/EventChat";
 import moment from "moment";
 import { captureRef, getLinkDomain, discountLabel, promoterDiscountActive } from "@/lib/promoterRef";
 
+async function loadEvent(id, me) {
+  const events = await base44.entities.Event.filter({ id });
+  if (!events.length) return { notFound: true };
+  let evt = events[0];
+
+  if (!evt.staff_code && evt.host_email === me.email) {
+    const code = String(Math.floor(1000 + Math.random() * 9000));
+    await base44.entities.Event.update(id, { staff_code: code });
+    evt = { ...evt, staff_code: code };
+  }
+
+  const [entries, staffList, tierList] = await Promise.all([
+    base44.entities.GuestlistEntry.filter({ event_id: id }),
+    base44.entities.EventStaff.filter({ event_id: id }),
+    base44.entities.TicketTier.filter({ event_id: id }).catch(() => []),
+  ]);
+  const mine = entries.find((e) => e.guest_email === me.email);
+  tierList.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+
+  return {
+    notFound: false,
+    event: evt,
+    user: me,
+    myEntry: mine,
+    stats: {
+      total: entries.length,
+      invited: entries.filter((e) => e.status === "invited").length,
+      approved: entries.filter((e) => ["approved", "checked_in"].includes(e.status)).length,
+      checked_in: entries.filter((e) => e.status === "checked_in").length,
+    },
+    staff: staffList,
+    tiers: tierList,
+  };
+}
+
 export default function EventDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [event, setEvent] = useState(null);
-  const [user, setUser] = useState(null);
-  const [myEntry, setMyEntry] = useState(null);
-  const [stats, setStats] = useState({ invited: 0, approved: 0, checked_in: 0, total: 0 });
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { data: me } = useCurrentUser();
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ["event", id],
+    queryFn: () => loadEvent(id, me),
+    enabled: !!me,
+    staleTime: 30 * 1000,
+  });
+
+  const event = data?.event ?? null;
+  const user = data?.user ?? null;
+  const myEntry = data?.myEntry ?? null;
+  const stats = data?.stats ?? { invited: 0, approved: 0, checked_in: 0, total: 0 };
+  const staff = data?.staff ?? [];
+  const tiers = data?.tiers ?? [];
+  const loadError = data?.notFound ? "This event is no longer available or the link is invalid." : null;
+
   const [requesting, setRequesting] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [staff, setStaff] = useState([]);
   const [newStaffEmail, setNewStaffEmail] = useState("");
   const [addingStaff, setAddingStaff] = useState(false);
-  const [tiers, setTiers] = useState([]);
-  const [loadError, setLoadError] = useState(null);
   const [refStatus, setRefStatus] = useState(null);
 
   const isHost = user && event && event.host_email === user.email;
-
-  useEffect(() => {
-    loadEvent();
-  }, [id]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -66,50 +108,6 @@ export default function EventDetails() {
     }
   }, [id]);
 
-  async function loadEvent() {
-    const me = await base44.auth.me();
-    setUser(me);
-
-    const events = await base44.entities.Event.filter({ id });
-    if (!events.length) {
-      setLoadError("This event is no longer available or the link is invalid.");
-      setLoading(false);
-      return;
-    }
-    let evt = events[0];
-
-    // Generate staff_code if missing
-    if (!evt.staff_code && evt.host_email === me.email) {
-      const code = String(Math.floor(1000 + Math.random() * 9000));
-      await base44.entities.Event.update(id, { staff_code: code });
-      evt = { ...evt, staff_code: code };
-    }
-
-    setEvent(evt);
-
-    const entries = await base44.entities.GuestlistEntry.filter({ event_id: id });
-    const mine = entries.find((e) => e.guest_email === me.email);
-    setMyEntry(mine);
-
-    setStats({
-      total: entries.length,
-      invited: entries.filter((e) => e.status === "invited").length,
-      approved: entries.filter((e) => ["approved", "checked_in"].includes(e.status)).length,
-      checked_in: entries.filter((e) => e.status === "checked_in").length,
-    });
-
-    const staffList = await base44.entities.EventStaff.filter({ event_id: id });
-    setStaff(staffList);
-
-    try {
-      const tierList = await base44.entities.TicketTier.filter({ event_id: id });
-      tierList.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-      setTiers(tierList);
-    } catch {}
-
-    setLoading(false);
-  }
-
   async function handleAddStaff() {
     if (!newStaffEmail.trim()) return;
     setAddingStaff(true);
@@ -122,8 +120,7 @@ export default function EventDetails() {
       staff_name: val,
       role: "doorman",
     });
-    const staffList = await base44.entities.EventStaff.filter({ event_id: id });
-    setStaff(staffList);
+    queryClient.invalidateQueries(["event", id]);
     setNewStaffEmail("");
     setAddingStaff(false);
     toast({ title: "Staff added!" });
@@ -131,14 +128,13 @@ export default function EventDetails() {
 
   async function handleRemoveStaff(staffId) {
     await base44.entities.EventStaff.delete(staffId);
-    setStaff((prev) => prev.filter((s) => s.id !== staffId));
+    queryClient.invalidateQueries(["event", id]);
   }
 
   async function handleRequestJoin() {
     setRequesting(true);
-    const me = await base44.auth.me();
     const qr_secret = Math.random().toString(36).substring(2, 18);
-    const entry = await base44.entities.GuestlistEntry.create({
+    await base44.entities.GuestlistEntry.create({
       event_id: id,
       guest_email: me.email,
       guest_name: me.full_name,
@@ -147,7 +143,7 @@ export default function EventDetails() {
       source: "request",
       qr_secret,
     });
-    setMyEntry(entry);
+    queryClient.invalidateQueries(["event", id]);
     setRequesting(false);
     toast({ title: "Request sent!" });
   }
