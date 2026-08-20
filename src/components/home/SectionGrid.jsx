@@ -1,14 +1,18 @@
 import { Link } from "react-router-dom";
 import { Compass, HeartHandshake, Mic2, UserCircle } from "lucide-react";
+import { useNotifications } from "@/hooks/useNotifications";
+import NotificationDot from "../NotificationDot";
 
 const sections = [
-  { to: "/guest?tab=discover", icon: Compass, title: "Discover", iconBg: "bg-amber-500/10", iconColor: "text-amber-400", border: "border-amber-500/20 hover:border-amber-400/60", topBar: "from-amber-400 to-orange-500" },
-  { to: "/friends", icon: HeartHandshake, title: "Friends", iconBg: "bg-pink-500/10", iconColor: "text-pink-400", border: "border-pink-500/20 hover:border-pink-400/60", topBar: "from-pink-500 to-rose-500" },
+  { to: "/guest?tab=discover", icon: Compass, title: "Discover", iconBg: "bg-amber-500/10", iconColor: "text-amber-400", border: "border-amber-500/20 hover:border-amber-400/60", topBar: "from-amber-400 to-orange-500", notif: "eventInvites" },
+  { to: "/friends", icon: HeartHandshake, title: "Friends", iconBg: "bg-pink-500/10", iconColor: "text-pink-400", border: "border-pink-500/20 hover:border-pink-400/60", topBar: "from-pink-500 to-rose-500", notif: "friendRequests" },
   { to: "/host", icon: Mic2, title: "Host", iconBg: "bg-violet-500/10", iconColor: "text-violet-400", border: "border-violet-500/20 hover:border-violet-400/60", topBar: "from-violet-500 to-fuchsia-500" },
-  { to: "/profile", icon: UserCircle, title: "Account", iconBg: "bg-sky-500/10", iconColor: "text-sky-400", border: "border-sky-500/20 hover:border-sky-400/60", topBar: "from-sky-400 to-blue-500" },
+  { to: "/profile", icon: UserCircle, title: "Account", iconBg: "bg-sky-500/10", iconColor: "text-sky-400", border: "border-sky-500/20 hover:border-sky-400/60", topBar: "from-sky-400 to-blue-500", notif: "coHost" },
 ];
 
 export default function SectionGrid() {
+  const { data: notifs } = useNotifications();
+  const counts = notifs?.counts ?? {};
   return (
     <div className="grid grid-cols-2 gap-3">
       {sections.map((s) => (
@@ -21,6 +25,7 @@ export default function SectionGrid() {
               </div>
               <p className="font-heading font-bold text-sm text-foreground">{s.title}</p>
             </div>
+            {s.notif && <NotificationDot count={counts[s.notif] || 0} />}
           </div>
         </Link>
       ))}

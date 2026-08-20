@@ -1,15 +1,19 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { Compass, Heart, UserCircle } from "lucide-react";
+import { useNotifications } from "@/hooks/useNotifications";
+import NotificationDot from "./NotificationDot";
 
 const tabs = [
-  { path: "/guest?tab=discover", icon: Compass, label: "Discover" },
-  { path: "/friends", icon: Heart, label: "Activity" },
-  { path: "/profile", icon: UserCircle, label: "Profile" },
+  { path: "/guest?tab=discover", icon: Compass, label: "Discover", notif: "eventInvites" },
+  { path: "/friends", icon: Heart, label: "Activity", notif: "friendRequests" },
+  { path: "/profile", icon: UserCircle, label: "Profile", notif: "coHost" },
 ];
 
 export default function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { data: notifs } = useNotifications();
+  const counts = notifs?.counts ?? {};
 
   // Hide on full-screen pages
   const hidden = ["/scanner", "/pass/"].some((p) => location.pathname.startsWith(p));
@@ -24,7 +28,7 @@ export default function BottomNav() {
       <div className="h-px w-full" style={{ background: "linear-gradient(90deg, transparent, hsl(270 90% 65% / 0.5), hsl(180 100% 50% / 0.4), transparent)" }} />
       <div className="bg-black/80 backdrop-blur-2xl border-t border-white/5">
         <div className="flex items-stretch max-w-lg mx-auto">
-          {tabs.map(({ path, icon: Icon, label }) => {
+          {tabs.map(({ path, icon: Icon, label, notif }) => {
             const tabPath = path.split("?")[0];
             const active = tabPath === "/" ? location.pathname === "/" : location.pathname === tabPath || location.pathname.startsWith(tabPath + "/");
             return (
@@ -42,9 +46,12 @@ export default function BottomNav() {
                     style={{ background: "linear-gradient(90deg, transparent, hsl(270 90% 65%), transparent)", boxShadow: "0 0 8px hsl(270 90% 65%)" }}
                   />
                 )}
-                <Icon
-                  className={`w-5 h-5 transition-all ${active ? "text-primary drop-shadow-[0_0_6px_hsl(270_90%_65%/0.9)]" : "text-muted-foreground"}`}
-                />
+                <div className="relative">
+                  <Icon
+                    className={`w-5 h-5 transition-all ${active ? "text-primary drop-shadow-[0_0_6px_hsl(270_90%_65%/0.9)]" : "text-muted-foreground"}`}
+                  />
+                  {notif && <NotificationDot count={counts[notif] || 0} className="-top-1.5 -right-2.5 w-4 h-4" />}
+                </div>
                 <span
                   className={`text-[9px] font-mono tracking-widest uppercase transition-all ${
                     active ? "text-primary" : "text-muted-foreground/60"

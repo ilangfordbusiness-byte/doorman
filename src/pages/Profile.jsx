@@ -11,11 +11,17 @@ import StripeConnectPanel from "../components/StripeConnectPanel";
 import ProfilePictureEditor from "../components/ProfilePictureEditor";
 import CreateBusinessDialog from "../components/business/CreateBusinessDialog";
 import { useSwitchAccount } from "@/hooks/useActiveAccount";
+import { useNotifications } from "@/hooks/useNotifications";
+import NotificationDot from "../components/NotificationDot";
+import CoHostInvitesSection from "../components/CoHostInvitesSection";
 
 export default function Profile() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { switchToBusiness } = useSwitchAccount();
+  const { data: notifs } = useNotifications();
+  const coHostInvites = notifs?.coHostInvites ?? [];
+  const coHostCount = notifs?.counts?.coHost ?? 0;
   const [user, setUser] = useState(null);
   const [stats, setStats] = useState({ hosted: 0, attended: 0 });
   const [loading, setLoading] = useState(true);
@@ -126,13 +132,14 @@ export default function Profile() {
 
   return (
     <div className="max-w-lg mx-auto px-4 pt-4 pb-8">
-      <div className="flex items-center gap-3 mb-6">
+      <div className="relative flex items-center gap-3 mb-6">
         <Link to="/">
           <button className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-secondary transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
         </Link>
-        <h1 className="font-heading font-bold text-xl">Account</h1>
+        <h1 className="font-heading font-bold text-xl flex-1">Account</h1>
+        <NotificationDot count={coHostCount} className="top-0 right-0 w-4 h-4" />
       </div>
 
       {/* User Card */}
@@ -195,6 +202,8 @@ export default function Profile() {
           </div>
         </div>
       </div>
+
+      <CoHostInvitesSection invites={coHostInvites} />
 
       {/* Host Mode */}
       <Link to="/host" className="block group mb-4">

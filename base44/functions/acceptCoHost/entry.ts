@@ -6,7 +6,7 @@ export default async function(req: Request): Promise<Response> {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
     const body = await req.json().catch(() => ({}));
-    const { event_id } = body;
+    const { event_id, action } = body;
     if (!event_id) return Response.json({ error: 'Missing event_id' }, { status: 400 });
 
     const srv = base44.asServiceRole;
@@ -18,6 +18,12 @@ export default async function(req: Request): Promise<Response> {
     const idx = coHosts.findIndex((c) => c && c.email === user.email);
     if (idx === -1) return Response.json({ error: 'You are not invited as a co-host of this event' }, { status: 403 });
     if (coHosts[idx].status === 'accepted') return Response.json({ ok: true, already: true });
+
+    if (action === 'decline') {
+      coHosts[idx] = { ...coHosts[idx], status: 'declined' };
+      await srv.entities.Event.update(event_id, { co_hosts: coHosts });
+      return Response.json({ ok: true });
+    }
 
     coHosts[idx] = {
       ...coHosts[idx],
