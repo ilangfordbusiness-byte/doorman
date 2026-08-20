@@ -217,7 +217,9 @@ Deno.serve(async (req) => {
       return Response.json({ account, balances });
     }
 
-    // ---- Business account Stripe (separate account per business) ----
+    // ---- Business account Stripe ----
+    // A business can pay out to the owner's personal Stripe account or to a
+    // separate business Stripe account (stripe_mode: "personal" | "business").
     async function loadOwnedBusiness(businessId) {
       if (!businessId) return null;
       const list = await srv.entities.BusinessAccount.filter({ id: businessId });
@@ -225,6 +227,16 @@ Deno.serve(async (req) => {
       const b = list[0];
       if (b.owner_email !== user.email) return null;
       return b;
+    }
+
+    async function accountStatus(accountId) {
+      if (!accountId) return null;
+      try {
+        const acct = await stripeApi(`/accounts/${accountId}`);
+        return { id: acct.id, charges_enabled: acct.charges_enabled, payouts_enabled: acct.payouts_enabled, details_submitted: acct.details_submitted };
+      } catch (e) {
+        return { error: e.message };
+      }
     }
 
     async function computeBusinessBalances(businessId) {
@@ -244,9 +256,85 @@ Deno.serve(async (req) => {
       }));
     }
 
+    function businessMode(business) {
+      return business.stripe_mode === 'personal' ? 'personal' : 'business';
+    }
+
+    if (action === 'business_set_mode') {
+      const business = await loadOwnedBusiness(body.business_id);
+      if (!business) return Response.json({ error: 'Business account not found' }, { status: 403 });
+      const mode = body.mode === 'personal' ? 'personal' : 'business';
+      await srv.entities.BusinessAccount.update(business.id, { stripe_mode: mode });
+      return Response.json({ ok: true, mode });
+    }
+
+    if (action === 'business_status') {
+      const business = await loadOwnedBusiness(body.business_id);
+      if (!business) return Response.json({ error: 'Business account not found' }, { status: 403 });
+      const mode = businessMode(business);
+      const accountId = mode === 'personal' ? user.stripe_account_id : business.stripe_account_id;
+      let account = await accountStatus(accountId);
+      if (account && !account.error) {
+        const status = account.charges_enabled && account.payouts_enabled ? 'active' : (account.details_submitted ? 'restricted' : 'pending');
+        if (mode === 'business' && business.stripe_onboarding_status !== status) {
+          await srv.entities.BusinessAccount.update(business.id, { stripe_onboarding_status: status });
+        }
+      }
+      const balances = await computeBusinessBalances(business.id);
+      return Response.json({ mode, account, balances });
+    }
+
     if (action === 'business_onboard') {
       const business = await loadOwnedBusiness(body.business_id);
       if (!business) return Response.json({ error: 'Business account not found' }, { status: 403 });
+      const mode = businessMode(business);
+
+      // Personal mode: onboard/link the owner's personal Stripe account.
+      if (mode === 'personal') {
+        let personalId = user.stripe_account_id;
+        if (!personalId) {
+          let acct = null;
+          try {
+            const list = await stripeApi('/accounts?limit=100');
+            acct = (list.data || []).find((a) => a.email === user.email) || null;
+          } catch (e) { console.error('personal account lookup failed:', e.message); }
+          if (!acct) {
+            acct = await stripeApi('/accounts', {
+              method: 'POST',
+              body: formEncode({
+                type: 'express',
+                email: user.email,
+                'metadata[base44_app_id]': appId,
+                'metadata[user_id]': user.id,
+                'capabilities[transfers][requested]': 'true',
+              }),
+            });
+          }
+          personalId = acct.id;
+          const status = acct.charges_enabled && acct.payouts_enabled ? 'active' : 'pending';
+          await base44.auth.updateMe({ stripe_account_id: personalId, stripe_onboarding_status: status });
+        }
+        let acctInfo = null;
+        try { acctInfo = await stripeApi(`/accounts/${personalId}`); } catch (e) { console.error('personal acct fetch failed', e.message); }
+        const fullyEnabled = acctInfo && acctInfo.charges_enabled && acctInfo.payouts_enabled;
+        try {
+          const link = await stripeApi('/account_links', {
+            method: 'POST',
+            body: formEncode({
+              account: personalId,
+              refresh_url: `${origin}/business/create-event`,
+              return_url: `${origin}/business/create-event`,
+              type: fullyEnabled ? 'account_dashboard' : 'account_onboarding',
+            }),
+          });
+          return Response.json({ url: link.url });
+        } catch (e) {
+          if (/responsible for collecting onboarding|account ID needs to be/i.test(e.message)) return Response.json({ url: 'https://dashboard.stripe.com/' });
+          throw e;
+        }
+      }
+
+      // Business mode: onboard/link a separate business Stripe account.
       let accountId = business.stripe_account_id;
       if (!accountId) {
         let acct = null;
@@ -301,32 +389,17 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (action === 'business_status') {
-      const business = await loadOwnedBusiness(body.business_id);
-      if (!business) return Response.json({ error: 'Business account not found' }, { status: 403 });
-      let account = null;
-      if (business.stripe_account_id) {
-        try {
-          const acct = await stripeApi(`/accounts/${business.stripe_account_id}`);
-          account = { id: acct.id, charges_enabled: acct.charges_enabled, payouts_enabled: acct.payouts_enabled, details_submitted: acct.details_submitted };
-          const status = acct.charges_enabled && acct.payouts_enabled ? 'active' : (acct.details_submitted ? 'restricted' : 'pending');
-          if (business.stripe_onboarding_status !== status) {
-            await srv.entities.BusinessAccount.update(business.id, { stripe_onboarding_status: status });
-          }
-        } catch (e) { account = { error: e.message }; }
-      }
-      const balances = await computeBusinessBalances(business.id);
-      return Response.json({ account, balances });
-    }
-
     if (action === 'business_dashboard_link') {
       const business = await loadOwnedBusiness(body.business_id);
-      if (!business || !business.stripe_account_id) return Response.json({ error: 'No Stripe account connected' }, { status: 400 });
+      if (!business) return Response.json({ error: 'Business account not found' }, { status: 403 });
+      const mode = businessMode(business);
+      const accountId = mode === 'personal' ? user.stripe_account_id : business.stripe_account_id;
+      if (!accountId) return Response.json({ error: 'No Stripe account connected' }, { status: 400 });
       try {
         const link = await stripeApi('/account_links', {
           method: 'POST',
           body: formEncode({
-            account: business.stripe_account_id,
+            account: accountId,
             refresh_url: `${origin}/business/create-event`,
             return_url: `${origin}/business/create-event`,
             type: 'account_dashboard',

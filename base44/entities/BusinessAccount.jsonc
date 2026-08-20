@@ -8,7 +8,7 @@
     },
     "business_email": {
       "type": "string",
-      "description": "Contact email for the business (used for its Stripe account)"
+      "description": "Contact email for the business (used for its separate Stripe account)"
     },
     "business_name": {
       "type": "string",
@@ -18,9 +18,18 @@
       "type": "string",
       "description": "Business profile picture URL"
     },
+    "stripe_mode": {
+      "type": "string",
+      "enum": [
+        "personal",
+        "business"
+      ],
+      "default": "business",
+      "description": "Whether payouts go to the owner's personal Stripe account or a separate business account"
+    },
     "stripe_account_id": {
       "type": "string",
-      "description": "Separate Stripe Connect account for the business (independent from the owner's personal account)"
+      "description": "Separate Stripe Connect account for the business (used when stripe_mode=business)"
     },
     "stripe_onboarding_status": {
       "type": "string",
