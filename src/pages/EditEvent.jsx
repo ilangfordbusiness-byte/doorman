@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import CoverPicker, { COVERS } from "../components/CoverPicker";
 import { useNavigate, useParams } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { ArrowLeft, Upload, Ticket } from "lucide-react";
+import { ArrowLeft, Upload, Ticket, AtSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -39,6 +39,7 @@ export default function EditEvent() {
     is_paid: false,
     currency: "gbp",
     visibility: "show_names",
+    instagram: "",
   });
 
   useEffect(() => {
@@ -76,6 +77,7 @@ export default function EditEvent() {
       is_paid: evt.is_paid || false,
       currency: evt.currency || "gbp",
       visibility: evt.visibility || "show_names",
+      instagram: evt.instagram || "",
     });
 
     setLoading(false);
@@ -104,6 +106,7 @@ export default function EditEvent() {
 
     await base44.entities.Event.update(id, {
       ...form,
+      instagram: form.instagram.trim().replace(/^@/, ""),
       cover_image,
       capacity: form.capacity ? Number(form.capacity) : null,
     });
@@ -175,6 +178,20 @@ export default function EditEvent() {
           <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Venue</Label>
           <Input placeholder="Venue name" value={form.venue_name} onChange={(e) => updateForm("venue_name", e.target.value)} className="bg-secondary/50 border-border h-12 rounded-xl mb-2" />
           <Input placeholder="Full address" value={form.address} onChange={(e) => updateForm("address", e.target.value)} className="bg-secondary/50 border-border h-12 rounded-xl" />
+        </div>
+
+        {/* Instagram */}
+        <div>
+          <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Instagram (Company)</Label>
+          <div className="relative">
+            <AtSign className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+            <Input
+              placeholder="yourhandle"
+              value={form.instagram}
+              onChange={(e) => updateForm("instagram", e.target.value)}
+              className="bg-secondary/50 border-border h-12 rounded-xl pl-9"
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">

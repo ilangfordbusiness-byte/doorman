@@ -55,6 +55,10 @@
       "type": "string",
       "description": "Notes visible only to staff"
     },
+    "instagram": {
+      "type": "string",
+      "description": "Event/company Instagram handle (without @)"
+    },
     "is_public": {
       "type": "boolean",
       "default": false,

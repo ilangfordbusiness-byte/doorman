@@ -2,7 +2,7 @@ import { useState } from "react";
 import CoverPicker, { COVERS } from "../components/CoverPicker";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { ArrowLeft, Upload, Calendar, Clock, MapPin, Users, Shirt, FileText, Eye, Lock, Plus, Ticket, Megaphone, Trash2, CreditCard } from "lucide-react";
+import { ArrowLeft, Upload, Calendar, Clock, MapPin, Users, Shirt, FileText, Eye, Lock, Plus, Ticket, Megaphone, Trash2, CreditCard, AtSign } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +40,7 @@ export default function CreateEvent() {
     is_paid: false,
     currency: "gbp",
     visibility: "show_names",
+    instagram: "",
   });
   const [promoters, setPromoters] = useState([]);
   const [pName, setPName] = useState("");
@@ -121,6 +122,7 @@ export default function CreateEvent() {
 
       const event = await base44.entities.Event.create({
         ...form,
+        instagram: form.instagram.trim().replace(/^@/, ""),
         cover_image,
         capacity: form.capacity ? Number(form.capacity) : null,
         host_email: me.email,
@@ -269,6 +271,20 @@ export default function CreateEvent() {
             onChange={(e) => updateForm("address", e.target.value)}
             className="bg-secondary/50 border-border h-12 rounded-xl"
           />
+        </div>
+
+        {/* Instagram */}
+        <div>
+          <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Instagram (Company)</Label>
+          <div className="relative">
+            <AtSign className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+            <Input
+              placeholder="yourhandle"
+              value={form.instagram}
+              onChange={(e) => updateForm("instagram", e.target.value)}
+              className="bg-secondary/50 border-border h-12 rounded-xl pl-9"
+            />
+          </div>
         </div>
 
         {/* Dress Code & Capacity */}
