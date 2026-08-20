@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { Calendar, Clock, MapPin, Shirt, UserPlus, Sparkles, ArrowLeft } from "lucide-react";
+import { Calendar, Clock, MapPin, Shirt, Share2, Check, Sparkles, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import StatusBadge from "../components/StatusBadge";
 import LoadingSpinner from "../components/LoadingSpinner";
+import EventJoinActions from "../components/EventJoinActions";
+import { getLinkDomain } from "@/lib/promoterRef";
 import moment from "moment";
 
 export default function InvitePage() {
@@ -16,7 +18,7 @@ export default function InvitePage() {
   const [user, setUser] = useState(null);
   const [myEntry, setMyEntry] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [requesting, setRequesting] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     loadInvite();
@@ -45,20 +47,18 @@ export default function InvitePage() {
     setLoading(false);
   }
 
-  async function handleRequest() {
-    setRequesting(true);
-    const qr_secret = crypto.randomUUID();
-    await base44.entities.GuestlistEntry.create({
-      event_id: event.id,
-      guest_email: user.email,
-      guest_name: user.full_name,
-      status: "requested",
-      source: "invite_link",
-      qr_secret,
-    });
-    toast({ title: "Request sent!" });
-    loadInvite();
-    setRequesting(false);
+  async function handleShare() {
+    const url = `${getLinkDomain()}/invite/${event.invite_code}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: event.title, text: `You're invited to ${event.title}!`, url });
+        return;
+      }
+    } catch {}
+    navigator.clipboard.writeText(url);
+    setCopied(true);
+    toast({ title: "Link copied!" });
+    setTimeout(() => setCopied(false), 2000);
   }
 
   if (loading) return <LoadingSpinner fullScreen />;
@@ -80,13 +80,21 @@ export default function InvitePage() {
 
   return (
     <div className="max-w-lg mx-auto px-4 pt-4 pb-8">
-      {/* Back button */}
-      <button
-        onClick={() => navigate("/guest")}
-        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
-      >
-        <ArrowLeft className="w-4 h-4" /> Back
-      </button>
+      {/* Top bar */}
+      <div className="flex items-center justify-between mb-6">
+        <button
+          onClick={() => navigate("/guest")}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" /> Back
+        </button>
+        <button
+          onClick={handleShare}
+          className="w-9 h-9 rounded-full flex items-center justify-center bg-card/60 backdrop-blur-sm border border-border/50 hover:bg-secondary transition-colors"
+        >
+          {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Share2 className="w-4 h-4" />}
+        </button>
+      </div>
       {/* Event Preview */}
       <div className="text-center mb-6">
         <p className="text-xs text-primary uppercase tracking-widest font-semibold mb-2">You're Invited</p>
@@ -140,19 +148,9 @@ export default function InvitePage() {
       )}
 
       {/* Action */}
-      {!myEntry && event.requests_open && (
-        <Button
-          className="w-full h-14 rounded-xl font-bold text-base bg-primary hover:bg-primary/90"
-          onClick={handleRequest}
-          disabled={requesting}
-        >
-          <UserPlus className="w-5 h-5 mr-2" />
-          {requesting ? "Requesting..." : "Request to Join"}
-        </Button>
-      )}
-
-      {myEntry && (
-        <div className="space-y-3">
+      <EventJoinActions event={event} me={user} myEntry={myEntry} onChanged={loadInvite} />
+      {myEntry && myEntry.status !== "denied" && (
+        <div className="space-y-3 mt-4">
           <div className="bg-secondary/50 rounded-xl p-4 border border-border/50 text-center">
             <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Your Status</p>
             <StatusBadge status={myEntry.status} size="lg" />

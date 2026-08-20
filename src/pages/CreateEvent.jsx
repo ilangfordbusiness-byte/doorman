@@ -351,16 +351,56 @@ export default function CreateEvent({ business = null }) {
 
         {/* Toggles */}
         <div className="space-y-4 bg-secondary/30 rounded-2xl p-4 border border-border/50">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Eye className="w-4 h-4 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-medium">Public Event</p>
-                <p className="text-xs text-muted-foreground">Visible on discover page</p>
+          {form.is_paid ? (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Eye className="w-4 h-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">Public on Discover</p>
+                  <p className="text-xs text-muted-foreground">Visible on the discover page</p>
+                </div>
+              </div>
+              <Switch checked={form.is_public} onCheckedChange={(v) => updateForm("is_public", v)} />
+            </div>
+          ) : (
+            <div>
+              <p className="text-sm font-medium mb-2">How people join</p>
+              <div className="space-y-2">
+                <label className={`flex items-start gap-2 rounded-xl p-2.5 border cursor-pointer ${form.is_public ? "border-primary bg-primary/10" : "border-border bg-secondary/40"}`}>
+                  <input type="radio" name="joinmode" checked={form.is_public} onChange={() => updateForm("is_public", true)} className="mt-0.5 accent-primary" />
+                  <div>
+                    <p className="text-sm font-medium">Public</p>
+                    <p className="text-xs text-muted-foreground">Anyone can join instantly. Listed on Discover.</p>
+                  </div>
+                </label>
+                <label className={`flex items-start gap-2 rounded-xl p-2.5 border cursor-pointer ${!form.is_public ? "border-primary bg-primary/10" : "border-border bg-secondary/40"}`}>
+                  <input type="radio" name="joinmode" checked={!form.is_public} onChange={() => updateForm("is_public", false)} className="mt-0.5 accent-primary" />
+                  <div>
+                    <p className="text-sm font-medium">Private</p>
+                    <p className="text-xs text-muted-foreground">Guests request to join — you approve each one.</p>
+                  </div>
+                </label>
+              </div>
+              <div className="mt-4">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Who's Going Visibility</Label>
+                <div className="space-y-2">
+                  {[
+                    { v: "show_names", l: "Show names", d: "Guests see attendee names" },
+                    { v: "count_only", l: "Show count only", d: "Just a number, no names" },
+                    { v: "none", l: "Show nothing", d: "No attendee info at all" },
+                  ].map((o) => (
+                    <label key={o.v} className={`flex items-start gap-2 rounded-xl p-2.5 border cursor-pointer ${form.visibility === o.v ? "border-primary bg-primary/10" : "border-border bg-secondary/40"}`}>
+                      <input type="radio" name="createevent-visibility" checked={form.visibility === o.v} onChange={() => updateForm("visibility", o.v)} className="mt-0.5 accent-primary" />
+                      <div>
+                        <p className="text-sm font-medium">{o.l}</p>
+                        <p className="text-xs text-muted-foreground">{o.d}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
-            <Switch checked={form.is_public} onCheckedChange={(v) => updateForm("is_public", v)} />
-          </div>
+          )}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Users className="w-4 h-4 text-muted-foreground" />

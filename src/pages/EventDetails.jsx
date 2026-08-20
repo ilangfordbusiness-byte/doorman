@@ -15,7 +15,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   ArrowLeft, Calendar, Clock, MapPin, Shirt, Users, Share2,
-  QrCode, Shield, Edit, Trash2, UserPlus, Copy, Check, Plus, X, Ticket, BarChart3, Megaphone, Instagram
+  QrCode, Shield, Edit, Trash2, Copy, Check, Plus, X, BarChart3, Megaphone, Instagram
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -25,6 +25,7 @@ import EventChat from "../components/EventChat";
 import Avatar from "../components/Avatar";
 import HostProfileModal from "../components/HostProfileModal";
 import CoHostsSection from "../components/CoHostsSection";
+import EventJoinActions from "../components/EventJoinActions";
 import moment from "moment";
 import { captureRef, getLinkDomain, discountLabel, promoterDiscountActive } from "@/lib/promoterRef";
 
@@ -84,7 +85,6 @@ export default function EventDetails() {
   const tiers = data?.tiers ?? [];
   const loadError = data?.notFound ? "This event is no longer available or the link is invalid." : null;
 
-  const [requesting, setRequesting] = useState(false);
   const [copied, setCopied] = useState(false);
   const [newStaffEmail, setNewStaffEmail] = useState("");
   const [addingStaff, setAddingStaff] = useState(false);
@@ -153,23 +153,6 @@ export default function EventDetails() {
     queryClient.invalidateQueries(["event", id]);
   }
 
-  async function handleRequestJoin() {
-    setRequesting(true);
-    const qr_secret = Math.random().toString(36).substring(2, 18);
-    await base44.entities.GuestlistEntry.create({
-      event_id: id,
-      guest_email: me.email,
-      guest_name: me.full_name,
-      guest_phone: me.phone || "",
-      status: "requested",
-      source: "request",
-      qr_secret,
-    });
-    queryClient.invalidateQueries(["event", id]);
-    setRequesting(false);
-    toast({ title: "Request sent!" });
-  }
-
   async function handleShare() {
     const url = `${getLinkDomain()}/invite/${event.invite_code}`;
     try {
@@ -199,6 +182,7 @@ export default function EventDetails() {
   if (!event) return null;
 
   const eventDate = moment(event.date);
+  const sym = ({ gbp: "£", eur: "€", usd: "$" })[String(event.currency || "gbp").toLowerCase()] || "";
 
   return (
     <div className="max-w-lg mx-auto">
@@ -222,11 +206,9 @@ export default function EventDetails() {
           <Button variant="ghost" size="icon" className="rounded-full bg-card/60 backdrop-blur-sm" onClick={() => navigate(-1)}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          {isHost && (
-            <Button variant="ghost" size="icon" className="rounded-full bg-card/60 backdrop-blur-sm" onClick={handleShare}>
-              {copied ? <Check className="w-5 h-5 text-emerald-400" /> : <Share2 className="w-5 h-5" />}
-            </Button>
-          )}
+          <Button variant="ghost" size="icon" className="rounded-full bg-card/60 backdrop-blur-sm" onClick={handleShare}>
+            {copied ? <Check className="w-5 h-5 text-emerald-400" /> : <Share2 className="w-5 h-5" />}
+          </Button>
         </div>
       </div>
 
@@ -445,12 +427,7 @@ export default function EventDetails() {
           <div className="space-y-3">
             {event.is_paid && (
               <div className="bg-secondary/40 rounded-2xl p-4 border border-border/50">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-heading font-semibold text-sm">Tickets</h3>
-                  <Link to={`/event/${id}/checkout`}>
-                    <Button size="sm" className="rounded-xl gap-1.5"><Ticket className="w-4 h-4" /> Buy Tickets</Button>
-                  </Link>
-                </div>
+                <h3 className="font-heading font-semibold text-sm mb-3">Tickets</h3>
                 <div className="space-y-2">
                   {tiers.map((t) => {
                     const left = Math.max(0, Number(t.quantity || 0) - Number(t.sold || 0));
@@ -460,7 +437,7 @@ export default function EventDetails() {
                           <p className="font-medium">{t.name}</p>
                           <p className="text-xs text-muted-foreground">{left <= 0 ? "Sold out" : `${left} left`}</p>
                         </div>
-                        <p className="font-bold">{({ gbp: "£", eur: "€", usd: "$" }[String(event.currency || "gbp").toLowerCase()] || "")}{Number(t.price).toFixed(2)}</p>
+                        <p className="font-bold">{sym}{Number(t.price).toFixed(2)}</p>
                       </div>
                     );
                   })}
@@ -468,26 +445,16 @@ export default function EventDetails() {
                 </div>
               </div>
             )}
-            {!event.is_paid && !myEntry && event.requests_open && (
-              <Button
-                className="w-full h-14 rounded-xl font-bold text-base bg-primary hover:bg-primary/90"
-                onClick={handleRequestJoin}
-                disabled={requesting}
-              >
-                <UserPlus className="w-5 h-5 mr-2" />
-                {requesting ? "Requesting..." : "Request to Join"}
-              </Button>
-            )}
+            <EventJoinActions event={event} me={user} myEntry={myEntry} onChanged={() => queryClient.invalidateQueries(["event", id])} />
             {event.visibility !== "none" && (myEntry || event.is_paid) && (
-          <WhoIsGoing
-            eventId={id}
-            myEmail={user?.email}
-            visibility={event.visibility}
-            unlocked={!!myEntry && ["approved", "checked_in"].includes(myEntry.status)}
-          />
-        )}
-
-        {myEntry && (
+              <WhoIsGoing
+                eventId={id}
+                myEmail={user?.email}
+                visibility={event.visibility}
+                unlocked={!!myEntry && ["approved", "checked_in"].includes(myEntry.status)}
+              />
+            )}
+            {myEntry && myEntry.status !== "denied" && (
               <div className="space-y-3">
                 <div className="bg-secondary/50 rounded-xl p-4 border border-border/50 text-center">
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Your Status</p>
@@ -500,10 +467,8 @@ export default function EventDetails() {
                     </Button>
                   </Link>
                 )}
-                {myEntry.status === "denied" && (
-                  <div className="bg-destructive/10 rounded-xl p-4 border border-destructive/20 text-center">
-                    <p className="text-sm text-destructive font-medium">Your request was not approved</p>
-                  </div>
+                {myEntry.status === "requested" && (
+                  <p className="text-sm text-muted-foreground text-center">The host will review your request.</p>
                 )}
                 {myEntry.status === "checked_in" && (
                   <div className="bg-emerald-500/10 rounded-xl p-4 border border-emerald-500/20 text-center">
