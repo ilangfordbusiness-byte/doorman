@@ -25,7 +25,7 @@ export default function EventCard({ event, variant = "default" }) {
           <div className="h-px w-full bg-gradient-to-r from-transparent via-primary/50 to-transparent group-hover:via-primary transition-all" />
         )}
 
-        <div className="relative aspect-[4/5] overflow-hidden">{
+        <div className="relative aspect-square overflow-hidden">{
           (() => {
             const coverStyle = getCoverStyle(event.cover_image);
             return coverStyle ? (

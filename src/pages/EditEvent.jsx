@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import CoverPicker, { COVERS } from "../components/CoverPicker";
+import CoverPhotoUpload from "../components/CoverPhotoUpload";
 import { useNavigate, useParams } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { ArrowLeft, Upload, Ticket, AtSign } from "lucide-react";
+import { ArrowLeft, Ticket, AtSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,7 +20,6 @@ export default function EditEvent() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [coverFile, setCoverFile] = useState(null);
   const [coverId, setCoverId] = useState("");
   const [coverPreview, setCoverPreview] = useState(null);
   const [original, setOriginal] = useState(null);
@@ -94,6 +94,11 @@ export default function EditEvent() {
     if (error) setError("");
   }
 
+  function handleCoverPhoto(url) {
+    setCoverPreview(url);
+    if (url) setCoverId("");
+  }
+
   async function handleSave() {
     if (!form.title || !form.date || !form.start_time) {
       setError("Please fill in the event name, date, and start time.");
@@ -101,13 +106,12 @@ export default function EditEvent() {
     }
 
     setSaving(true);
-    let cover_image = coverPreview && !coverFile ? coverPreview : "";
+    let cover_image = "";
 
-    if (coverFile) {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file: coverFile });
-      cover_image = file_url;
-    } else if (coverId) {
+    if (coverId) {
       cover_image = `__cover__${coverId}`;
+    } else if (coverPreview) {
+      cover_image = coverPreview;
     }
 
     await base44.entities.Event.update(id, {
@@ -154,24 +158,11 @@ export default function EditEvent() {
 
         <CoverPicker
           value={coverId}
-          onChange={(id) => { setCoverId(id); setCoverFile(null); setCoverPreview(null); }}
+          onChange={(id) => { setCoverId(id); setCoverPreview(null); }}
           title={form.title}
         />
 
-        <label className="block cursor-pointer">
-          <div className={`relative h-12 rounded-xl overflow-hidden border-2 border-dashed transition-colors flex items-center justify-center gap-2 text-muted-foreground ${
-            coverPreview && !coverId ? "border-primary/50" : "border-border hover:border-primary/50"
-          }`}>
-            <Upload className="w-4 h-4" />
-            <span className="text-sm font-medium">
-              {coverPreview && !coverId ? "Custom photo selected ✓" : "Or upload a custom photo"}
-            </span>
-          </div>
-          <input type="file" accept="image/*" className="hidden" onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) { setCoverFile(file); setCoverPreview(URL.createObjectURL(file)); setCoverId(""); }
-          }} />
-        </label>
+        <CoverPhotoUpload value={coverPreview} onChange={handleCoverPhoto} />
 
         <div>
           <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Event Name</Label>

@@ -27,7 +27,7 @@ export default function UpcomingEventHero({ event, isHosting, friendsGoing, atte
     return (
       <div>
         <p className="text-[10px] font-mono text-muted-foreground tracking-widest uppercase mb-2">TONIGHT</p>
-        <div className="h-64 rounded-2xl bg-card border border-border animate-pulse" />
+        <div className="aspect-square rounded-2xl bg-card border border-border animate-pulse" />
       </div>
     );
   }
@@ -64,7 +64,7 @@ export default function UpcomingEventHero({ event, isHosting, friendsGoing, atte
     <div>
       <p className="text-[10px] font-mono text-muted-foreground tracking-widest uppercase mb-2">{label}</p>
       <Link to={`/event/${event.id}`} className="block group">
-        <div className="relative rounded-2xl overflow-hidden border border-primary/30 h-64 transition-all duration-300 group-hover:border-primary/60">
+        <div className="relative rounded-2xl overflow-hidden border border-primary/30 aspect-square transition-all duration-300 group-hover:border-primary/60">
           {/* Background */}
           {hasImg ? (
             <img src={event.cover_image} alt={event.title} className="absolute inset-0 w-full h-full object-cover" />

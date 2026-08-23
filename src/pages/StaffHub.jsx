@@ -196,14 +196,14 @@ export default function StaffHub() {
                     const coverStyle = getCoverStyle(event.cover_image);
                     if (coverStyle) {
                       return (
-                        <div className="h-28 w-full" style={coverStyle}>
-                          <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-t from-card via-transparent to-transparent" />
+                        <div className="relative aspect-square w-full" style={coverStyle}>
+                          <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent" />
                         </div>
                       );
                     }
                     if (event.cover_image && !event.cover_image.startsWith("__cover__")) {
                       return (
-                        <div className="h-28 overflow-hidden relative">
+                        <div className="relative aspect-square overflow-hidden">
                           <img src={event.cover_image} alt={event.title} className="w-full h-full object-cover" />
                           <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent" />
                         </div>

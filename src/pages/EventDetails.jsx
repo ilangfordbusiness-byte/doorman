@@ -187,7 +187,7 @@ export default function EventDetails() {
   return (
     <div className="max-w-lg mx-auto">
       {/* Cover */}
-      <div className="relative h-56">{
+      <div className="relative aspect-square">{
         (() => {
           const coverStyle = getCoverStyle(event.cover_image);
           return coverStyle ? (

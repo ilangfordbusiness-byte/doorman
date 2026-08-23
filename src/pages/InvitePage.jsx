@@ -103,7 +103,7 @@ export default function InvitePage() {
       </div>
 
       {event.cover_image && (
-        <div className="rounded-2xl overflow-hidden h-48 mb-6">
+        <div className="rounded-2xl overflow-hidden aspect-square mb-6">
           <img src={event.cover_image} alt={event.title} className="w-full h-full object-cover" />
         </div>
       )}
