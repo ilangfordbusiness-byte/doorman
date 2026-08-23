@@ -28,6 +28,7 @@ const PromoterDashboard = lazy(() => import('./pages/PromoterDashboard'));
 const BusinessLayout = lazy(() => import('./components/BusinessLayout'));
 const BusinessCreateEvent = lazy(() => import('./pages/business/BusinessCreateEvent'));
 const BusinessPastEvents = lazy(() => import('./pages/business/BusinessPastEvents'));
+const EditBusinessAccount = lazy(() => import('./pages/business/EditBusinessAccount'));
 
 const PageLoader = () => (
   <div className="fixed inset-0 flex items-center justify-center bg-background">
@@ -91,6 +92,7 @@ const AuthenticatedApp = () => {
       </Route>
       <Route path="/pass/:id" element={<GuestPass />} />
       <Route path="/scanner" element={<DoormanScanner />} />
+      <Route path="/business/:id/edit" element={<EditBusinessAccount />} />
       <Route element={<BusinessLayout />}>
         <Route path="/business/create-event" element={<BusinessCreateEvent />} />
         <Route path="/business/past-events" element={<BusinessPastEvents />} />

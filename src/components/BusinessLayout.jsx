@@ -3,7 +3,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useActiveAccount, useSwitchAccount } from "@/hooks/useActiveAccount";
 import LoadingSpinner from "./LoadingSpinner";
 import Avatar from "./Avatar";
-import { ArrowLeftRight, Plus, History } from "lucide-react";
+import { ArrowLeftRight, Plus, History, Settings } from "lucide-react";
 
 export default function BusinessLayout() {
   const { data: me } = useCurrentUser();
@@ -24,6 +24,13 @@ export default function BusinessLayout() {
             <p className="font-heading font-bold text-sm truncate">{business.business_name}</p>
             <p className="text-[10px] text-primary uppercase tracking-widest font-mono">Business Account</p>
           </div>
+          <Link
+            to={`/business/${business.id}/edit`}
+            className="w-9 h-9 rounded-lg bg-secondary border border-border flex items-center justify-center hover:bg-secondary/80 flex-shrink-0"
+            title="Edit business account"
+          >
+            <Settings className="w-4 h-4" />
+          </Link>
           <button
             onClick={switchToPersonal}
             className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-secondary border border-border hover:bg-secondary/80"

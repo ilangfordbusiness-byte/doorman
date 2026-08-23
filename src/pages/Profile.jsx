@@ -236,12 +236,15 @@ export default function Profile() {
           <div className="space-y-2">
             {businessAccounts.map((b) => (
               <div key={b.id} className="flex items-center gap-3 bg-secondary/40 rounded-xl p-3 border border-border/50">
-                <Avatar src={b.business_picture} name={b.business_name} size="w-9 h-9" textClass="text-sm" className="flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate">{b.business_name}</p>
-                  <p className="text-[10px] text-muted-foreground truncate">{b.business_email}</p>
-                </div>
-                <Button size="sm" className="rounded-lg gap-1.5" onClick={() => handleSwitchBusiness(b.id)}>
+                <button onClick={() => navigate(`/business/${b.id}/edit`)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
+                  <Avatar src={b.business_picture} name={b.business_name} size="w-9 h-9" textClass="text-sm" className="flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold truncate">{b.business_name}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{b.business_email}</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                </button>
+                <Button size="sm" className="rounded-lg gap-1.5 flex-shrink-0" onClick={() => handleSwitchBusiness(b.id)}>
                   <ArrowLeftRight className="w-3.5 h-3.5" /> Switch
                 </Button>
               </div>
