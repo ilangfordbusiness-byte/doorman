@@ -12,7 +12,7 @@
 --  * Enums are text + CHECK constraints (easier to evolve than Postgres enum types).
 
 create extension if not exists citext;
-create extension if not exists pgcrypto;
+create extension if not exists pgcrypto with schema extensions;
 
 create or replace function public.set_updated_at() returns trigger
 language plpgsql as $$
@@ -94,7 +94,7 @@ create table public.events (
   plus_one_allowed boolean not null default false,
   status text not null default 'draft'
     check (status in ('draft', 'published', 'cancelled', 'completed')),
-  invite_code text not null unique default encode(gen_random_bytes(6), 'hex'),
+  invite_code text not null unique default encode(extensions.gen_random_bytes(6), 'hex'),
   staff_code text not null default lpad((floor(random() * 10000))::int::text, 4, '0'),
   is_paid boolean not null default false,
   currency text not null default 'gbp',
@@ -162,7 +162,7 @@ create table public.guestlist_entries (
   checked_in_by uuid references public.profiles(id),
   checked_out_at timestamptz,
   notes text,                -- host/staff notes; hidden from the guest via column grants
-  qr_secret text not null default encode(gen_random_bytes(16), 'hex'),
+  qr_secret text not null default encode(extensions.gen_random_bytes(16), 'hex'),
     -- never readable by clients (column grants); QR payloads come from an RPC
   created_by uuid references public.profiles(id),
   created_at timestamptz not null default now(),
@@ -261,7 +261,7 @@ create table public.promoters (
   commission_percent numeric(5, 2)
     check (commission_percent is null or (commission_percent >= 0 and commission_percent <= 100)),
   commission_flat_minor integer check (commission_flat_minor is null or commission_flat_minor >= 0),
-  tracking_code text not null unique default encode(gen_random_bytes(5), 'hex'),
+  tracking_code text not null unique default encode(extensions.gen_random_bytes(5), 'hex'),
   status text not null default 'active' check (status in ('active', 'disabled')),
   tickets_sold integer not null default 0,
   total_sales_minor bigint not null default 0,
