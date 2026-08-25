@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import Layout from './components/Layout';
 import Login from './pages/Login';
+import Privacy from './pages/Privacy';
 
 const Home = lazy(() => import('./pages/Home'));
 const CreateEvent = lazy(() => import('./pages/CreateEvent'));
@@ -49,6 +50,11 @@ const PageLoader = () => (
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+
+  // Public pages, reachable with no session (Google's consent screen links here).
+  if (window.location.pathname === '/privacy') {
+    return <Privacy />;
+  }
 
   // Show loading spinner while checking app public settings or auth
   if (isLoadingPublicSettings || isLoadingAuth) {
