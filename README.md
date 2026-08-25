@@ -1,3 +1,23 @@
+# DoorMan
+
+Events app — guestlists, tickets, promoters, and the door. React/Vite frontend
+on Vercel, Supabase backend (Postgres + RLS, edge functions, Storage, Realtime,
+pg_cron). Originally built on Base44; see `DEPLOYMENT.md` for local development
+and the full deployment runbook.
+
+## Quick start
+
+```bash
+npm install
+supabase start && supabase db reset
+npm run dev
+```
+
+---
+
+<details>
+<summary>Original Base44 README (pre-migration)</summary>
+
 **Welcome to your Base44 project** 
 
 **About**
@@ -37,3 +57,5 @@ Open [Base44.com](http://Base44.com) and click on Publish.
 Documentation: [https://docs.base44.com/Integrations/Using-GitHub](https://docs.base44.com/Integrations/Using-GitHub)
 
 Support: [https://app.base44.com/support](https://app.base44.com/support)
+
+</details>
