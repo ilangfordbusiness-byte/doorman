@@ -412,3 +412,21 @@ enabled = true
 # declarative_schema_path = "./schemas"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+# Functions authenticated by something other than a Supabase JWT:
+# ticketWebhook by the Stripe signature; the automation functions by the
+# AUTOMATION_SECRET header (db webhooks + cron).
+[functions.ticketWebhook]
+verify_jwt = false
+
+[functions.notifyEventUpdate]
+verify_jwt = false
+
+[functions.notifyChatMessage]
+verify_jwt = false
+
+[functions.sendEventReminders]
+verify_jwt = false
+
+[functions.autoCheckoutGuests]
+verify_jwt = false
