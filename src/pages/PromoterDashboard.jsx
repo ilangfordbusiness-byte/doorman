@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { ArrowLeft, Ticket, TrendingUp, Wallet, MousePointerClick, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -23,8 +23,8 @@ export default function PromoterDashboard() {
 
   useEffect(() => {
     load();
-    const unsubOrders = base44.entities.TicketOrder.subscribe(() => { load(); });
-    const unsubProms = base44.entities.Promoter.subscribe(() => { load(); });
+    const unsubOrders = api.entities.TicketOrder.subscribe(() => { load(); });
+    const unsubProms = api.entities.Promoter.subscribe(() => { load(); });
     return () => {
       if (typeof unsubOrders === "function") unsubOrders();
       if (typeof unsubProms === "function") unsubProms();
@@ -33,17 +33,17 @@ export default function PromoterDashboard() {
 
   async function load() {
     try {
-      const proms = await base44.entities.Promoter.filter({ tracking_code: code });
+      const proms = await api.entities.Promoter.filter({ tracking_code: code });
       if (!proms.length) { setLoading(false); return; }
       const p = proms[0];
       setPromoter(p);
       try {
-        const me = await base44.auth.me();
+        const me = await api.auth.me();
         if (me?.email && p.email && me.email.toLowerCase() === p.email.toLowerCase()) setIsOwner(true);
       } catch {}
       const [events, ords] = await Promise.all([
-        base44.entities.Event.filter({ id: p.event_id }),
-        base44.entities.TicketOrder.filter({ promoter_id: p.id, status: "paid" }),
+        api.entities.Event.filter({ id: p.event_id }),
+        api.entities.TicketOrder.filter({ promoter_id: p.id, status: "paid" }),
       ]);
       setEvent(events[0] || null);
       setOrders(ords);

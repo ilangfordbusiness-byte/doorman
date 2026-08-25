@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -10,7 +10,7 @@ export default function PhonePrompt({ onSaved }) {
   async function save() {
     if (!phone.trim()) return;
     setSaving(true);
-    await base44.auth.updateMe({ phone: phone.trim() });
+    await api.auth.updateMe({ phone: phone.trim() });
     setSaving(false);
     onSaved(phone.trim());
   }

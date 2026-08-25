@@ -1,6 +1,6 @@
 // Doorman scanner: validates a QR payload and (on action=check_in) atomically
 // checks the guest in. Only the host, accepted co-hosts, or registered staff
-// of that event may scan. QR wire format is unchanged from Base44.
+// of that event may scan. QR wire format is unchanged from the original app.
 import { getCaller, json, preflight, serviceClient } from '../_shared/db.ts';
 
 Deno.serve(async (req) => {

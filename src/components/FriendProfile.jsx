@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { X, Instagram, Users, Calendar, Clock, PartyPopper } from "lucide-react";
 import { Link } from "react-router-dom";
 import LoadingSpinner from "./LoadingSpinner";
@@ -26,10 +26,10 @@ export default function FriendProfile({ friend, myEmail, myFriends, onClose }) {
 
     // Load friend's guestlist entries & hosted events in parallel with my own
     const [friendEntries, friendHostedEvents, friendHostedCheckins, myEntries] = await Promise.all([
-      base44.entities.GuestlistEntry.filter({ guest_email: friend.email }),
-      base44.entities.Event.filter({ host_email: friend.email }),
-      base44.entities.GuestlistEntry.filter({ checked_in_by: friend.email }),
-      base44.entities.GuestlistEntry.filter({ guest_email: myEmail }),
+      api.entities.GuestlistEntry.filter({ guest_email: friend.email }),
+      api.entities.Event.filter({ host_email: friend.email }),
+      api.entities.GuestlistEntry.filter({ checked_in_by: friend.email }),
+      api.entities.GuestlistEntry.filter({ guest_email: myEmail }),
     ]);
 
     // Stats
@@ -67,7 +67,7 @@ export default function FriendProfile({ friend, myEmail, myFriends, onClose }) {
     if (commonEventIds.length > 0) {
       const eventsData = await Promise.all(
         commonEventIds.slice(0, 10).map((eid) =>
-          base44.entities.Event.filter({ id: eid }).then((res) => res[0]).catch(() => null)
+          api.entities.Event.filter({ id: eid }).then((res) => res[0]).catch(() => null)
         )
       );
       setSharedEvents(eventsData.filter(Boolean));
@@ -79,8 +79,8 @@ export default function FriendProfile({ friend, myEmail, myFriends, onClose }) {
 
       // Get friend's friend list
       const [theirSent, theirReceived] = await Promise.all([
-        base44.entities.FriendRequest.filter({ sender_email: friend.email }),
-        base44.entities.FriendRequest.filter({ receiver_email: friend.email }),
+        api.entities.FriendRequest.filter({ sender_email: friend.email }),
+        api.entities.FriendRequest.filter({ receiver_email: friend.email }),
       ]);
 
       const theirFriendEmails = new Set([

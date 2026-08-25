@@ -146,7 +146,7 @@ grant update (business_email, business_name, business_picture_url, stripe_mode)
   on public.business_accounts to authenticated;
 
 -- ---------------------------------------------------------------------------
--- events: readable by any signed-in user (Base44 read was open); anon may see
+-- events: readable by any signed-in user (the original app read was open); anon may see
 -- published events (public event pages / invite landing before login).
 -- host_notes, staff_code, invite_code never reach clients — invite_code would
 -- let anyone self-admit to private events. Managers fetch them via RPC.
@@ -434,7 +434,7 @@ begin
   return v_staff_id;
 end $$;
 
--- The guest's own QR payload (same base64 JSON shape the Base44 app used, so
+-- The guest's own QR payload (same base64 JSON shape the original app used, so
 -- validateQR and existing pass rendering carry over unchanged).
 create or replace function public.my_qr_payload(p_entry_id uuid)
 returns text

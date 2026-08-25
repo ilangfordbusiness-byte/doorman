@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { Search, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import EventCard from "../components/EventCard";
@@ -11,7 +11,7 @@ export default function Discover() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    base44.entities.Event.filter({ status: "published", is_public: true }, "-date").then((data) => {
+    api.entities.Event.filter({ status: "published", is_public: true }, "-date").then((data) => {
       setEvents(data);
       setLoading(false);
     });

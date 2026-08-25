@@ -1,4 +1,4 @@
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 
 // Module-level cache of live profile pictures keyed by lowercased email.
 // Shared across all UserAvatar instances so each user's picture is fetched
@@ -31,7 +31,7 @@ async function flush() {
   // response arrives.
   emails.forEach((e) => { if (!cache.has(e)) cache.set(e, ""); });
   try {
-    const res = await base44.functions.invoke("getProfiles", { emails });
+    const res = await api.functions.invoke("getProfiles", { emails });
     const profiles = res.data?.profiles || {};
     for (const [email, p] of Object.entries(profiles)) {
       cache.set(email, p.picture || "");

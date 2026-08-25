@@ -1,6 +1,6 @@
 -- DoorMan: dashboard read RPCs.
 --
--- Replaces the Base44 read-path functions (getHomeDashboard, getGuestDashboard,
+-- Replaces the original app read-path functions (getHomeDashboard, getGuestDashboard,
 -- getNotifications, getFriendSuggestions, resolvePromoterRef) with SQL. Each
 -- existed only to stitch joins server-side; here they are single queries.
 -- (getProfiles needs no RPC at all — profiles are RLS-readable, the data layer
@@ -10,7 +10,7 @@
 -- (other guests' entries for counts, other users' friendships for mutuals).
 -- Each therefore returns explicitly whitelisted fields only — never to_jsonb()
 -- of a whole row, which would leak protected columns like qr_secret.
--- Output keys deliberately match the old Base44 payloads (cover_image,
+-- Output keys deliberately match the old payloads (cover_image,
 -- host_picture, guestStatus, ...) so the pages port unchanged.
 
 -- Public event shape shared by the dashboard payloads.

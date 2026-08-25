@@ -1,8 +1,8 @@
-// DoorMan data layer: the Base44 SDK surface (entities.filter/create/update/
-// subscribe, auth.me, functions.invoke, Core.UploadFile) implemented natively
-// on Supabase. All schema translation lives here — pages keep speaking the old
-// field names (cover_image, host_email, price, sender_name, ...) while the
-// database speaks the new ones (cover_image_url, host_id, price_minor, joins).
+// DoorMan data layer (entities.filter/create/update/subscribe, auth.me,
+// functions.invoke, Core.UploadFile) implemented on Supabase. All schema
+// translation lives here — pages keep speaking the legacy field names
+// (cover_image, host_email, price, sender_name, ...) while the database
+// speaks the new ones (cover_image_url, host_id, price_minor, joins).
 import { supabase } from "./client";
 
 // ---------------------------------------------------------------------------
@@ -107,7 +107,7 @@ const ENTITIES = {
         "business_id",
       ];
       for (const k of copy) if (k in obj) out[k] = obj[k];
-      // Base44 tolerated "" in typed columns; Postgres uuid/numeric/date do not.
+      // The legacy platform tolerated "" in typed columns; Postgres uuid/numeric/date do not.
       for (const k of ["business_id", "venue_lat", "venue_lng", "capacity", "date"]) {
         if (out[k] === "") out[k] = null;
       }
@@ -717,7 +717,7 @@ const auth = {
 
 // ---------------------------------------------------------------------------
 // Functions: dashboard reads route to SQL RPCs, the rest to edge functions.
-// Returns { data } like the Base44 SDK did.
+// Returns { data }-shaped results (legacy calling convention).
 // ---------------------------------------------------------------------------
 async function rpc(fn, args) {
   const { data, error } = await supabase.rpc(fn, args);
@@ -836,4 +836,4 @@ const integrations = {
   },
 };
 
-export const base44 = { entities, auth, functions, integrations };
+export const api = { entities, auth, functions, integrations };

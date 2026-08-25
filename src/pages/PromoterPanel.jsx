@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { ArrowLeft, Plus, Copy, Check, Trash2, ExternalLink, Megaphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,10 +36,10 @@ export default function PromoterPanel() {
   useEffect(() => { load(); }, [id]);
 
   async function load() {
-    const me = await base44.auth.me();
+    const me = await api.auth.me();
     const [events, proms] = await Promise.all([
-      base44.entities.Event.filter({ id }),
-      base44.entities.Promoter.filter({ event_id: id }),
+      api.entities.Event.filter({ id }),
+      api.entities.Promoter.filter({ event_id: id }),
     ]);
     if (!events.length) return navigate("/");
     if (events[0].host_email !== me.email) return navigate(`/event/${id}`);
@@ -58,7 +58,7 @@ export default function PromoterPanel() {
     setSaving(true);
     try {
       const code = Math.random().toString(36).substring(2, 10).toUpperCase();
-      await base44.entities.Promoter.create({
+      await api.entities.Promoter.create({
         event_id: id,
         name: name.trim(),
         email: cleanEmail,
@@ -86,12 +86,12 @@ export default function PromoterPanel() {
   }
 
   async function toggleStatus(p) {
-    await base44.entities.Promoter.update(p.id, { status: p.status === "active" ? "disabled" : "active" });
+    await api.entities.Promoter.update(p.id, { status: p.status === "active" ? "disabled" : "active" });
     load();
   }
 
   async function removePromoter(p) {
-    await base44.entities.Promoter.delete(p.id);
+    await api.entities.Promoter.delete(p.id);
     load();
   }
 
@@ -99,7 +99,7 @@ export default function PromoterPanel() {
     const type = editDtype;
     const value = type === "none" ? 0 : Number(editDvalue) || 0;
     const maxUses = type === "none" ? 0 : (Number(editDmax) || 0);
-    await base44.entities.Promoter.update(p.id, {
+    await api.entities.Promoter.update(p.id, {
       discount_type: type,
       discount_value: value,
       discount_max_uses: maxUses,

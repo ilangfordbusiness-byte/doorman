@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { LogOut, User, Calendar, Camera, ArrowLeft, Pencil, Check, X, Shield, Trash2, AtSign, Clock, Users, Mic2, ChevronRight, Building2, ArrowLeftRight } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -44,8 +44,8 @@ export default function Profile() {
 
   async function handleDeleteAccount() {
     if (deleteConfirmText !== "DELETE") return;
-    await base44.auth.updateMe({ deleted: true, email: `deleted_${Date.now()}@deleted.com` });
-    base44.auth.logout();
+    await api.auth.updateMe({ deleted: true, email: `deleted_${Date.now()}@deleted.com` });
+    api.auth.logout();
   }
 
   useEffect(() => {
@@ -53,14 +53,14 @@ export default function Profile() {
   }, []);
 
   async function loadProfile() {
-    const me = await base44.auth.me();
+    const me = await api.auth.me();
     setUser(me);
     const [events, entries] = await Promise.all([
-      base44.entities.Event.filter({ host_email: me.email }),
-      base44.entities.GuestlistEntry.filter({ guest_email: me.email }),
+      api.entities.Event.filter({ host_email: me.email }),
+      api.entities.GuestlistEntry.filter({ guest_email: me.email }),
     ]);
 
-    const businesses = await base44.entities.BusinessAccount.filter({ owner_email: me.email });
+    const businesses = await api.entities.BusinessAccount.filter({ owner_email: me.email });
     setBusinessAccounts(businesses);
     setStats({
       hosted: events.filter((e) => !e.business_id).length,
@@ -79,7 +79,7 @@ export default function Profile() {
 
   async function handlePhotoSave(file_url) {
     setUploadingPhoto(true);
-    await base44.auth.updateMe({ profile_picture: file_url });
+    await api.auth.updateMe({ profile_picture: file_url });
     setUser((prev) => ({ ...prev, profile_picture: file_url }));
     setPendingPhoto(null);
     setUploadingPhoto(false);
@@ -95,7 +95,7 @@ export default function Profile() {
     if (!editValue.trim()) return;
     setSaving(true);
     const update = editing === "name" ? { full_name: editValue.trim() } : editing === "phone" ? { phone: editValue.trim() } : { instagram: editValue.trim().replace(/^@/, "") };
-    await base44.auth.updateMe(update);
+    await api.auth.updateMe(update);
     setUser((prev) => ({ ...prev, ...update }));
     setEditing(null);
     setSaving(false);
@@ -113,7 +113,7 @@ export default function Profile() {
 
   function handleAdminPin() {
     if (adminPin === "1234") {
-      base44.auth.updateMe({ role: "admin" }).then(() => {
+      api.auth.updateMe({ role: "admin" }).then(() => {
         toast({ title: "Admin access granted" });
         setShowAdminPin(false);
         loadProfile();
@@ -383,7 +383,7 @@ export default function Profile() {
       <Button
         variant="outline"
         className="w-full h-12 rounded-xl font-semibold text-destructive border-destructive/30 hover:bg-destructive/10 mb-3"
-        onClick={() => base44.auth.logout()}
+        onClick={() => api.auth.logout()}
       >
         <LogOut className="w-4 h-4 mr-2" /> Sign Out
       </Button>

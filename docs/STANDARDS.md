@@ -1,13 +1,13 @@
 # DoorMan — Codebase Standards
 
 How this codebase is organized, and the rules for deciding where new code goes.
-Written during the Base44 → Supabase migration (Aug 2026); revisit as the app grows.
+Written during the move to Supabase (Aug 2026); revisit as the app grows.
 
 ## Architecture in one picture
 
 ```text
 Browser (React/Vite, Vercel)
-   │  all data access through src/api/base44Client.js — the single choke point
+   │  all data access through src/api/data.js — the single choke point
    ▼
 Supabase
    ├─ Postgres ······· tables, RLS policies, constraints, SQL functions (RPCs)
@@ -59,7 +59,7 @@ conversation when any of these become true:
 - A team is maintaining complex domain logic and wants one language + one test story.
 
 The migration path is already built in: every page calls data through
-`src/api/base44Client.js`. Stand up the server, repoint methods there one at a
+`src/api/data.js`. Stand up the server, repoint methods there one at a
 time, and no page changes. Do not let business logic leak into pages in the
 meantime — that is the one place it must never live, because users can tamper
 with it.
@@ -87,8 +87,8 @@ with it.
 - **People who may not have accounts yet** are referenced by `citext` email
   columns next to nullable `*_user_id` uuids; the `on_auth_user_created` trigger
   back-links them at signup.
-- Old Base44 field names live **only** in `src/api/base44Client.js` mappers —
-  the database schema uses the new names, pages use the old ones. New features
+- Legacy field names from the original app live **only** in `src/api/data.js`
+  mappers — the database schema uses the new names, pages use the old ones. New features
   should use one name end-to-end and skip the mapping.
 
 ## Testing

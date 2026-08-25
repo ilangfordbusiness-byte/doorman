@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { ArrowLeft, CreditCard, Tag, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,9 +40,9 @@ export default function TicketCheckout() {
   // Auth gate — require a DoorMan account before checkout. Return here (with ref)
   // after login so the purchase resumes exactly where they left off.
   useEffect(() => {
-    base44.auth.isAuthenticated().then((ok) => {
+    api.auth.isAuthenticated().then((ok) => {
       if (ok) { setAuthed(true); return; }
-      base44.auth.redirectToLogin(window.location.href);
+      api.auth.redirectToLogin(window.location.href);
     });
   }, []);
 
@@ -59,8 +59,8 @@ export default function TicketCheckout() {
   async function load() {
     try {
       const [events, t] = await Promise.all([
-        base44.entities.Event.filter({ id }),
-        base44.entities.TicketTier.filter({ event_id: id }),
+        api.entities.Event.filter({ id }),
+        api.entities.TicketTier.filter({ event_id: id }),
       ]);
       if (!events.length) { setLoadError("This event is no longer available."); setLoading(false); return; }
       setEvent(events[0]);
@@ -87,7 +87,7 @@ export default function TicketCheckout() {
     setPromoMsg("");
     setPromo(null);
     try {
-      const res = await base44.functions.invoke("validatePromoCode", { event_id: id, code: promoInput.trim(), tier_id: selected });
+      const res = await api.functions.invoke("validatePromoCode", { event_id: id, code: promoInput.trim(), tier_id: selected });
       const d = res.data;
       if (!d.valid) setPromoMsg(d.message || "Invalid promo code");
       else { setPromo(d); setPromoMsg(""); toast({ title: "Promo applied" }); }
@@ -109,7 +109,7 @@ export default function TicketCheckout() {
       const promoterCode = getStoredRef(id);
       const base = `${getLinkDomain()}/event/${id}/checkout`;
       const refPart = promoterCode ? `&ref=${promoterCode}` : "";
-      const res = await base44.functions.invoke("createTicketCheckout", {
+      const res = await api.functions.invoke("createTicketCheckout", {
         tier_id: tier.id,
         promo_code: promo ? promoInput.trim() : null,
         promoter_code: promoterCode || null,

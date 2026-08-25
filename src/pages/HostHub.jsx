@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Plus, ArrowLeft, Mic2, Users, QrCode, Share2, ScanLine, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ export default function HostHub() {
   const { data: events = [], isLoading: loading } = useQuery({
     queryKey: ["hostEvents"],
     queryFn: async () => {
-      const evs = await base44.entities.Event.filter({ host_email: me.email }, "-date");
+      const evs = await api.entities.Event.filter({ host_email: me.email }, "-date");
       return evs.filter((e) => !e.business_id);
     },
     enabled: !!me,

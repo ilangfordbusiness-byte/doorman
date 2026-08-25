@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 
 // Sign-in screen, rendered by the app shell whenever there is no session.
 // Google is the production sign-in; the email/password form only renders in
@@ -25,7 +25,7 @@ export default function Login() {
     <div className="fixed inset-0 flex items-center justify-center bg-background px-6">
       <div className="w-full max-w-sm text-center">
         <img
-          src="https://media.base44.com/images/public/69d556d1ae7f4cada8ab83ef/e327a8610_logotransparent.png"
+          src="/logo.png"
           alt="DoorMan"
           className="w-16 h-16 mx-auto mb-6 object-contain"
         />
@@ -36,7 +36,7 @@ export default function Login() {
 
         <button
           disabled={busy}
-          onClick={() => withBusy(() => base44.auth.signInWithGoogle(window.location.href))}
+          onClick={() => withBusy(() => api.auth.signInWithGoogle(window.location.href))}
           className="w-full flex items-center justify-center gap-3 rounded-xl border border-border bg-card px-4 py-3 font-semibold hover:bg-accent transition-colors disabled:opacity-50"
         >
           <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
@@ -53,7 +53,7 @@ export default function Login() {
             className="mt-8 text-left space-y-2 border-t border-border pt-6"
             onSubmit={(e) => {
               e.preventDefault();
-              withBusy(() => base44.auth.signInWithPassword(email, password));
+              withBusy(() => api.auth.signInWithPassword(email, password));
             }}
           >
             <p className="text-xs uppercase tracking-wide text-muted-foreground">

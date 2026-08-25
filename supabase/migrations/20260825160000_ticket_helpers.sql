@@ -1,5 +1,5 @@
 -- Atomic counter updates used by the ticket webhook. Each replaces a
--- read-modify-write in the Base44 version that could race under concurrent
+-- read-modify-write in the original app version that could race under concurrent
 -- payments. Service-role only — clients must never touch these counters.
 
 create or replace function public.record_tier_sale(p_tier uuid, p_qty int)

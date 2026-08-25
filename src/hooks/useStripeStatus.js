@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 
 // Returns the current user's Stripe Connect status.
 // connected: null while loading, then true/false
@@ -11,7 +11,7 @@ export function useStripeStatus() {
     let mounted = true;
     (async () => {
       try {
-        const res = await base44.functions.invoke("stripeConnect", { action: "status" });
+        const res = await api.functions.invoke("stripeConnect", { action: "status" });
         if (mounted) {
           setConnected(!!res.data?.account?.id);
           setActive(!!res.data?.account?.payouts_enabled);

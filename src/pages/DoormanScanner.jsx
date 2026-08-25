@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import jsQR from "jsqr";
 import { ArrowLeft, Search, CheckCircle2, XCircle, RotateCcw, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,7 @@ export default function DoormanScanner() {
     const params = new URLSearchParams(window.location.search);
     const eid = params.get("event_id");
     if (eid) {
-      base44.entities.Event.filter({ id: eid })
+      api.entities.Event.filter({ id: eid })
         .then((r) => setEvent(r[0] || null))
         .catch(() => {});
     }
@@ -125,7 +125,7 @@ export default function DoormanScanner() {
     stopEverything();
 
     try {
-      const response = await base44.functions.invoke("validateQR", { qr_data: data });
+      const response = await api.functions.invoke("validateQR", { qr_data: data });
       setResult(response.data);
       setMode("result");
     } catch {
@@ -145,7 +145,7 @@ export default function DoormanScanner() {
     if (!lastQrData.current || processing) return;
     setProcessing(true);
     try {
-      const response = await base44.functions.invoke("validateQR", {
+      const response = await api.functions.invoke("validateQR", {
         qr_data: lastQrData.current,
         action: "check_in",
       });

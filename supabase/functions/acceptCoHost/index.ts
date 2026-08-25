@@ -1,5 +1,5 @@
 // Accept or decline a co-host invite. Operates on the event_co_hosts table
-// (the Base44 version rewrote a JSON array on the event row).
+// (the original app version rewrote a JSON array on the event row).
 import { getCaller, json, preflight, serviceClient } from '../_shared/db.ts';
 
 Deno.serve(async (req) => {

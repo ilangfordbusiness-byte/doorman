@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { Ticket, QrCode, CheckCircle2, Megaphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -21,23 +21,23 @@ export default function CheckoutSuccess({ eventId }) {
     async function poll() {
       let me = null;
       try {
-        me = await base44.auth.me();
+        me = await api.auth.me();
       } catch {
         // Session expired mid-flow — send back through login, preserving this URL.
-        base44.auth.redirectToLogin(window.location.href);
+        api.auth.redirectToLogin(window.location.href);
         return;
       }
-      const evts = await base44.entities.Event.filter({ id: eventId }).catch(() => []);
+      const evts = await api.entities.Event.filter({ id: eventId }).catch(() => []);
       if (active) setEvent(evts[0] || null);
       for (let i = 0; i < 12; i++) {
-        const orders = await base44.entities.TicketOrder
+        const orders = await api.entities.TicketOrder
           .filter({ event_id: eventId, guest_email: me.email, status: "paid" })
           .catch(() => []);
         const paid = orders.sort((a, b) => new Date(b.created_date) - new Date(a.created_date))[0];
         if (paid) {
           if (active) { setOrder(paid); setPolling(false); }
           if (paid.promoter_id) {
-            const p = await base44.entities.Promoter.filter({ id: paid.promoter_id }).catch(() => []);
+            const p = await api.entities.Promoter.filter({ id: paid.promoter_id }).catch(() => []);
             if (active) setPromoter(p[0] || null);
           }
           return;
