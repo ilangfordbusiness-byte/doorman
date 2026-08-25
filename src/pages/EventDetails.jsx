@@ -45,7 +45,12 @@ async function loadEvent(id, me) {
     base44.entities.EventStaff.filter({ event_id: id }),
     base44.entities.TicketTier.filter({ event_id: id }).catch(() => []),
   ]);
-  const mine = entries.find((e) => e.guest_email === me.email);
+  // A guest can hold several tickets (multi-quantity purchases); surface a
+  // usable one ahead of an already-used one.
+  const entryRank = (s) => (["approved", "invited"].includes(s) ? 0 : s === "checked_in" ? 1 : 2);
+  const mine = entries
+    .filter((e) => e.guest_email === me.email)
+    .sort((a, b) => entryRank(a.status) - entryRank(b.status))[0];
   tierList.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
   return {
@@ -471,9 +476,16 @@ export default function EventDetails() {
                   <p className="text-sm text-muted-foreground text-center">The host will review your request.</p>
                 )}
                 {myEntry.status === "checked_in" && (
-                  <div className="bg-emerald-500/10 rounded-xl p-4 border border-emerald-500/20 text-center">
-                    <p className="text-sm text-emerald-400 font-medium">✓ You're checked in!</p>
-                  </div>
+                  <>
+                    <div className="bg-emerald-500/10 rounded-xl p-4 border border-emerald-500/20 text-center">
+                      <p className="text-sm text-emerald-400 font-medium">✓ You're checked in!</p>
+                    </div>
+                    <Link to={`/pass/${id}`}>
+                      <Button variant="outline" className="w-full h-12 rounded-xl font-semibold gap-2">
+                        <QrCode className="w-5 h-5" /> View My Passes
+                      </Button>
+                    </Link>
+                  </>
                 )}
               </div>
             )}
