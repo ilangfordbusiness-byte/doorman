@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { Calendar, Clock, MapPin, Shirt, Share2, Check, Sparkles, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -25,10 +25,10 @@ export default function InvitePage() {
   }, [code]);
 
   async function loadInvite() {
-    const me = await base44.auth.me();
+    const me = await api.auth.me();
     setUser(me);
 
-    const events = await base44.entities.Event.filter({ invite_code: code });
+    const events = await api.entities.Event.filter({ invite_code: code });
     if (!events.length) {
       setLoading(false);
       return;
@@ -38,7 +38,7 @@ export default function InvitePage() {
     setEvent(evt);
 
     // Check if already on guestlist
-    const entries = await base44.entities.GuestlistEntry.filter({
+    const entries = await api.entities.GuestlistEntry.filter({
       event_id: evt.id,
       guest_email: me.email,
     });

@@ -1,4 +1,4 @@
-// Creates a Stripe Checkout session for a ticket purchase. Port of the Base44
+// Creates a Stripe Checkout session for a ticket purchase. Port of the original app
 // createTicketCheckout function; amounts are minor units natively now.
 import { getCaller, json, preflight, serviceClient } from '../_shared/db.ts';
 import {

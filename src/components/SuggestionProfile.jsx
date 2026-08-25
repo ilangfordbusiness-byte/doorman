@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { X, Instagram, UserPlus, PartyPopper } from "lucide-react";
 import { Link } from "react-router-dom";
 import LoadingSpinner from "./LoadingSpinner";
@@ -20,8 +20,8 @@ export default function SuggestionProfile({ user, myEmail, myFriends, sent, onSe
     setLoading(true);
     try {
       const [friendEntries, myEntries] = await Promise.all([
-        base44.entities.GuestlistEntry.filter({ guest_email: user.email }),
-        base44.entities.GuestlistEntry.filter({ guest_email: myEmail }),
+        api.entities.GuestlistEntry.filter({ guest_email: user.email }),
+        api.entities.GuestlistEntry.filter({ guest_email: myEmail }),
       ]);
 
       const myEventIds = new Set(
@@ -37,7 +37,7 @@ export default function SuggestionProfile({ user, myEmail, myFriends, sent, onSe
       if (commonEventIds.length > 0) {
         const eventsData = await Promise.all(
           commonEventIds.slice(0, 10).map((eid) =>
-            base44.entities.Event.filter({ id: eid }).then((r) => r[0]).catch(() => null)
+            api.entities.Event.filter({ id: eid }).then((r) => r[0]).catch(() => null)
           )
         );
         setSharedEvents(eventsData.filter(Boolean));
@@ -45,8 +45,8 @@ export default function SuggestionProfile({ user, myEmail, myFriends, sent, onSe
 
       if (myFriends && myFriends.length > 0) {
         const [theirSent, theirReceived] = await Promise.all([
-          base44.entities.FriendRequest.filter({ sender_email: user.email }),
-          base44.entities.FriendRequest.filter({ receiver_email: user.email }),
+          api.entities.FriendRequest.filter({ sender_email: user.email }),
+          api.entities.FriendRequest.filter({ receiver_email: user.email }),
         ]);
         const theirFriendEmails = new Set([
           ...theirSent.filter((r) => r.status === "accepted").map((r) => r.receiver_email),

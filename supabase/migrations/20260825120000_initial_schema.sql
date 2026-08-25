@@ -22,7 +22,7 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
--- profiles: one row per auth user (replaces Base44's built-in User object)
+-- profiles: one row per auth user (replaces the original app's built-in User object)
 -- ---------------------------------------------------------------------------
 create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,

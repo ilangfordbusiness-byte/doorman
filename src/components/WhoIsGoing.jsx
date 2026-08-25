@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { Users, Lock } from "lucide-react";
 import Avatar from "./Avatar";
 import { useProfiles } from "@/hooks/useProfiles";
@@ -13,9 +13,9 @@ export default function WhoIsGoing({ eventId, myEmail, visibility = "show_names"
   useEffect(() => {
     (async () => {
       const [entries, sent, received] = await Promise.all([
-        base44.entities.GuestlistEntry.filter({ event_id: eventId }),
-        base44.entities.FriendRequest.filter({ sender_email: myEmail, status: "accepted" }),
-        base44.entities.FriendRequest.filter({ receiver_email: myEmail, status: "accepted" }),
+        api.entities.GuestlistEntry.filter({ event_id: eventId }),
+        api.entities.FriendRequest.filter({ sender_email: myEmail, status: "accepted" }),
+        api.entities.FriendRequest.filter({ receiver_email: myEmail, status: "accepted" }),
       ]);
       const friendEmails = new Set([
         ...sent.map((r) => r.receiver_email),

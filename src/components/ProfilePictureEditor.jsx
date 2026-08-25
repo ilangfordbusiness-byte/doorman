@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { Check, X, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -66,7 +66,7 @@ export default function ProfilePictureEditor({ file, onSave, onClose }) {
       ctx.drawImage(img, srcX, srcY, srcSize, srcSize, 0, 0, 512, 512);
       const blob = await new Promise((res) => canvas.toBlob(res, "image/jpeg", 0.9));
       const cropped = new File([blob], "profile.jpg", { type: "image/jpeg" });
-      const { file_url } = await base44.integrations.Core.UploadFile({ file: cropped });
+      const { file_url } = await api.integrations.Core.UploadFile({ file: cropped });
       onSave(file_url);
     } catch (e) {
       console.error(e);

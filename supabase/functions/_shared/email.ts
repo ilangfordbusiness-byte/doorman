@@ -1,4 +1,4 @@
-// Email via Resend (replaces Base44 Core.SendEmail). Never throws — returns
+// Email via Resend (replaces the original app Core.SendEmail). Never throws — returns
 // { sent, error } so callers log failures without blocking the main flow.
 // With no RESEND_API_KEY set (local dev), logs and no-ops.
 export async function sendEmail(

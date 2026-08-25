@@ -10,7 +10,7 @@ function getCoverStyle(cover_image) {
   return null;
 }
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
@@ -30,20 +30,20 @@ import moment from "moment";
 import { captureRef, getLinkDomain, discountLabel, promoterDiscountActive } from "@/lib/promoterRef";
 
 async function loadEvent(id, me) {
-  const events = await base44.entities.Event.filter({ id });
+  const events = await api.entities.Event.filter({ id });
   if (!events.length) return { notFound: true };
   let evt = events[0];
 
   if (!evt.staff_code && evt.host_email === me.email) {
     const code = String(Math.floor(1000 + Math.random() * 9000));
-    await base44.entities.Event.update(id, { staff_code: code });
+    await api.entities.Event.update(id, { staff_code: code });
     evt = { ...evt, staff_code: code };
   }
 
   const [entries, staffList, tierList] = await Promise.all([
-    base44.entities.GuestlistEntry.filter({ event_id: id }),
-    base44.entities.EventStaff.filter({ event_id: id }),
-    base44.entities.TicketTier.filter({ event_id: id }).catch(() => []),
+    api.entities.GuestlistEntry.filter({ event_id: id }),
+    api.entities.EventStaff.filter({ event_id: id }),
+    api.entities.TicketTier.filter({ event_id: id }).catch(() => []),
   ]);
   // A guest can hold several tickets (multi-quantity purchases); surface a
   // usable one ahead of an already-used one.
@@ -107,7 +107,7 @@ export default function EventDetails() {
   async function handleAcceptCoHost() {
     setAccepting(true);
     try {
-      await base44.functions.invoke("acceptCoHost", { event_id: id });
+      await api.functions.invoke("acceptCoHost", { event_id: id });
       await queryClient.invalidateQueries(["event", id]);
       toast({ title: "You're now a co-host!" });
     } catch (e) {
@@ -140,7 +140,7 @@ export default function EventDetails() {
     setAddingStaff(true);
     const val = newStaffEmail.trim();
     const isPhone = /^[\+\d][\d\s\-().]{5,}$/.test(val);
-    await base44.entities.EventStaff.create({
+    await api.entities.EventStaff.create({
       event_id: id,
       staff_email: isPhone ? "" : val.toLowerCase(),
       staff_phone: isPhone ? val : "",
@@ -154,7 +154,7 @@ export default function EventDetails() {
   }
 
   async function handleRemoveStaff(staffId) {
-    await base44.entities.EventStaff.delete(staffId);
+    await api.entities.EventStaff.delete(staffId);
     queryClient.invalidateQueries(["event", id]);
   }
 

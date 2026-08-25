@@ -2,7 +2,7 @@ import { useState } from "react";
 import CoverPicker, { COVERS } from "../components/CoverPicker";
 import CoverPhotoUpload from "../components/CoverPhotoUpload";
 import { useNavigate } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { ArrowLeft, Calendar, Clock, MapPin, Users, Shirt, FileText, Eye, Lock, Plus, Ticket, Megaphone, Trash2, CreditCard, AtSign } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -116,11 +116,11 @@ export default function CreateEvent({ business = null }) {
         cover_image = coverPreview;
       }
 
-      const me = await base44.auth.me();
+      const me = await api.auth.me();
       if (!me?.email) throw new Error("You must be signed in to create an event.");
       const invite_code = Math.random().toString(36).substring(2, 10).toUpperCase();
 
-      const event = await base44.entities.Event.create({
+      const event = await api.entities.Event.create({
         ...form,
         instagram: form.instagram.trim().replace(/^@/, ""),
         cover_image,
@@ -137,7 +137,7 @@ export default function CreateEvent({ business = null }) {
       for (const t of tiers) {
         if (!t.name) continue;
         try {
-          await base44.entities.TicketTier.create({
+          await api.entities.TicketTier.create({
             event_id: event.id,
             name: t.name,
             price: t.price,
@@ -154,7 +154,7 @@ export default function CreateEvent({ business = null }) {
         if (!p.name) continue;
         const code = Math.random().toString(36).substring(2, 10).toUpperCase();
         try {
-          await base44.entities.Promoter.create({
+          await api.entities.Promoter.create({
             event_id: event.id,
             name: p.name,
             email: p.email || undefined,

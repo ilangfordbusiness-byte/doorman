@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { Plus, X, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import UserAvatar from "./UserAvatar";
@@ -17,7 +17,7 @@ export default function CoHostsSection({ event, onUpdated }) {
     setAdding(true);
     const next = [...coHosts, { email: em, name: "", picture: "", status: "pending" }];
     try {
-      await base44.entities.Event.update(event.id, { co_hosts: next });
+      await api.entities.Event.update(event.id, { co_hosts: next });
       onUpdated();
     } catch (e) {
       console.error(e);
@@ -29,7 +29,7 @@ export default function CoHostsSection({ event, onUpdated }) {
     const next = coHosts.filter((c) => c.email !== em);
     const emails = Array.isArray(event.co_host_emails) ? event.co_host_emails.filter((e) => e !== em) : [];
     try {
-      await base44.entities.Event.update(event.id, { co_hosts: next, co_host_emails: emails });
+      await api.entities.Event.update(event.id, { co_hosts: next, co_host_emails: emails });
       onUpdated();
     } catch (e) {
       console.error(e);

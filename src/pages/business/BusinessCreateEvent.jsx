@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { useActiveAccount } from "@/hooks/useActiveAccount";
 import CreateEvent from "@/pages/CreateEvent";
 import BusinessStripePanel from "@/components/business/BusinessStripePanel";
@@ -16,7 +16,7 @@ export default function BusinessCreateEvent() {
 
   const { data: events = [], isLoading } = useQuery({
     queryKey: ["businessEvents", business?.id],
-    queryFn: () => base44.entities.Event.filter({ business_id: business.id }, "-date"),
+    queryFn: () => api.entities.Event.filter({ business_id: business.id }, "-date"),
     enabled: !!business?.id,
     staleTime: 60 * 1000,
   });

@@ -1,6 +1,6 @@
 // Stripe Connect: host/business/promoter onboarding, dashboard links, status +
-// balances. Port of the Base44 stripeConnect function; profiles/business rows
-// replace the Base44 user object, balances are computed from *_minor columns.
+// balances. Port of the original app stripeConnect function; profiles/business rows
+// replace the original app user object, balances are computed from *_minor columns.
 import { getCaller, json, preflight, serviceClient } from '../_shared/db.ts';
 import { toMajor } from '../_shared/tickets.ts';
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { ArrowLeft, TrendingUp, Ticket, Tag, Percent, Wallet, Megaphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -19,12 +19,12 @@ export default function EventAnalytics() {
   useEffect(() => { load(); }, [id]);
 
   async function load() {
-    const me = await base44.auth.me();
+    const me = await api.auth.me();
     const [events, t, o, p] = await Promise.all([
-      base44.entities.Event.filter({ id }),
-      base44.entities.TicketTier.filter({ event_id: id }),
-      base44.entities.TicketOrder.filter({ event_id: id }),
-      base44.entities.PromoCode.filter({ event_id: id }),
+      api.entities.Event.filter({ id }),
+      api.entities.TicketTier.filter({ event_id: id }),
+      api.entities.TicketOrder.filter({ event_id: id }),
+      api.entities.PromoCode.filter({ event_id: id }),
     ]);
     if (!events.length) return navigate("/");
     if (events[0].host_email !== me.email) return navigate(`/event/${id}`);

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { Ticket, Tag, Plus, Trash2, Loader2, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,8 +21,8 @@ export default function TicketingPanel({ eventId, paid, currency }) {
   async function load() {
     setLoading(true);
     const [t, p] = await Promise.all([
-      base44.entities.TicketTier.filter({ event_id: eventId }),
-      base44.entities.PromoCode.filter({ event_id: eventId }),
+      api.entities.TicketTier.filter({ event_id: eventId }),
+      api.entities.PromoCode.filter({ event_id: eventId }),
     ]);
     t.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
     setTiers(t);
@@ -36,7 +36,7 @@ export default function TicketingPanel({ eventId, paid, currency }) {
       return;
     }
     try {
-      const res = await base44.functions.invoke("manageTicketCatalog", {
+      const res = await api.functions.invoke("manageTicketCatalog", {
         action: "create_tier",
         event_id: eventId,
         name: newTier.name,
@@ -56,7 +56,7 @@ export default function TicketingPanel({ eventId, paid, currency }) {
 
   async function removeTier(tid) {
     try {
-      const res = await base44.functions.invoke("manageTicketCatalog", {
+      const res = await api.functions.invoke("manageTicketCatalog", {
         action: "delete_tier",
         event_id: eventId,
         id: tid,
@@ -75,7 +75,7 @@ export default function TicketingPanel({ eventId, paid, currency }) {
       return;
     }
     try {
-      const res = await base44.functions.invoke("manageTicketCatalog", {
+      const res = await api.functions.invoke("manageTicketCatalog", {
         action: "create_promo",
         event_id: eventId,
         code: newPromo.code.trim(),
@@ -94,7 +94,7 @@ export default function TicketingPanel({ eventId, paid, currency }) {
 
   async function removePromo(pid) {
     try {
-      const res = await base44.functions.invoke("manageTicketCatalog", {
+      const res = await api.functions.invoke("manageTicketCatalog", {
         action: "delete_promo",
         event_id: eventId,
         id: pid,

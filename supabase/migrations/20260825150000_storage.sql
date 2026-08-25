@@ -1,7 +1,7 @@
 -- DoorMan: storage buckets for user-uploaded images.
 --
 -- Two public-read buckets (images are served straight from the CDN URL, like
--- the Base44 UploadFile URLs were):
+-- the original app UploadFile URLs were):
 --   avatars/{user_id}/...       profile pictures; a user writes only their folder
 --   event-covers/{event_id}/... cover photos; only that event's managers write
 --

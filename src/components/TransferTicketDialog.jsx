@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { X, Search, Send, ArrowLeft, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -24,8 +24,8 @@ export default function TransferTicketDialog({ entry, event, user, onClose, onTr
   async function loadFriends() {
     try {
       const [sent, received] = await Promise.all([
-        base44.entities.FriendRequest.filter({ sender_email: user.email, status: "accepted" }),
-        base44.entities.FriendRequest.filter({ receiver_email: user.email, status: "accepted" }),
+        api.entities.FriendRequest.filter({ sender_email: user.email, status: "accepted" }),
+        api.entities.FriendRequest.filter({ receiver_email: user.email, status: "accepted" }),
       ]);
       const fromSent = sent.map((r) => ({ email: r.receiver_email, name: r.receiver_name || r.receiver_email, picture: r.receiver_picture }));
       const fromReceived = received.map((r) => ({ email: r.sender_email, name: r.sender_name || r.sender_email, picture: r.sender_picture }));
@@ -49,7 +49,7 @@ export default function TransferTicketDialog({ entry, event, user, onClose, onTr
   async function confirmTransfer() {
     setSending(true);
     try {
-      const res = await base44.functions.invoke("initiateTicketTransfer", {
+      const res = await api.functions.invoke("initiateTicketTransfer", {
         guestlist_entry_id: entry.id,
         recipient_email: selected.email,
         recipient_name: selected.name,

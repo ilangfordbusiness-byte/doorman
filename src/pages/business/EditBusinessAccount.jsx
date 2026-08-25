@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,7 +32,7 @@ export default function EditBusinessAccount() {
   }, [id]);
 
   async function load() {
-    const list = await base44.entities.BusinessAccount.filter({ id });
+    const list = await api.entities.BusinessAccount.filter({ id });
     if (!list.length) { navigate(-1); return; }
     const b = list[0];
     setName(b.business_name || "");
@@ -53,7 +53,7 @@ export default function EditBusinessAccount() {
     }
     setSaving(true);
     try {
-      await base44.entities.BusinessAccount.update(id, {
+      await api.entities.BusinessAccount.update(id, {
         business_name: name.trim(),
         business_email: email.trim().toLowerCase(),
         business_picture: picture,

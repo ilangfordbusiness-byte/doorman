@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { supabase } from '@/api/client';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/data';
 
 // Auth state backed by Supabase Auth. Keeps the same context surface the app
 // already consumes (user, isAuthenticated, isLoadingAuth, authError,
@@ -27,7 +27,7 @@ export const AuthProvider = ({ children }) => {
         return;
       }
       try {
-        const me = await base44.auth.me();
+        const me = await api.auth.me();
         if (!mounted) return;
         setUser(me);
         setIsAuthenticated(true);
@@ -73,7 +73,7 @@ export const AuthProvider = ({ children }) => {
     const { data } = await supabase.auth.getSession();
     if (data.session) {
       try {
-        const me = await base44.auth.me();
+        const me = await api.auth.me();
         setUser(me);
         setIsAuthenticated(true);
         setAuthError(null);

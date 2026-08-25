@@ -1,6 +1,6 @@
 // Auto-checks-out guests after an event ends, leaving the last 5 inside.
 // Triggered by pg_cron; guarded by AUTOMATION_SECRET. verify_jwt=false.
-// (Base44 version was admin-invoked; the logic is identical.)
+// (The original version was admin-invoked; the logic is identical.)
 import { hasAutomationSecret, json, serviceClient } from '../_shared/db.ts';
 
 Deno.serve(async (req) => {

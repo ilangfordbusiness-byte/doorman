@@ -1,5 +1,5 @@
 -- DoorMan: automation wiring — cron schedules and database webhooks that
--- invoke the edge functions, replacing Base44's platform automations.
+-- invoke the edge functions, replacing the original app's platform automations.
 --
 -- Configuration lives in Vault (set once per environment, see README runbook):
 --   functions_base_url  e.g. https://<ref>.supabase.co/functions/v1
@@ -37,7 +37,7 @@ end $$;
 revoke execute on function public.invoke_edge_function(text, jsonb) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
--- Database webhooks (Base44 "automations")
+-- Database webhooks (the original app "automations")
 -- ---------------------------------------------------------------------------
 
 -- Event details changed -> email live guests (function filters relevant fields).

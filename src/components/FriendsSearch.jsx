@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { Search, UserPlus, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Avatar from "./Avatar";
@@ -22,10 +22,10 @@ export default function FriendsSearch({ me, friendEmails, sentSet, onSend }) {
       // (The User entity itself is admin-only to list, so we aggregate every
       //  identity the platform exposes to regular users.)
       const [entries, reqs, staff, promoters] = await Promise.all([
-        base44.entities.GuestlistEntry.list("-created_date", 1000),
-        base44.entities.FriendRequest.list("-created_date", 1000),
-        base44.entities.EventStaff.list("-created_date", 500),
-        base44.entities.Promoter.list("-created_date", 500),
+        api.entities.GuestlistEntry.list("-created_date", 1000),
+        api.entities.FriendRequest.list("-created_date", 1000),
+        api.entities.EventStaff.list("-created_date", 500),
+        api.entities.Promoter.list("-created_date", 500),
       ]);
       const map = new Map();
       const add = (email, name, picture) => {
@@ -61,8 +61,8 @@ export default function FriendsSearch({ me, friendEmails, sentSet, onSend }) {
     Promise.all(
       missing.map(async (r) => {
         const [sent, received] = await Promise.all([
-          base44.entities.FriendRequest.filter({ sender_email: r.email, status: "accepted" }),
-          base44.entities.FriendRequest.filter({ receiver_email: r.email, status: "accepted" }),
+          api.entities.FriendRequest.filter({ sender_email: r.email, status: "accepted" }),
+          api.entities.FriendRequest.filter({ receiver_email: r.email, status: "accepted" }),
         ]);
         const theirFriends = new Set([
           ...sent.map((x) => x.receiver_email),

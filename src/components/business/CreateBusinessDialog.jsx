@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +33,7 @@ export default function CreateBusinessDialog({ user, onClose }) {
     }
     setSaving(true);
     try {
-      const biz = await base44.entities.BusinessAccount.create({
+      const biz = await api.entities.BusinessAccount.create({
         owner_email: user.email,
         business_email: email.trim().toLowerCase(),
         business_name: name.trim(),

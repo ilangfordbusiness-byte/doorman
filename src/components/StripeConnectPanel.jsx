@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { CreditCard, Wallet, ExternalLink, CheckCircle2, AlertCircle, Loader2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -21,7 +21,7 @@ export default function StripeConnectPanel() {
   async function load() {
     setLoading(true);
     try {
-      const res = await base44.functions.invoke("stripeConnect", { action: "status" });
+      const res = await api.functions.invoke("stripeConnect", { action: "status" });
       setAccount(res.data?.account || null);
       setBalances(res.data?.balances || []);
     } catch (e) {
@@ -39,7 +39,7 @@ export default function StripeConnectPanel() {
     }
     setBusy(true);
     try {
-      const res = await base44.functions.invoke("stripeConnect", { action: "onboard" });
+      const res = await api.functions.invoke("stripeConnect", { action: "onboard" });
       if (res.data?.url) {
         window.location.href = res.data.url;
       } else if (res.data?.error) {
@@ -62,7 +62,7 @@ export default function StripeConnectPanel() {
     }
     setBusy(true);
     try {
-      const res = await base44.functions.invoke("stripeConnect", { action: "dashboard_link" });
+      const res = await api.functions.invoke("stripeConnect", { action: "dashboard_link" });
       if (res.data?.url) window.location.href = res.data.url;
       else if (res.data?.error) throw new Error(res.data.error);
     } catch (e) {

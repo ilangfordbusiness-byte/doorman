@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import CoverPicker, { COVERS } from "../components/CoverPicker";
 import CoverPhotoUpload from "../components/CoverPhotoUpload";
 import { useNavigate, useParams } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { ArrowLeft, Ticket, AtSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,8 +49,8 @@ export default function EditEvent() {
   }, [id]);
 
   async function loadEvent() {
-    const me = await base44.auth.me();
-    const events = await base44.entities.Event.filter({ id });
+    const me = await api.auth.me();
+    const events = await api.entities.Event.filter({ id });
     if (!events.length) return navigate("/");
     const evt = events[0];
     const coHostEmails = Array.isArray(evt.co_host_emails) ? evt.co_host_emails : [];
@@ -114,7 +114,7 @@ export default function EditEvent() {
       cover_image = coverPreview;
     }
 
-    await base44.entities.Event.update(id, {
+    await api.entities.Event.update(id, {
       ...form,
       instagram: form.instagram.trim().replace(/^@/, ""),
       cover_image,
@@ -124,9 +124,9 @@ export default function EditEvent() {
     // Switched a free event from private → public: auto-approve pending requests
     if (!form.is_paid && form.is_public && original && !original.is_public) {
       try {
-        const pending = await base44.entities.GuestlistEntry.filter({ event_id: id, status: "requested" });
+        const pending = await api.entities.GuestlistEntry.filter({ event_id: id, status: "requested" });
         if (pending.length) {
-          await base44.entities.GuestlistEntry.bulkUpdate(
+          await api.entities.GuestlistEntry.bulkUpdate(
             pending.map((e) => ({ id: e.id, status: "approved", qr_secret: crypto.randomUUID() }))
           );
           toast({ title: `${pending.length} pending request(s) auto-approved` });

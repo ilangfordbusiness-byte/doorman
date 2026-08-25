@@ -1,4 +1,4 @@
-// Ticket pricing + QR + ticket-email helpers, ported from base44/shared/tickets.ts.
+// Ticket pricing + QR + ticket-email helpers, ported from the original app's shared ticket helpers.
 // All amounts are integer minor units end to end (the schema stores minor units,
 // so the old toMinor/toMajor conversions on stored values are gone).
 import { SupabaseClient } from 'npm:@supabase/supabase-js@2';

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { CreditCard, Wallet, ExternalLink, CheckCircle2, AlertCircle, Loader2, UserPlus, User, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -22,7 +22,7 @@ export default function BusinessStripePanel({ business }) {
     if (!business?.id) return;
     setLoading(true);
     try {
-      const res = await base44.functions.invoke("stripeConnect", { action: "business_status", business_id: business.id });
+      const res = await api.functions.invoke("stripeConnect", { action: "business_status", business_id: business.id });
       setMode(res.data?.mode || "business");
       setAccount(res.data?.account || null);
       setBalances(res.data?.balances || []);
@@ -37,7 +37,7 @@ export default function BusinessStripePanel({ business }) {
   async function switchMode(m) {
     setBusy(true);
     try {
-      await base44.functions.invoke("stripeConnect", { action: "business_set_mode", business_id: business.id, mode: m });
+      await api.functions.invoke("stripeConnect", { action: "business_set_mode", business_id: business.id, mode: m });
       setMode(m);
       await load();
       toast({ title: m === "personal" ? "Using your personal Stripe account" : "Using a separate business account" });
@@ -54,7 +54,7 @@ export default function BusinessStripePanel({ business }) {
     }
     setBusy(true);
     try {
-      const res = await base44.functions.invoke("stripeConnect", { action: "business_onboard", business_id: business.id });
+      const res = await api.functions.invoke("stripeConnect", { action: "business_onboard", business_id: business.id });
       if (res.data?.url) window.location.href = res.data.url;
       else if (res.data?.error) throw new Error(res.data.error);
     } catch (e) {
@@ -70,7 +70,7 @@ export default function BusinessStripePanel({ business }) {
     }
     setBusy(true);
     try {
-      const res = await base44.functions.invoke("stripeConnect", { action: "business_dashboard_link", business_id: business.id });
+      const res = await api.functions.invoke("stripeConnect", { action: "business_dashboard_link", business_id: business.id });
       if (res.data?.url) window.location.href = res.data.url;
       else if (res.data?.error) throw new Error(res.data.error);
     } catch (e) {

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { X, UserPlus, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import UserAvatar from "./UserAvatar";
@@ -12,7 +12,7 @@ export default function HostProfileModal({ host, me, onClose }) {
   async function addFriend() {
     setSending(true);
     try {
-      await base44.entities.FriendRequest.create({
+      await api.entities.FriendRequest.create({
         sender_email: me.email,
         sender_name: me.full_name,
         sender_picture: me.profile_picture || "",

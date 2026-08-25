@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { useQueryClient } from "@tanstack/react-query";
 import { Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ export default function CoHostInvitesSection({ invites }) {
   async function respond(invite, action) {
     setBusy(invite.event_id);
     try {
-      const res = await base44.functions.invoke("acceptCoHost", { event_id: invite.event_id, action });
+      const res = await api.functions.invoke("acceptCoHost", { event_id: invite.event_id, action });
       if (res.data?.error) throw new Error(res.data.error);
       toast({ title: action === "accept" ? "Co-host invite accepted!" : "Invite declined" });
       queryClient.invalidateQueries(["notifications"]);

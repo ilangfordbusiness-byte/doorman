@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import UpcomingEventHero from "@/components/home/UpcomingEventHero";
 import QuickActions from "@/components/home/QuickActions";
@@ -10,7 +10,7 @@ export default function Home() {
   const { data, isLoading: loading } = useQuery({
     queryKey: ["home"],
     queryFn: async () => {
-      const res = await base44.functions.invoke("getHomeDashboard");
+      const res = await api.functions.invoke("getHomeDashboard");
       return res.data;
     },
     enabled: !!me,
@@ -30,7 +30,7 @@ export default function Home() {
       {/* Header */}
       <div className="relative flex items-center justify-center">
         <img
-          src="https://media.base44.com/images/public/69d556d1ae7f4cada8ab83ef/e327a8610_logotransparent.png"
+          src="/logo.png"
           alt="DoorMan"
           className="w-8 h-8 object-contain absolute left-0"
         />

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 import PhonePrompt from "../components/PhonePrompt";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { ArrowLeft, ScanLine, Calendar, MapPin, Clock, UserCheck, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import LoadingSpinner from "../components/LoadingSpinner";
@@ -34,13 +34,13 @@ export default function StaffHub() {
   }, []);
 
   async function load() {
-    const me = await base44.auth.me();
+    const me = await api.auth.me();
     setMyPhone(me.phone || "");
 
     // Fetch by email and by phone, merge
-    const byEmail = await base44.entities.EventStaff.filter({ staff_email: me.email });
+    const byEmail = await api.entities.EventStaff.filter({ staff_email: me.email });
     const byPhone = me.phone
-      ? await base44.entities.EventStaff.filter({ staff_phone: me.phone })
+      ? await api.entities.EventStaff.filter({ staff_phone: me.phone })
       : [];
     const seen = new Set();
     const staffEntries = [...byEmail, ...byPhone].filter((s) => {
@@ -57,7 +57,7 @@ export default function StaffHub() {
     const eventIds = [...new Set(staffEntries.map((s) => s.event_id))];
     const eventsData = await Promise.all(
       eventIds.map(async (eid) => {
-        const evts = await base44.entities.Event.filter({ id: eid });
+        const evts = await api.entities.Event.filter({ id: eid });
         const evt = evts[0];
         const staffEntry = staffEntries.find((s) => s.event_id === eid);
         return evt ? { ...evt, staffRole: staffEntry?.role } : null;
@@ -75,7 +75,7 @@ export default function StaffHub() {
     // The code is validated server-side (staff_code is never client-readable).
     let res;
     try {
-      res = await base44.functions.invoke("registerStaffByCode", { code });
+      res = await api.functions.invoke("registerStaffByCode", { code });
     } catch (e) {
       toast({ title: "Invalid code", description: e?.message || "No event found with that code." });
       setJoining(false);
