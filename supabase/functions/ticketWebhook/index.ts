@@ -74,28 +74,33 @@ Deno.serve(async (req) => {
       ? await svc.from('ticket_tiers').select('name').eq('id', order.tier_id).single()
       : { data: null };
 
-    // Issue the ticket. qr_secret comes from the column default.
-    const { data: entry, error: entryErr } = await svc.from('guestlist_entries').insert({
+    // Issue one ticket (entry + QR) per seat purchased. qr_secret comes from
+    // the column default. All tickets belong to the buyer's account; they can
+    // transfer the extras to real people or show the QRs one by one.
+    const qty = Math.max(1, Number(order.quantity) || 1);
+    const rows = Array.from({ length: qty }, (_, i) => ({
       event_id: order.event_id,
       guest_user_id: order.guest_user_id,
       guest_email: order.guest_email,
-      guest_name: order.guest_name,
+      guest_name: qty > 1 ? `${order.guest_name} (${i + 1} of ${qty})` : order.guest_name,
       status: 'approved',
       source: 'request',
-      notes: `Paid ticket — ${tier?.name ?? ''}`,
-    }).select('*').single();
-    if (entryErr || !entry) throw new Error(entryErr?.message || 'Failed to create entry');
+      notes: `Paid ticket — ${tier?.name ?? ''}${qty > 1 ? ` (${i + 1} of ${qty})` : ''}`,
+    }));
+    const { data: entries, error: entryErr } = await svc.from('guestlist_entries')
+      .insert(rows).select('*');
+    if (entryErr || !entries?.length) throw new Error(entryErr?.message || 'Failed to create entries');
 
     await svc.from('ticket_orders').update({
       status: 'paid',
       stripe_payment_intent_id: session.payment_intent || '',
-      guestlist_entry_id: entry.id,
+      guestlist_entry_id: entries[0].id,
     }).eq('id', order.id);
 
-    // Ticket email — non-blocking.
+    // Ticket email (all QRs in one email) — non-blocking.
     try {
       const { data: event } = await svc.from('events').select('*').eq('id', order.event_id).single();
-      if (event) await sendTicketConfirmationEmail(svc, entry, event, tier?.name ?? null);
+      if (event) await sendTicketConfirmationEmail(svc, entries, event, tier?.name ?? null);
     } catch (e) {
       console.log('ticketWebhook email send error', e instanceof Error ? e.message : String(e));
     }

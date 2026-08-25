@@ -86,15 +86,24 @@ function formatEventDate(dateStr: string): string {
 }
 
 // deno-lint-ignore no-explicit-any
-export function buildTicketEmailHtml(entry: any, event: any, tierName?: string | null): string {
-  const qrImg = buildQrImageUrl(entry);
+export function buildTicketEmailHtml(entryOrEntries: any, event: any, tierName?: string | null): string {
+  const entries = Array.isArray(entryOrEntries) ? entryOrEntries : [entryOrEntries];
   const passLink = `${appOrigin()}/pass/${event.id}`;
   const dateStr = formatEventDate(event.date);
   const venueParts = [event.venue_name, event.address].filter(Boolean).join(' · ');
   const title = escapeHtml(event.title);
-  const guestName = escapeHtml(entry.guest_name);
+  const guestName = escapeHtml(entries[0].guest_name);
   const startTime = typeof event.start_time === 'string' ? event.start_time.slice(0, 5) : '';
   const endTime = typeof event.end_time === 'string' ? event.end_time.slice(0, 5) : '';
+
+  // deno-lint-ignore no-explicit-any
+  const qrBlocks = entries.map((entry: any, i: number) => `
+    <div style="background:#15151f;border:1px solid #2a2a3a;border-radius:16px;padding:24px;text-align:center;${i > 0 ? 'margin-top:16px;' : ''}">
+      ${entries.length > 1 ? `<p style="margin:0 0 12px;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#7a7a9a;">Ticket ${i + 1} of ${entries.length}</p>` : ''}
+      <img src="${buildQrImageUrl(entry)}" alt="QR ticket ${i + 1}" width="240" height="240" style="display:block;margin:0 auto 16px;border-radius:12px;background:#ffffff;padding:8px;" />
+      <p style="margin:0 0 6px;font-size:13px;color:#7a7a9a;">Show this code at the door</p>
+      <p style="margin:0;font-size:11px;color:#5a5a7a;">Single-use · valid until first scan</p>
+    </div>`).join('');
 
   return `<!DOCTYPE html>
 <html>
@@ -103,12 +112,9 @@ export function buildTicketEmailHtml(entry: any, event: any, tierName?: string |
   <div style="max-width:480px;margin:0 auto;background:#0a0a12;color:#e8e8f0;padding:32px 24px;">
     <p style="margin:0 0 24px;font-size:11px;letter-spacing:0.25em;text-transform:uppercase;color:#7a7a9a;text-align:center;">DoorMan · Ticket Confirmation</p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#ffffff;text-align:center;">${title}</h1>
-    ${guestName ? `<p style="margin:0 0 24px;text-align:center;color:#b0b0c8;">${guestName}</p>` : ''}
-    <div style="background:#15151f;border:1px solid #2a2a3a;border-radius:16px;padding:24px;text-align:center;">
-      <img src="${qrImg}" alt="Your QR ticket" width="240" height="240" style="display:block;margin:0 auto 16px;border-radius:12px;background:#ffffff;padding:8px;" />
-      <p style="margin:0 0 6px;font-size:13px;color:#7a7a9a;">Show this code at the door</p>
-      <p style="margin:0;font-size:11px;color:#5a5a7a;">Single-use · valid until first scan</p>
-    </div>
+    ${guestName ? `<p style="margin:0 0 24px;text-align:center;color:#b0b0c8;">${guestName}${entries.length > 1 ? ` · ${entries.length} tickets` : ''}</p>` : ''}
+    ${entries.length > 1 ? `<p style="margin:0 0 16px;text-align:center;font-size:12px;color:#7a7a9a;">Each QR admits one person — forward or show them separately.</p>` : ''}
+    ${qrBlocks}
     <div style="background:#15151f;border:1px solid #2a2a3a;border-radius:16px;padding:20px;margin-top:16px;">
       <p style="margin:0 0 12px;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#7a7a9a;">Event Details</p>
       <div style="font-size:14px;color:#e8e8f0;line-height:1.7;">
@@ -128,15 +134,19 @@ export function buildTicketEmailHtml(entry: any, event: any, tierName?: string |
 </html>`;
 }
 
+// Accepts one entry (re-send flow) or the full set from a multi-ticket order.
 // deno-lint-ignore no-explicit-any
 export async function sendTicketConfirmationEmail(
-  _svc: SupabaseClient, entry: any, event: any, tierName?: string | null,
+  _svc: SupabaseClient, entryOrEntries: any, event: any, tierName?: string | null,
 ): Promise<{ sent: boolean; error?: string }> {
-  if (!entry?.guest_email) return { sent: false, error: 'No guest email' };
-  const html = buildTicketEmailHtml(entry, event, tierName);
+  const entries = Array.isArray(entryOrEntries) ? entryOrEntries : [entryOrEntries];
+  if (!entries[0]?.guest_email) return { sent: false, error: 'No guest email' };
+  const html = buildTicketEmailHtml(entries, event, tierName);
   return await sendEmail({
-    to: entry.guest_email,
-    subject: `Your ticket for ${event.title}`,
+    to: entries[0].guest_email,
+    subject: entries.length > 1
+      ? `Your ${entries.length} tickets for ${event.title}`
+      : `Your ticket for ${event.title}`,
     html,
   });
 }
