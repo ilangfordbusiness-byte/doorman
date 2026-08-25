@@ -97,7 +97,8 @@ alter table public.payouts            enable row level security;
 -- may ever use (read-only tables get no write grants at all). The per-table
 -- column grants below then narrow select/update further where needed.
 -- ---------------------------------------------------------------------------
-grant usage on schema public to anon, authenticated;
+grant usage on schema public to anon, authenticated, service_role;
+grant all on all tables in schema public to service_role;  -- RLS-bypassing edge functions
 grant select on all tables in schema public to authenticated;
 grant select on public.ticket_tiers to anon;  -- events for anon: column grant below
 grant insert, update, delete on

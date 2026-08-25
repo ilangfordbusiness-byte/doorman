@@ -148,11 +148,16 @@ begin
 
   -- ---- friend suggestions ----
   perform pg_temp.impersonate(bob, 'bob@dash.dev');
-  r := public.get_friend_suggestions(0, 20);
-  if (r ->> 'total')::int <> 1
-     or r -> 'items' -> 0 ->> 'email' <> 'alice@dash.dev'
+  r := public.get_friend_suggestions(0, 50);
+  -- alice must rank first (mutual=1 via shared friend carol); bob's friends
+  -- (carol, dave) must be excluded. Other suites' users may also appear, so
+  -- assertions are membership-based, not totals.
+  if r -> 'items' -> 0 ->> 'email' <> 'alice@dash.dev'
      or (r -> 'items' -> 0 ->> 'mutual')::int <> 1 then
     raise exception 'FAIL: bob suggestions wrong: %', r;
+  end if;
+  if jsonb_path_exists(r -> 'items', '$[*] ? (@.email == "carol@dash.dev" || @.email == "dave@dash.dev")') then
+    raise exception 'FAIL: friends leaked into suggestions: %', r;
   end if;
   perform pg_temp.ok('suggestions: excludes friends/pending, ranks by mutuals (carol shared)');
 
