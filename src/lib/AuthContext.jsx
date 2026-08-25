@@ -45,7 +45,8 @@ export const AuthProvider = ({ children }) => {
     supabase.auth.getSession().then(({ data }) => loadSession(data.session));
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED'
+          || event === 'PASSWORD_RECOVERY') {
         loadSession(session);
       }
     });

@@ -15,6 +15,7 @@ const EventDetails = lazy(() => import('./pages/EventDetails'));
 const GuestlistManagement = lazy(() => import('./pages/GuestlistManagement'));
 const GuestPass = lazy(() => import('./pages/GuestPass'));
 const DoormanScanner = lazy(() => import('./pages/DoormanScanner'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const InvitePage = lazy(() => import('./pages/InvitePage'));
 const Profile = lazy(() => import('./pages/Profile'));
 const HostHub = lazy(() => import('./pages/HostHub'));
@@ -91,6 +92,7 @@ const AuthenticatedApp = () => {
       </Route>
       <Route path="/pass/:id" element={<GuestPass />} />
       <Route path="/scanner" element={<DoormanScanner />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/business/:id/edit" element={<EditBusinessAccount />} />
       <Route element={<BusinessLayout />}>
         <Route path="/business/create-event" element={<BusinessCreateEvent />} />

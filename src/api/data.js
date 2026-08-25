@@ -697,6 +697,43 @@ const auth = {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     throwOn(error);
   },
+  // Email sign-up. full_name rides in user metadata so the on_auth_user_created
+  // trigger pre-fills the profile (skips the name step of onboarding).
+  async signUp(email, password, fullName) {
+    const { data, error } = await supabase.auth.signUp({
+      email: String(email).trim().toLowerCase(),
+      password,
+      options: {
+        data: { full_name: fullName },
+        emailRedirectTo: window.location.origin,
+      },
+    });
+    throwOn(error);
+    // With confirmations on, a duplicate email still "succeeds" but comes back
+    // with no identities — don't tell the user a confirmation email was sent.
+    if (data.user && (data.user.identities?.length ?? 0) === 0) {
+      throw new Error("An account with this email already exists — sign in instead.");
+    }
+    return { needsConfirmation: !data.session };
+  },
+  async resendConfirmation(email) {
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: String(email).trim().toLowerCase(),
+    });
+    throwOn(error);
+  },
+  async resetPassword(email) {
+    const { error } = await supabase.auth.resetPasswordForEmail(
+      String(email).trim().toLowerCase(),
+      { redirectTo: `${window.location.origin}/reset-password` },
+    );
+    throwOn(error);
+  },
+  async updatePassword(newPassword) {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    throwOn(error);
+  },
   async logout() {
     await supabase.auth.signOut();
     window.location.assign("/");
