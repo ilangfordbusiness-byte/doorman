@@ -230,6 +230,10 @@ export default function Login() {
 
         {notice && <p className="mt-4 text-sm text-emerald-400">{notice}</p>}
         {error && <p className="mt-4 text-sm text-red-500">{error}</p>}
+
+        <p className="mt-10 text-xs text-muted-foreground/70">
+          <a href="/privacy" className="hover:text-foreground underline underline-offset-2">Privacy Policy</a>
+        </p>
       </div>
     </div>
   );
