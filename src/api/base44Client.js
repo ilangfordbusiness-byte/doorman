@@ -107,6 +107,10 @@ const ENTITIES = {
         "business_id",
       ];
       for (const k of copy) if (k in obj) out[k] = obj[k];
+      // Base44 tolerated "" in typed columns; Postgres uuid/numeric/date do not.
+      for (const k of ["business_id", "venue_lat", "venue_lng", "capacity", "date"]) {
+        if (out[k] === "") out[k] = null;
+      }
       if ("cover_image" in obj) out.cover_image_url = obj.cover_image;
       if ("start_time" in obj) out.start_time = obj.start_time;
       if ("end_time" in obj) out.end_time = obj.end_time || null;
@@ -673,6 +677,7 @@ const auth = {
     for (const k of ["full_name", "phone", "instagram", "active_business_id"]) {
       if (k in fields) patch[k] = fields[k];
     }
+    if (patch.active_business_id === "") patch.active_business_id = null;
     if ("profile_picture" in fields) patch.avatar_url = fields.profile_picture;
     if (Object.keys(patch).length) {
       const { error } = await supabase.from("profiles").update(patch).eq("id", id);
