@@ -71,34 +71,25 @@ export default function StaffHub() {
   async function handleJoinByCode() {
     if (code.length !== 4) return;
     setJoining(true);
-    const me = await base44.auth.me();
 
-    // Find event with this staff_code
-    const matched = await base44.entities.Event.filter({ staff_code: code });
-    if (!matched.length) {
-      toast({ title: "Invalid code", description: "No event found with that code." });
+    // The code is validated server-side (staff_code is never client-readable).
+    let res;
+    try {
+      res = await base44.functions.invoke("registerStaffByCode", { code });
+    } catch (e) {
+      toast({ title: "Invalid code", description: e?.message || "No event found with that code." });
       setJoining(false);
       return;
     }
-    const evt = matched[0];
 
-    // Check if already staff
-    const existing = await base44.entities.EventStaff.filter({ event_id: evt.id, staff_email: me.email });
-    if (existing.length) {
-      toast({ title: "Already added", description: `You're already staff for "${evt.title}".` });
+    if (res.data?.already) {
+      toast({ title: "Already added", description: `You're already staff for "${res.data.event_title}".` });
       setJoining(false);
       setTab("events");
       return;
     }
 
-    await base44.entities.EventStaff.create({
-      event_id: evt.id,
-      staff_email: me.email,
-      staff_name: me.full_name || me.email,
-      role: "doorman",
-    });
-
-    toast({ title: "Joined!", description: `You're now a doorman for "${evt.title}".` });
+    toast({ title: "Joined!", description: `You're now a doorman for "${res.data.event_title}".` });
     setCode("");
     setJoining(false);
     setLoading(true);
