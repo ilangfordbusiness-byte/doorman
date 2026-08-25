@@ -171,7 +171,8 @@ const ENTITIES = {
     table: "guestlist_entries",
     readTable: "guestlist_entries_view",
     select: "*",
-    toApp: (r) => ({ ...base(r), checked_in_by: r.checked_in_by }),
+    // Spread the whole row: pages consume nearly every column of the view.
+    toApp: (r) => ({ ...r, ...base(r) }),
     async fromApp(obj, isCreate) {
       const out = {};
       const copy = [
@@ -700,11 +701,17 @@ const auth = {
     await supabase.auth.signOut();
     window.location.assign("/");
   },
+  async isAuthenticated() {
+    const { data } = await supabase.auth.getSession();
+    return !!data.session;
+  },
   redirectToLogin(nextUrl) {
     try {
       sessionStorage.setItem("login_next", nextUrl || window.location.href);
     } catch { /* storage unavailable */ }
-    window.location.assign("/login");
+    // No /login route exists — the app root renders the Login screen when
+    // there is no session.
+    window.location.assign("/");
   },
 };
 
