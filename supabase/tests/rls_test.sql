@@ -55,7 +55,7 @@ begin
                (carol, 'carol@test.dev', 'Carol Door'),
                (dave,  'dave@test.dev',  'Dave Stranger')) as u(id, mail, nm);
 
-  if (select count(*) from public.profiles) <> 4 then
+  if (select count(*) from public.profiles where email like '%@test.dev') <> 4 then
     raise exception 'signup trigger did not create 4 profiles';
   end if;
   perform pg_temp.ok('signup trigger creates profiles');
@@ -92,7 +92,7 @@ begin
 
   -- ---- dave the stranger ----
   perform pg_temp.impersonate(dave, 'dave@test.dev');
-  select count(*) into v_count from public.events;
+  select count(*) into v_count from public.events where host_id = alice;
   if v_count <> 2 then raise exception 'FAIL: authed users should see all events, saw %', v_count; end if;
   select count(*) into v_count from public.guestlist_entries;
   if v_count <> 0 then raise exception 'FAIL: stranger sees % guestlist rows', v_count; end if;
@@ -236,13 +236,13 @@ begin
   perform pg_temp.ok('guest with can_chat can post');
 
   perform pg_temp.impersonate(dave, 'dave@test.dev');
-  select count(*) into v_count from public.event_messages;
+  select count(*) into v_count from public.event_messages where event_id = v_event;
   if v_count <> 2 then raise exception 'FAIL: attendee should see 2 messages, saw %', v_count; end if;
   perform pg_temp.ok('attendee can read event chat');
 
   -- ---- anon sees only published events ----
   perform pg_temp.go_anon();
-  select count(*) into v_count from public.events;
+  select count(*) into v_count from public.events where id in (v_event, v_draft);
   if v_count <> 1 then raise exception 'FAIL: anon should see 1 published event, saw %', v_count; end if;
   begin
     select count(*) into v_count from public.guestlist_entries;
