@@ -238,7 +238,7 @@ create policy guestlist_insert on public.guestlist_entries
     or (
       guest_email = public.current_email()
       and status = 'requested'
-      and source = 'request'
+      and source in ('request', 'invite_link')
       and exists (
         select 1 from public.events e
         where e.id = event_id and e.status = 'published' and e.requests_open

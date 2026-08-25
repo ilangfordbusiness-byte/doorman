@@ -165,17 +165,17 @@ export default function EditEvent() {
         <CoverPhotoUpload value={coverPreview} onChange={handleCoverPhoto} />
 
         <div>
-          <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Event Name</Label>
+          <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Event Name <span className="text-destructive">*</span></Label>
           <Input value={form.title} onChange={(e) => updateForm("title", e.target.value)} className="bg-secondary/50 border-border h-12 rounded-xl font-medium" />
         </div>
 
         <div className="grid grid-cols-3 gap-3">
           <div>
-            <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Date</Label>
+            <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Date <span className="text-destructive">*</span></Label>
             <Input type="date" value={form.date} onChange={(e) => updateForm("date", e.target.value)} className="bg-secondary/50 border-border h-12 rounded-xl" />
           </div>
           <div>
-            <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Start</Label>
+            <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Start <span className="text-destructive">*</span></Label>
             <Input type="time" value={form.start_time} onChange={(e) => updateForm("start_time", e.target.value)} className="bg-secondary/50 border-border h-12 rounded-xl" />
           </div>
           <div>

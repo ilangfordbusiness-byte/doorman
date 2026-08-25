@@ -141,13 +141,16 @@ export default function GuestPass() {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
-  function generateQR(entry) {
-    const payload = JSON.stringify({
-      eid: entry.event_id,
-      gid: entry.id,
-      sec: entry.qr_secret,
-    });
-    setQrData(btoa(payload));
+  async function generateQR(entry) {
+    // The QR secret never reaches the browser; the payload is minted
+    // server-side for the ticket's owner.
+    try {
+      const res = await base44.functions.invoke("myQrPayload", { entry_id: entry.id });
+      setQrData(res.data || "");
+    } catch (e) {
+      console.error("Failed to generate QR payload:", e);
+      setQrData("");
+    }
   }
 
   async function cancelPendingTransfer() {

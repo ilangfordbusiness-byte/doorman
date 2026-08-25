@@ -207,7 +207,7 @@ export default function CreateEvent({ business = null }) {
 
         {/* Title */}
         <div>
-          <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Event Name</Label>
+          <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Event Name <span className="text-destructive">*</span></Label>
           <Input
             placeholder="e.g. Summer Rooftop Party"
             value={form.title}
@@ -219,7 +219,7 @@ export default function CreateEvent({ business = null }) {
         {/* Date & Time */}
         <div className="grid grid-cols-3 gap-3">
           <div>
-            <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Date</Label>
+            <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Date <span className="text-destructive">*</span></Label>
             <Input
               type="date"
               value={form.date}
@@ -228,7 +228,7 @@ export default function CreateEvent({ business = null }) {
             />
           </div>
           <div>
-            <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Start</Label>
+            <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Start <span className="text-destructive">*</span></Label>
             <Input
               type="time"
               value={form.start_time}
