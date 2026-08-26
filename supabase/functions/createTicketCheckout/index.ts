@@ -137,8 +137,11 @@ Deno.serve(async (req) => {
     const cancelUrl = safeRedirect(cancel_url, `${base}/event/${tier.event_id}?payment=cancelled`);
 
     const params = new URLSearchParams();
-    // No payment_method_types: accounts with Managed Payments (the default on
-    // new Stripe accounts) reject the parameter and pick methods themselves.
+    // Opt out of Managed Payments (on by default for new Stripe accounts): it
+    // is a digital-products merchant-of-record mode that does not support
+    // Connect platforms, and it rejects standard params like
+    // payment_method_types. Payment methods come from the dashboard config.
+    params.append('managed_payments[enabled]', 'false');
     params.append('mode', 'payment');
     params.append('line_items[0][quantity]', String(qty));
     params.append('line_items[0][price_data][currency]', currency);
