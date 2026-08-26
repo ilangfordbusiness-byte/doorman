@@ -2,7 +2,7 @@ import { useState } from "react";
 import { api } from "@/api/data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Mail } from "lucide-react";
+import { ArrowLeft, Mail, ListChecks, QrCode, ScanLine } from "lucide-react";
 
 // Sign-in screen, rendered by the app shell whenever there is no session.
 // Not a route — views are local state: root (Google + manual entry point),
@@ -63,8 +63,26 @@ export default function Login() {
             <img src="/logo.png" alt="DoorMan" className="w-16 h-16 mx-auto mb-6 object-contain" />
             <h1 className="text-2xl font-extrabold mb-1">DoorMan</h1>
             <p className="text-sm text-muted-foreground mb-8">
-              Guestlists, tickets and the door — in one place.
+              Guestlists, tickets and the door — in one place. Host events, sell
+              tickets and check guests in with a scan.
             </p>
+            <div className="space-y-4 text-left mb-8">
+              {[
+                [ListChecks, "Guestlists", "Invite guests, approve requests and see who's coming."],
+                [QrCode, "QR tickets", "Sell tickets securely; every seat gets its own QR pass."],
+                [ScanLine, "Door check-in", "Staff scan passes at the door and entries update live."],
+              ].map(([Icon, title, text]) => (
+                <div key={title} className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-secondary/50 flex items-center justify-center shrink-0">
+                    <Icon className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold leading-tight">{title}</p>
+                    <p className="text-sm text-muted-foreground">{text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
             <Button
               disabled={busy}
               onClick={() => withBusy(() => api.auth.signInWithGoogle(window.location.href))}
@@ -232,6 +250,7 @@ export default function Login() {
         {error && <p className="mt-4 text-sm text-red-500">{error}</p>}
 
         <p className="mt-10 text-xs text-muted-foreground/70">
+          © {new Date().getFullYear()} Doorman LTD ·{" "}
           <a href="/privacy" className="hover:text-foreground underline underline-offset-2">Privacy Policy</a>
         </p>
       </div>
