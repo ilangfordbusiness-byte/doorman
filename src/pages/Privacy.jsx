@@ -1,6 +1,5 @@
 // Public privacy policy — must be reachable without an account (Google's
 // OAuth consent screen links here). Rendered outside the auth gate in App.jsx.
-const CONTACT_EMAIL = "contact@thedoorman.app";
 
 function Section({ title, children }) {
   return (
@@ -24,9 +23,9 @@ export default function Privacy() {
 
         <Section title="Who we are">
           <p>
-            DoorMan ("we", "us") operates thedoorman.app — an events platform for
-            guestlists, tickets and door check-in. Questions about this policy or
-            your data: <a className="text-primary" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+            thedoorman.app is operated by Doorman LTD ("we", "us") — an events
+            platform for guestlists, tickets and door check-in. Doorman LTD is
+            the data controller for the personal information described below.
           </p>
         </Section>
 
@@ -81,9 +80,8 @@ export default function Privacy() {
         <Section title="Retention and deletion">
           <p>
             We keep your data while your account is active. To delete your account and
-            associated personal data, contact <a className="text-primary" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> —
-            we will remove it except where we must keep records (for example, payment records
-            required for tax and accounting).
+            associated personal data, contact us — we will remove it except where we must
+            keep records (for example, payment records required for tax and accounting).
           </p>
         </Section>
 
