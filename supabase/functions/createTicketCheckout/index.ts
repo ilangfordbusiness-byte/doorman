@@ -137,7 +137,8 @@ Deno.serve(async (req) => {
     const cancelUrl = safeRedirect(cancel_url, `${base}/event/${tier.event_id}?payment=cancelled`);
 
     const params = new URLSearchParams();
-    params.append('payment_method_types[]', 'card');
+    // No payment_method_types: accounts with Managed Payments (the default on
+    // new Stripe accounts) reject the parameter and pick methods themselves.
     params.append('mode', 'payment');
     params.append('line_items[0][quantity]', String(qty));
     params.append('line_items[0][price_data][currency]', currency);
