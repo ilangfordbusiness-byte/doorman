@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { ArrowLeft, Shield, Send, ChevronLeft, ChevronRight, Clock as ClockIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import StatusBadge from "../components/StatusBadge";
@@ -32,17 +32,17 @@ export default function GuestPass() {
   }, [id]);
 
   async function loadPass() {
-    const authed = await base44.auth.isAuthenticated();
+    const authed = await api.auth.isAuthenticated();
     if (!authed) {
-      base44.auth.redirectToLogin(window.location.href);
+      api.auth.redirectToLogin(window.location.href);
       return;
     }
-    const me = await base44.auth.me();
-    const events = await base44.entities.Event.filter({ id });
+    const me = await api.auth.me();
+    const events = await api.entities.Event.filter({ id });
     if (!events.length) return navigate("/");
     setEvent(events[0]);
 
-    const allEntries = await base44.entities.GuestlistEntry.filter({
+    const allEntries = await api.entities.GuestlistEntry.filter({
       event_id: id,
       guest_email: me.email,
     });
@@ -72,7 +72,7 @@ export default function GuestPass() {
 
   async function loadPendingTransfer(entryId) {
     try {
-      const t = await base44.entities.TicketTransfer.filter({ guestlist_entry_id: entryId, status: "pending" });
+      const t = await api.entities.TicketTransfer.filter({ guestlist_entry_id: entryId, status: "pending" });
       setPendingTransfer(t[0] || null);
     } catch {
       setPendingTransfer(null);
@@ -99,7 +99,7 @@ export default function GuestPass() {
 
   async function handleCheckOut(auto = false) {
     const now = new Date().toISOString();
-    await base44.entities.GuestlistEntry.update(entry.id, { checked_out_at: now });
+    await api.entities.GuestlistEntry.update(entry.id, { checked_out_at: now });
     setEntry((prev) => ({ ...prev, checked_out_at: now }));
     if (auto) setAutoCheckedOut(true);
     stopLocationWatch();
@@ -141,19 +141,22 @@ export default function GuestPass() {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
-  function generateQR(entry) {
-    const payload = JSON.stringify({
-      eid: entry.event_id,
-      gid: entry.id,
-      sec: entry.qr_secret,
-    });
-    setQrData(btoa(payload));
+  async function generateQR(entry) {
+    // The QR secret never reaches the browser; the payload is minted
+    // server-side for the ticket's owner.
+    try {
+      const res = await api.functions.invoke("myQrPayload", { entry_id: entry.id });
+      setQrData(res.data || "");
+    } catch (e) {
+      console.error("Failed to generate QR payload:", e);
+      setQrData("");
+    }
   }
 
   async function cancelPendingTransfer() {
     if (!pendingTransfer) return;
     try {
-      await base44.entities.TicketTransfer.update(pendingTransfer.id, {
+      await api.entities.TicketTransfer.update(pendingTransfer.id, {
         status: "cancelled",
         cancelled_at: new Date().toISOString(),
       });

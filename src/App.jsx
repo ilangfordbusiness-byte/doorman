@@ -7,6 +7,8 @@ import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import Layout from './components/Layout';
+import Login from './pages/Login';
+import Privacy from './pages/Privacy';
 
 const Home = lazy(() => import('./pages/Home'));
 const CreateEvent = lazy(() => import('./pages/CreateEvent'));
@@ -14,6 +16,7 @@ const EventDetails = lazy(() => import('./pages/EventDetails'));
 const GuestlistManagement = lazy(() => import('./pages/GuestlistManagement'));
 const GuestPass = lazy(() => import('./pages/GuestPass'));
 const DoormanScanner = lazy(() => import('./pages/DoormanScanner'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const InvitePage = lazy(() => import('./pages/InvitePage'));
 const Profile = lazy(() => import('./pages/Profile'));
 const HostHub = lazy(() => import('./pages/HostHub'));
@@ -36,7 +39,7 @@ const PageLoader = () => (
       <div className="absolute inset-0 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
       <div className="absolute inset-0 flex items-center justify-center">
         <img
-          src="https://media.base44.com/images/public/69d556d1ae7f4cada8ab83ef/e327a8610_logotransparent.png"
+          src="/logo.png"
           alt="DoorMan"
           className="w-8 h-8 object-contain animate-pulse"
         />
@@ -47,6 +50,11 @@ const PageLoader = () => (
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+
+  // Public pages, reachable with no session (Google's consent screen links here).
+  if (window.location.pathname === '/privacy') {
+    return <Privacy />;
+  }
 
   // Show loading spinner while checking app public settings or auth
   if (isLoadingPublicSettings || isLoadingAuth) {
@@ -62,9 +70,7 @@ const AuthenticatedApp = () => {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
     } else if (authError.type === 'auth_required') {
-      // Redirect to login automatically
-      navigateToLogin();
-      return null;
+      return <Login />;
     }
   }
 
@@ -92,6 +98,7 @@ const AuthenticatedApp = () => {
       </Route>
       <Route path="/pass/:id" element={<GuestPass />} />
       <Route path="/scanner" element={<DoormanScanner />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/business/:id/edit" element={<EditBusinessAccount />} />
       <Route element={<BusinessLayout />}>
         <Route path="/business/create-event" element={<BusinessCreateEvent />} />

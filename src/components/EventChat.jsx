@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { Send, MessageCircle } from "lucide-react";
 import UserAvatar from "./UserAvatar";
 
@@ -11,9 +11,9 @@ export default function EventChat({ eventId, user, isHost, canChat }) {
   const bottomRef = useRef(null);
 
   useEffect(() => {
-    base44.entities.EventMessage.filter({ event_id: eventId }, "created_date", 100).then(setMessages);
+    api.entities.EventMessage.filter({ event_id: eventId }, "created_date", 100).then(setMessages);
 
-    const unsub = base44.entities.EventMessage.subscribe((event) => {
+    const unsub = api.entities.EventMessage.subscribe((event) => {
       if (event.data?.event_id !== eventId) return;
       if (event.type === "create") {
         setMessages((prev) => [...prev, event.data]);
@@ -29,7 +29,7 @@ export default function EventChat({ eventId, user, isHost, canChat }) {
   async function handleSend() {
     if (!text.trim() || sending || !canSend) return;
     setSending(true);
-    await base44.entities.EventMessage.create({
+    await api.entities.EventMessage.create({
       event_id: eventId,
       sender_email: user.email,
       sender_name: user.full_name,

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { useActiveAccount } from "@/hooks/useActiveAccount";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { Ticket, TrendingUp, Percent, Megaphone, History, Calendar } from "lucide-react";
@@ -13,15 +13,15 @@ export default function BusinessPastEvents() {
   const { data: rows, isLoading } = useQuery({
     queryKey: ["businessPastEvents", business?.id],
     queryFn: async () => {
-      const events = await base44.entities.Event.filter({ business_id: business.id }, "-date");
+      const events = await api.entities.Event.filter({ business_id: business.id }, "-date");
       const past = events.filter(
         (e) => e.status === "completed" || moment(e.date).isBefore(moment(), "day")
       );
       const out = [];
       for (const ev of past) {
         const [orders, promoters] = await Promise.all([
-          base44.entities.TicketOrder.filter({ event_id: ev.id, status: "paid" }),
-          base44.entities.Promoter.filter({ event_id: ev.id }),
+          api.entities.TicketOrder.filter({ event_id: ev.id, status: "paid" }),
+          api.entities.Promoter.filter({ event_id: ev.id }),
         ]);
         out.push({
           event: ev,

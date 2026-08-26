@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { UserPlus, Ticket, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -27,9 +27,9 @@ export default function EventJoinActions({ event, me, myEntry, onChanged }) {
     try {
       const qr_secret = crypto.randomUUID();
       if (myEntry && myEntry.status === "denied") {
-        await base44.entities.GuestlistEntry.update(myEntry.id, { status: "approved", source: "invite_link", qr_secret });
+        await api.entities.GuestlistEntry.update(myEntry.id, { status: "approved", source: "invite_link", qr_secret });
       } else {
-        await base44.entities.GuestlistEntry.create({
+        await api.entities.GuestlistEntry.create({
           event_id: event.id,
           guest_email: me.email,
           guest_name: me.full_name,
@@ -51,7 +51,7 @@ export default function EventJoinActions({ event, me, myEntry, onChanged }) {
     setBusy(true);
     try {
       const qr_secret = crypto.randomUUID();
-      await base44.entities.GuestlistEntry.create({
+      await api.entities.GuestlistEntry.create({
         event_id: event.id,
         guest_email: me.email,
         guest_name: me.full_name,

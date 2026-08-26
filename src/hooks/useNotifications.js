@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { useCurrentUser } from "./useCurrentUser";
 
 // Shared notification counts (co-host invites, friend requests, event invites)
@@ -9,7 +9,7 @@ export function useNotifications() {
   return useQuery({
     queryKey: ["notifications"],
     queryFn: async () => {
-      const res = await base44.functions.invoke("getNotifications");
+      const res = await api.functions.invoke("getNotifications");
       return res.data;
     },
     enabled: !!me,

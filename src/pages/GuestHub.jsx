@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import PhonePrompt from "../components/PhonePrompt";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { ArrowLeft, Sparkles, QrCode, Clock, CheckCircle2, Link as LinkIcon, Compass, ArrowLeftRight, Check, X } from "lucide-react";
 import DiscoverEvents from "../components/DiscoverEvents";
@@ -20,7 +20,7 @@ export default function GuestHub() {
   const { data: dashboard, isLoading: loading } = useQuery({
     queryKey: ["guestDashboard"],
     queryFn: async () => {
-      const res = await base44.functions.invoke("getGuestDashboard");
+      const res = await api.functions.invoke("getGuestDashboard");
       return res.data;
     },
     enabled: !!me,
@@ -35,7 +35,7 @@ export default function GuestHub() {
   async function acceptTransfer(t) {
     setTransferBusy(t.id);
     try {
-      const res = await base44.functions.invoke("acceptTicketTransfer", { transfer_id: t.id });
+      const res = await api.functions.invoke("acceptTicketTransfer", { transfer_id: t.id });
       if (res.data?.error) throw new Error(res.data.error);
       toast({ title: "Ticket accepted!", description: "It's now in your invites." });
       queryClient.invalidateQueries(["guestDashboard"]);
@@ -48,7 +48,7 @@ export default function GuestHub() {
   async function declineTransfer(t) {
     setTransferBusy(t.id);
     try {
-      await base44.entities.TicketTransfer.update(t.id, { status: "declined" });
+      await api.entities.TicketTransfer.update(t.id, { status: "declined" });
       toast({ title: "Transfer declined" });
       queryClient.invalidateQueries(["guestDashboard"]);
     } catch {
@@ -60,7 +60,7 @@ export default function GuestHub() {
   async function cancelTransfer(t) {
     setTransferBusy(t.id);
     try {
-      await base44.entities.TicketTransfer.update(t.id, { status: "cancelled", cancelled_at: new Date().toISOString() });
+      await api.entities.TicketTransfer.update(t.id, { status: "cancelled", cancelled_at: new Date().toISOString() });
       toast({ title: "Transfer cancelled" });
       queryClient.invalidateQueries(["guestDashboard"]);
     } catch {

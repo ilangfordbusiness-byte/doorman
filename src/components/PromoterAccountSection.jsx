@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { Megaphone, Copy, Check, ExternalLink, Ticket, MousePointerClick, Wallet } from "lucide-react";
 import { getLinkDomain } from "@/lib/promoterRef";
 import { useToast } from "@/components/ui/use-toast";
@@ -18,8 +18,8 @@ export default function PromoterAccountSection({ email }) {
 
   useEffect(() => {
     load();
-    const unsubP = base44.entities.Promoter.subscribe(() => load());
-    const unsubO = base44.entities.TicketOrder.subscribe(() => load());
+    const unsubP = api.entities.Promoter.subscribe(() => load());
+    const unsubO = api.entities.TicketOrder.subscribe(() => load());
     return () => {
       if (typeof unsubP === "function") unsubP();
       if (typeof unsubO === "function") unsubO();
@@ -28,10 +28,10 @@ export default function PromoterAccountSection({ email }) {
 
   async function load() {
     try {
-      const proms = await base44.entities.Promoter.filter({ email });
+      const proms = await api.entities.Promoter.filter({ email });
       const ids = [...new Set(proms.map((p) => p.event_id))];
       const evts = await Promise.all(
-        ids.map((id) => base44.entities.Event.filter({ id }).then((r) => r[0]).catch(() => null))
+        ids.map((id) => api.entities.Event.filter({ id }).then((r) => r[0]).catch(() => null))
       );
       const map = {};
       evts.forEach((e) => { if (e) map[e.id] = e; });

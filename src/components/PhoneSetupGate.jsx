@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { User, Phone, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,7 @@ export default function PhoneSetupGate({ children }) {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    base44.auth.me().then((me) => {
+    api.auth.me().then((me) => {
       setUser(me);
       const hasName = me?.full_name && me.full_name.trim().split(" ").length >= 2 && me.full_name.trim() !== "";
       const hasPhone = !!me?.phone;
@@ -36,7 +36,7 @@ export default function PhoneSetupGate({ children }) {
   async function saveName() {
     if (!firstName.trim() || !lastName.trim()) return;
     setSaving(true);
-    await base44.auth.updateMe({ full_name: `${firstName.trim()} ${lastName.trim()}` });
+    await api.auth.updateMe({ full_name: `${firstName.trim()} ${lastName.trim()}` });
     // Check if phone is also needed
     if (!user?.phone) {
       setStep("phone");
@@ -49,7 +49,7 @@ export default function PhoneSetupGate({ children }) {
   async function savePhone() {
     if (!phone.trim()) return;
     setSaving(true);
-    await base44.auth.updateMe({ phone: phone.trim() });
+    await api.auth.updateMe({ phone: phone.trim() });
     setStep(null);
     setSaving(false);
   }
@@ -68,7 +68,7 @@ export default function PhoneSetupGate({ children }) {
         <div className="w-full max-w-sm">
           {/* Logo / Brand */}
           <div className="flex items-center gap-2 mb-8 justify-center">
-            <img src="https://media.base44.com/images/public/69d556d1ae7f4cada8ab83ef/e327a8610_logotransparent.png" alt="DoorMan" className="w-12 h-12 object-contain" />
+            <img src="/logo.png" alt="DoorMan" className="w-12 h-12 object-contain" />
             <span className="font-heading font-bold text-white text-2xl">DoorMan</span>
           </div>
 
@@ -117,7 +117,7 @@ export default function PhoneSetupGate({ children }) {
         <div className="w-full max-w-sm">
           {/* Logo / Brand */}
           <div className="flex items-center gap-2 mb-8 justify-center">
-            <img src="https://media.base44.com/images/public/69d556d1ae7f4cada8ab83ef/e327a8610_logotransparent.png" alt="DoorMan" className="w-12 h-12 object-contain" />
+            <img src="/logo.png" alt="DoorMan" className="w-12 h-12 object-contain" />
             <span className="font-heading font-bold text-white text-2xl">DoorMan</span>
           </div>
 

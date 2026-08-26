@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { ArrowLeft, UserPlus, Users, Check, X, UserCheck, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,8 +16,8 @@ const PAGE_SIZE = 20;
 
 async function loadFriendsData(me) {
   const [sent, received] = await Promise.all([
-    base44.entities.FriendRequest.filter({ sender_email: me.email }),
-    base44.entities.FriendRequest.filter({ receiver_email: me.email }),
+    api.entities.FriendRequest.filter({ sender_email: me.email }),
+    api.entities.FriendRequest.filter({ receiver_email: me.email }),
   ]);
   const acceptedSent = sent.filter((r) => r.status === "accepted").map((r) => ({ email: r.receiver_email, name: r.receiver_name, picture: r.receiver_picture }));
   const acceptedReceived = received.filter((r) => r.status === "accepted").map((r) => ({ email: r.sender_email, name: r.sender_name, picture: r.sender_picture }));
@@ -62,7 +62,7 @@ export default function Friends() {
     setSugLoading(true);
     try {
       const offset = reset ? 0 : suggestions.length;
-      const res = await base44.functions.invoke("getFriendSuggestions", { offset, limit: PAGE_SIZE });
+      const res = await api.functions.invoke("getFriendSuggestions", { offset, limit: PAGE_SIZE });
       const data = res.data;
       if (data?.error) throw new Error(data.error);
       const items = data.items || [];
@@ -89,7 +89,7 @@ export default function Friends() {
   }, [tab, sugHasMore, sugLoading, suggestions.length]);
 
   async function sendRequest(target) {
-    await base44.entities.FriendRequest.create({
+    await api.entities.FriendRequest.create({
       sender_email: me.email,
       sender_name: me.full_name,
       sender_picture: me.profile_picture || "",
@@ -103,7 +103,7 @@ export default function Friends() {
   }
 
   async function respond(req, status) {
-    await base44.entities.FriendRequest.update(req.id, { status });
+    await api.entities.FriendRequest.update(req.id, { status });
     queryClient.invalidateQueries(["friendsData"]);
     if (status === "accepted") {
       toast({ title: "Friend added!" });

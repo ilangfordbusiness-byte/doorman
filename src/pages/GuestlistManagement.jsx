@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 import { ArrowLeft, Search, UserPlus, Filter, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,10 +37,10 @@ export default function GuestlistManagement() {
   }, [id]);
 
   async function loadFriends() {
-    const user = await base44.auth.me();
+    const user = await api.auth.me();
     setMe(user);
-    const sent = await base44.entities.FriendRequest.filter({ sender_email: user.email, status: "accepted" });
-    const received = await base44.entities.FriendRequest.filter({ receiver_email: user.email, status: "accepted" });
+    const sent = await api.entities.FriendRequest.filter({ sender_email: user.email, status: "accepted" });
+    const received = await api.entities.FriendRequest.filter({ receiver_email: user.email, status: "accepted" });
     const friendList = [
       ...sent.map((r) => ({ name: r.receiver_name, email: r.receiver_email, picture: r.receiver_picture })),
       ...received.map((r) => ({ name: r.sender_name, email: r.sender_email, picture: r.sender_picture })),
@@ -49,9 +49,9 @@ export default function GuestlistManagement() {
   }
 
   async function loadData() {
-    const events = await base44.entities.Event.filter({ id });
+    const events = await api.entities.Event.filter({ id });
     if (events.length) setEvent(events[0]);
-    const entries = await base44.entities.GuestlistEntry.filter({ event_id: id }, "-created_date");
+    const entries = await api.entities.GuestlistEntry.filter({ event_id: id }, "-created_date");
     setGuests(entries);
     setLoading(false);
   }
@@ -61,17 +61,17 @@ export default function GuestlistManagement() {
     if (status === "approved" && !guest.qr_secret) {
       updates.qr_secret = crypto.randomUUID();
     }
-    await base44.entities.GuestlistEntry.update(guest.id, updates);
+    await api.entities.GuestlistEntry.update(guest.id, updates);
     toast({ title: `Guest ${status}` });
     // Email the guest their free ticket (QR + pass link) once approved.
     if (status === "approved" && guest.guest_email && !event?.is_paid) {
-      base44.functions.invoke("sendTicketEmail", { entry_id: guest.id }).catch(() => {});
+      api.functions.invoke("sendTicketEmail", { entry_id: guest.id }).catch(() => {});
     }
     loadData();
   }
 
   async function toggleChat(guest) {
-    await base44.entities.GuestlistEntry.update(guest.id, { can_chat: !guest.can_chat });
+    await api.entities.GuestlistEntry.update(guest.id, { can_chat: !guest.can_chat });
     toast({ title: guest.can_chat ? "Chat access revoked" : `${guest.guest_name || "Guest"} can now chat` });
     loadData();
   }
@@ -82,7 +82,7 @@ export default function GuestlistManagement() {
       toast({ title: "Already on guestlist", variant: "destructive" });
       return;
     }
-    await base44.entities.GuestlistEntry.create({
+    await api.entities.GuestlistEntry.create({
       event_id: id,
       guest_email: friend.email,
       guest_name: friend.name,
@@ -113,7 +113,7 @@ export default function GuestlistManagement() {
       return;
     }
 
-    await base44.entities.GuestlistEntry.create({
+    await api.entities.GuestlistEntry.create({
       event_id: id,
       guest_email: newGuest.email || "",
       guest_name: newGuest.name,

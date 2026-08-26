@@ -1,4 +1,4 @@
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 
 const DOMAIN_KEY = "doorman_link_domain";
 
@@ -50,7 +50,7 @@ export async function captureRef(eventId, code) {
     const clickKey = `doorman_click_${eventId}_${code}`;
     const countClick = !sessionStorage.getItem(clickKey);
     if (countClick) sessionStorage.setItem(clickKey, "1");
-    const res = await base44.functions.invoke("resolvePromoterRef", {
+    const res = await api.functions.invoke("resolvePromoterRef", {
       event_id: eventId,
       code: String(code).trim(),
       count_click: countClick,
@@ -70,7 +70,7 @@ export async function captureRef(eventId, code) {
 export async function getPromoterByCode(eventId, code) {
   if (!eventId || !code) return null;
   try {
-    const res = await base44.functions.invoke("resolvePromoterRef", {
+    const res = await api.functions.invoke("resolvePromoterRef", {
       event_id: eventId,
       code: String(code).trim(),
       count_click: false,

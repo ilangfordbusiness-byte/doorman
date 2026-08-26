@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 
 // Returns the business's Stripe Connect connection status (separate from personal).
 export function useBusinessStripeStatus(businessId) {
@@ -9,7 +9,7 @@ export function useBusinessStripeStatus(businessId) {
     let mounted = true;
     (async () => {
       try {
-        const res = await base44.functions.invoke("stripeConnect", { action: "business_status", business_id: businessId });
+        const res = await api.functions.invoke("stripeConnect", { action: "business_status", business_id: businessId });
         if (mounted) setConnected(!!res.data?.account?.id);
       } catch {
         if (mounted) setConnected(false);

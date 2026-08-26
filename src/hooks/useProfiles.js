@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/data";
 
 // Fetches {email: {name, picture}} for a list of emails (server-side User lookup).
 // Results are cached per unique email set so multiple components share data.
@@ -9,7 +9,7 @@ export function useProfiles(emails) {
     queryKey: ["profiles", key],
     queryFn: async () => {
       if (!key) return {};
-      const res = await base44.functions.invoke("getProfiles", { emails: key.split(",") });
+      const res = await api.functions.invoke("getProfiles", { emails: key.split(",") });
       return res.data?.profiles || {};
     },
     enabled: !!key,
