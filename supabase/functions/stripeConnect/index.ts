@@ -113,6 +113,9 @@ Deno.serve(async (req) => {
             body: formEncode({
               type: 'express',
               email,
+              // Both capabilities: Stripe auto-approves this pair, while
+              // transfers-only platforms need manual approval from support.
+              'capabilities[card_payments][requested]': 'true',
               'capabilities[transfers][requested]': 'true',
               ...Object.fromEntries(Object.entries(metadata).map(([k, v]) => [`metadata[${k}]`, v])),
             }),
