@@ -9,7 +9,7 @@ import moment from "moment";
 export default function FriendProfile({ friend, myEmail, myFriends, onClose }) {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
-  const [stats, setStats] = useState({ hosted: 0, attended: 0, hoursPartied: 0 });
+  const [stats, setStats] = useState({ hosted: 0, attended: 0 });
   const [sharedEvents, setSharedEvents] = useState([]);
   const [mutualFriends, setMutualFriends] = useState([]);
 
@@ -20,30 +20,28 @@ export default function FriendProfile({ friend, myEmail, myFriends, onClose }) {
   async function load() {
     setLoading(true);
 
-    // User entity is admin-only; use the friend data passed in (name/email/picture).
+    // Seed identity from the passed-in friend data; instagram is backfilled from
+    // the person's profile row below (profiles is readable by any signed-in user).
     const profileData = { email: friend.email, full_name: friend.name, profile_picture: friend.picture, instagram: friend.instagram };
     setProfile(profileData);
 
     try {
-      // Load friend's guestlist entries & hosted events in parallel with my own
-      const [friendEntries, friendHostedEvents, myEntries] = await Promise.all([
+      // Load friend's guestlist entries & hosted events, my own entries, and the
+      // friend's public profile (for their instagram handle) in parallel.
+      const [friendEntries, friendHostedEvents, myEntries, friendProfile] = await Promise.all([
         api.entities.GuestlistEntry.filter({ guest_email: friend.email }),
         api.entities.Event.filter({ host_email: friend.email }),
         api.entities.GuestlistEntry.filter({ guest_email: myEmail }),
+        api.auth.getProfile(friend.email),
       ]);
 
-      // Stats
-      let hoursPartied = 0;
-      friendEntries.forEach((e) => {
-        if (e.checked_in_at && e.checked_out_at) {
-          hoursPartied += (new Date(e.checked_out_at) - new Date(e.checked_in_at)) / 3600000;
-        }
-      });
+      if (friendProfile?.instagram) {
+        setProfile((p) => ({ ...p, instagram: friendProfile.instagram }));
+      }
 
       setStats({
         hosted: friendHostedEvents.length,
         attended: friendEntries.filter((e) => e.checked_in_at || ["checked_in", "checked_out"].includes(e.status)).length,
-        hoursPartied: Math.round(hoursPartied * 10) / 10,
       });
 
       // Shared events: events where both attended (approved/checked_in/invited)
@@ -130,18 +128,15 @@ export default function FriendProfile({ friend, myEmail, myFriends, onClose }) {
               <div className="grid grid-cols-2 gap-2">
                 <StatCard label="Events Hosted" value={stats.hosted} color="text-primary" />
                 <StatCard label="Events Attended" value={stats.attended} color="text-accent" />
-                <StatCard label="Hours Partied" value={`${stats.hoursPartied}h`} color="text-emerald-400" />
               </div>
             </div>
 
-            {/* Mutual Friends */}
-            <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-2">
-                Mutual Friends ({mutualFriends.length})
-              </p>
-              {mutualFriends.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No mutual friends</p>
-              ) : (
+            {/* Mutual Friends — only when there are any */}
+            {mutualFriends.length > 0 && (
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-2">
+                  Mutual Friends ({mutualFriends.length})
+                </p>
                 <div className="flex flex-wrap gap-2">
                   {mutualFriends.map((mf) => (
                     <div key={mf.email} className="flex items-center gap-2 bg-secondary/50 rounded-full px-3 py-1.5 border border-border/50">
@@ -150,17 +145,15 @@ export default function FriendProfile({ friend, myEmail, myFriends, onClose }) {
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
-            {/* Shared Events */}
-            <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-2">
-                Events in Common ({sharedEvents.length})
-              </p>
-              {sharedEvents.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No shared events yet</p>
-              ) : (
+            {/* Events in Common — only when there are any */}
+            {sharedEvents.length > 0 && (
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-2">
+                  Events in Common ({sharedEvents.length})
+                </p>
                 <div className="space-y-2">
                   {sharedEvents.map((evt) => (
                     <Link
@@ -179,8 +172,8 @@ export default function FriendProfile({ friend, myEmail, myFriends, onClose }) {
                     </Link>
                   ))}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         )}
       </div>
