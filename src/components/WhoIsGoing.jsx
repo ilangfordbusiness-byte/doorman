@@ -12,21 +12,26 @@ export default function WhoIsGoing({ eventId, myEmail, visibility = "show_names"
 
   useEffect(() => {
     (async () => {
-      const [entries, sent, received] = await Promise.all([
-        api.entities.GuestlistEntry.filter({ event_id: eventId }),
-        api.entities.FriendRequest.filter({ sender_email: myEmail, status: "accepted" }),
-        api.entities.FriendRequest.filter({ receiver_email: myEmail, status: "accepted" }),
-      ]);
-      const friendEmails = new Set([
-        ...sent.map((r) => r.receiver_email),
-        ...received.map((r) => r.sender_email),
-      ]);
-      setFriends(friendEmails);
-      const visible = entries.filter(
-        (e) => e.guest_email !== myEmail && ["approved", "checked_in", "invited"].includes(e.status)
-      );
-      setGuests(visible);
-      setLoading(false);
+      try {
+        const [entries, sent, received] = await Promise.all([
+          api.entities.GuestlistEntry.filter({ event_id: eventId }),
+          api.entities.FriendRequest.filter({ sender_email: myEmail, status: "accepted" }),
+          api.entities.FriendRequest.filter({ receiver_email: myEmail, status: "accepted" }),
+        ]);
+        const friendEmails = new Set([
+          ...sent.map((r) => r.receiver_email),
+          ...received.map((r) => r.sender_email),
+        ]);
+        setFriends(friendEmails);
+        const visible = entries.filter(
+          (e) => e.guest_email !== myEmail && ["approved", "checked_in", "invited"].includes(e.status)
+        );
+        setGuests(visible);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, [eventId, myEmail]);
 

@@ -19,23 +19,34 @@ export default function EventAnalytics() {
   useEffect(() => { load(); }, [id]);
 
   async function load() {
-    const me = await api.auth.me();
-    const [events, t, o, p] = await Promise.all([
-      api.entities.Event.filter({ id }),
-      api.entities.TicketTier.filter({ event_id: id }),
-      api.entities.TicketOrder.filter({ event_id: id }),
-      api.entities.PromoCode.filter({ event_id: id }),
-    ]);
-    if (!events.length) return navigate("/");
-    if (events[0].host_email !== me.email) return navigate(`/event/${id}`);
-    setEvent(events[0]);
-    setTiers(t);
-    setOrders(o.filter((x) => x.status === "paid"));
-    setPromos(p);
-    setLoading(false);
+    try {
+      const me = await api.auth.me();
+      const [events, t, o, p] = await Promise.all([
+        api.entities.Event.filter({ id }),
+        api.entities.TicketTier.filter({ event_id: id }),
+        api.entities.TicketOrder.filter({ event_id: id }),
+        api.entities.PromoCode.filter({ event_id: id }),
+      ]);
+      if (!events.length) return navigate("/");
+      if (events[0].host_email !== me.email) return navigate(`/event/${id}`);
+      setEvent(events[0]);
+      setTiers(t);
+      setOrders(o.filter((x) => x.status === "paid"));
+      setPromos(p);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (loading) return <LoadingSpinner fullScreen />;
+  if (!event) return (
+    <div className="max-w-lg mx-auto px-4 pt-10 text-center">
+      <p className="text-sm text-muted-foreground">Couldn't load analytics.</p>
+      <Button className="mt-4" onClick={() => navigate(`/event/${id}`)}>Back to event</Button>
+    </div>
+  );
 
   const cur = String(event.currency || "gbp").toLowerCase();
   const sym = SYMBOL[cur] || "";

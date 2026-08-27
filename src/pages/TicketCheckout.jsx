@@ -43,7 +43,7 @@ export default function TicketCheckout() {
     api.auth.isAuthenticated().then((ok) => {
       if (ok) { setAuthed(true); return; }
       api.auth.redirectToLogin(window.location.href);
-    });
+    }).catch(() => api.auth.redirectToLogin(window.location.href));
   }, []);
 
   // Capture promoter ref on entry (skip on the success screen to avoid a

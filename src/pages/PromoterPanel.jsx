@@ -36,16 +36,21 @@ export default function PromoterPanel() {
   useEffect(() => { load(); }, [id]);
 
   async function load() {
-    const me = await api.auth.me();
-    const [events, proms] = await Promise.all([
-      api.entities.Event.filter({ id }),
-      api.entities.Promoter.filter({ event_id: id }),
-    ]);
-    if (!events.length) return navigate("/");
-    if (events[0].host_email !== me.email) return navigate(`/event/${id}`);
-    setEvent(events[0]);
-    setPromoters(proms.sort((a, b) => Number(b.tickets_sold || 0) - Number(a.tickets_sold || 0)));
-    setLoading(false);
+    try {
+      const me = await api.auth.me();
+      const [events, proms] = await Promise.all([
+        api.entities.Event.filter({ id }),
+        api.entities.Promoter.filter({ event_id: id }),
+      ]);
+      if (!events.length) return navigate("/");
+      if (events[0].host_email !== me.email) return navigate(`/event/${id}`);
+      setEvent(events[0]);
+      setPromoters(proms.sort((a, b) => Number(b.tickets_sold || 0) - Number(a.tickets_sold || 0)));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function addPromoter() {
@@ -132,6 +137,12 @@ export default function PromoterPanel() {
   }
 
   if (loading) return <LoadingSpinner fullScreen />;
+  if (!event) return (
+    <div className="max-w-lg mx-auto px-4 pt-10 text-center">
+      <p className="text-sm text-muted-foreground">Couldn't load promoters.</p>
+      <Button className="mt-4" onClick={() => navigate(`/event/${id}`)}>Back to event</Button>
+    </div>
+  );
 
   const cur = String(event.currency || "gbp").toLowerCase();
   const sym = SYMBOL[cur] || "";

@@ -34,38 +34,40 @@ export default function StaffHub() {
   }, []);
 
   async function load() {
-    const me = await api.auth.me();
-    setMyPhone(me.phone || "");
+    try {
+      const me = await api.auth.me();
+      setMyPhone(me.phone || "");
 
-    // Fetch by email and by phone, merge
-    const byEmail = await api.entities.EventStaff.filter({ staff_email: me.email });
-    const byPhone = me.phone
-      ? await api.entities.EventStaff.filter({ staff_phone: me.phone })
-      : [];
-    const seen = new Set();
-    const staffEntries = [...byEmail, ...byPhone].filter((s) => {
-      if (seen.has(s.id)) return false;
-      seen.add(s.id);
-      return true;
-    });
+      // Fetch by email and by phone, merge
+      const byEmail = await api.entities.EventStaff.filter({ staff_email: me.email });
+      const byPhone = me.phone
+        ? await api.entities.EventStaff.filter({ staff_phone: me.phone })
+        : [];
+      const seen = new Set();
+      const staffEntries = [...byEmail, ...byPhone].filter((s) => {
+        if (seen.has(s.id)) return false;
+        seen.add(s.id);
+        return true;
+      });
 
-    if (!staffEntries.length) {
+      if (!staffEntries.length) return;
+
+      const eventIds = [...new Set(staffEntries.map((s) => s.event_id))];
+      const eventsData = await Promise.all(
+        eventIds.map(async (eid) => {
+          const evts = await api.entities.Event.filter({ id: eid });
+          const evt = evts[0];
+          const staffEntry = staffEntries.find((s) => s.event_id === eid);
+          return evt ? { ...evt, staffRole: staffEntry?.role } : null;
+        })
+      );
+
+      setEvents(eventsData.filter(Boolean));
+    } catch (e) {
+      console.error(e);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const eventIds = [...new Set(staffEntries.map((s) => s.event_id))];
-    const eventsData = await Promise.all(
-      eventIds.map(async (eid) => {
-        const evts = await api.entities.Event.filter({ id: eid });
-        const evt = evts[0];
-        const staffEntry = staffEntries.find((s) => s.event_id === eid);
-        return evt ? { ...evt, staffRole: staffEntry?.role } : null;
-      })
-    );
-
-    setEvents(eventsData.filter(Boolean));
-    setLoading(false);
   }
 
   async function handleJoinByCode() {
