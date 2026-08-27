@@ -89,7 +89,7 @@ export default function FriendProfile({ friend, myEmail, myFriends, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end justify-center px-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}>
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center px-4 py-4">
       <div className="bg-card rounded-3xl border border-border w-full max-w-lg max-h-[85vh] overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-card/95 backdrop-blur-sm rounded-t-3xl px-5 pt-5 pb-3 flex items-center justify-between border-b border-border/50 z-10">
