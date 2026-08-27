@@ -576,6 +576,17 @@ function makeEntity(name) {
         return rows[0] ?? { id: entryId };
       }
       const row = await def.fromApp(obj, true);
+      // Entities that read through a view can't RETURNING their protected
+      // base table (select('*') is blocked by column grants) — take the id
+      // and re-read via the view.
+      if (def.readTable) {
+        const { data, error } = await supabase
+          .from(def.table).insert(row).select("id").single();
+        throwOn(error);
+        if (def.afterWrite) await def.afterWrite(data.id, obj);
+        const rows = await runFilter({ id: data.id });
+        return rows[0] ?? { id: data.id };
+      }
       const { data, error } = await supabase
         .from(def.table).insert(row).select(def.select).single();
       throwOn(error);
@@ -585,6 +596,13 @@ function makeEntity(name) {
     },
     async bulkCreate(objs) {
       const rows = await Promise.all(objs.map((o) => def.fromApp(o, true)));
+      if (def.readTable) {
+        const { data, error } = await supabase
+          .from(def.table).insert(rows).select("id");
+        throwOn(error);
+        const ids = (data ?? []).map((r) => r.id);
+        return ids.length ? runFilter({ id: { $in: ids } }) : [];
+      }
       const { data, error } = await supabase
         .from(def.table).insert(rows).select(def.select);
       throwOn(error);
