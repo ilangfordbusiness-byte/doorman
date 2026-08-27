@@ -671,6 +671,17 @@ const auth = {
     throwOn(error);
     return profileToUser(profile);
   },
+  // Look up another user's public profile by email. profiles is readable by any
+  // signed-in user (profiles_select policy), so this powers instagram/name on
+  // the profile modals. Returns null when no such profile exists.
+  async getProfile(email) {
+    if (!email) return null;
+    const { data, error } = await supabase
+      .from("profiles").select(PROFILE_COLS)
+      .eq("email", String(email).toLowerCase()).maybeSingle();
+    throwOn(error);
+    return data ? profileToUser(data) : null;
+  },
   async updateMe(fields) {
     const id = await uid();
     if (!id) throw new Error("Not authenticated");
