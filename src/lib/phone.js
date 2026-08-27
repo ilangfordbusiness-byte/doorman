@@ -53,12 +53,14 @@ export function normalizePhone(raw, defaultCountry = DEFAULT_COUNTRY) {
 
 // E.164 → national format for the default country ("07700 900123"),
 // international format otherwise; non-E.164 values come back as-is.
+// Compared by calling code, not parsed.country: shared codes (+44 covers
+// GB/GG/JE/IM, +1 the whole NANP) leave country undefined in the min build.
 export function formatPhoneDisplay(value) {
   const text = String(value ?? "").trim();
   if (!text.startsWith("+")) return text;
   const parsed = parsePhoneNumberFromString(text);
   if (!parsed) return text;
-  return parsed.country === DEFAULT_COUNTRY
+  return parsed.countryCallingCode === getCountryCallingCode(DEFAULT_COUNTRY)
     ? parsed.formatNational()
     : parsed.formatInternational();
 }
@@ -81,10 +83,15 @@ export function parseNational(text, country) {
 }
 
 // ISO country of a stored value, e.g. "+33612345678" → "FR"; null if unknown.
+// For calling codes shared by several countries the parser leaves country
+// undefined — fall back to the curated entry for that dial code.
 export function countryFromValue(value) {
   const text = String(value ?? "").trim();
   if (!text.startsWith("+")) return null;
-  return parsePhoneNumberFromString(text)?.country ?? null;
+  const parsed = parsePhoneNumberFromString(text);
+  if (!parsed) return null;
+  if (parsed.country) return parsed.country;
+  return COUNTRIES.find((c) => c.dial === "+" + parsed.countryCallingCode)?.code ?? null;
 }
 
 // Dropdown entry for any ISO code — curated when we have it, synthesized
