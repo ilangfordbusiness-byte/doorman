@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "@/api/data";
-import { X, Instagram, Users, Calendar, Clock, PartyPopper } from "lucide-react";
+import { X, Instagram, PartyPopper } from "lucide-react";
 import { Link } from "react-router-dom";
 import LoadingSpinner from "./LoadingSpinner";
 import UserAvatar from "./UserAvatar";
