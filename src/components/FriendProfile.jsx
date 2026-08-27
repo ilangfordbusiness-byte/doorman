@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "@/api/data";
-import { X, Instagram, Users, Calendar, Clock, PartyPopper } from "lucide-react";
+import { X, Instagram, PartyPopper } from "lucide-react";
 import { Link } from "react-router-dom";
 import LoadingSpinner from "./LoadingSpinner";
 import UserAvatar from "./UserAvatar";
@@ -9,7 +9,7 @@ import moment from "moment";
 export default function FriendProfile({ friend, myEmail, myFriends, onClose }) {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
-  const [stats, setStats] = useState({ hosted: 0, attended: 0, hoursPartied: 0, guestsEntertained: 0 });
+  const [stats, setStats] = useState({ hosted: 0, attended: 0, hoursPartied: 0 });
   const [sharedEvents, setSharedEvents] = useState([]);
   const [mutualFriends, setMutualFriends] = useState([]);
 
@@ -24,75 +24,70 @@ export default function FriendProfile({ friend, myEmail, myFriends, onClose }) {
     const profileData = { email: friend.email, full_name: friend.name, profile_picture: friend.picture, instagram: friend.instagram };
     setProfile(profileData);
 
-    // Load friend's guestlist entries & hosted events in parallel with my own
-    const [friendEntries, friendHostedEvents, friendHostedCheckins, myEntries] = await Promise.all([
-      api.entities.GuestlistEntry.filter({ guest_email: friend.email }),
-      api.entities.Event.filter({ host_email: friend.email }),
-      api.entities.GuestlistEntry.filter({ checked_in_by: friend.email }),
-      api.entities.GuestlistEntry.filter({ guest_email: myEmail }),
-    ]);
+    try {
+      // Load friend's guestlist entries & hosted events in parallel with my own
+      const [friendEntries, friendHostedEvents, myEntries] = await Promise.all([
+        api.entities.GuestlistEntry.filter({ guest_email: friend.email }),
+        api.entities.Event.filter({ host_email: friend.email }),
+        api.entities.GuestlistEntry.filter({ guest_email: myEmail }),
+      ]);
 
-    // Stats
-    let hoursPartied = 0;
-    friendEntries.forEach((e) => {
-      if (e.checked_in_at && e.checked_out_at) {
-        hoursPartied += (new Date(e.checked_out_at) - new Date(e.checked_in_at)) / 3600000;
-      }
-    });
+      // Stats
+      let hoursPartied = 0;
+      friendEntries.forEach((e) => {
+        if (e.checked_in_at && e.checked_out_at) {
+          hoursPartied += (new Date(e.checked_out_at) - new Date(e.checked_in_at)) / 3600000;
+        }
+      });
 
-    const hostedEventIds = new Set(friendHostedEvents.map((ev) => ev.id));
-    const guestsEntertained = new Set(
-      friendHostedCheckins.filter((e) => hostedEventIds.has(e.event_id)).map((e) => e.guest_email)
-    ).size;
+      setStats({
+        hosted: friendHostedEvents.length,
+        attended: friendEntries.filter((e) => e.checked_in_at || ["checked_in", "checked_out"].includes(e.status)).length,
+        hoursPartied: Math.round(hoursPartied * 10) / 10,
+      });
 
-    setStats({
-      hosted: friendHostedEvents.length,
-      attended: friendEntries.filter((e) => e.checked_in_at || ["checked_in", "checked_out"].includes(e.status)).length,
-      hoursPartied: Math.round(hoursPartied * 10) / 10,
-      guestsEntertained,
-    });
-
-    // Shared events: events where both attended (approved/checked_in/invited)
-    const myEventIds = new Set(
-      myEntries
-        .filter((e) => ["approved", "invited", "checked_in"].includes(e.status) || e.checked_in_at)
-        .map((e) => e.event_id)
-    );
-    const friendEventIds = friendEntries
-      .filter((e) => ["approved", "invited", "checked_in"].includes(e.status) || e.checked_in_at)
-      .map((e) => e.event_id);
-
-    const commonEventIds = [...new Set(friendEventIds.filter((eid) => myEventIds.has(eid)))];
-
-    if (commonEventIds.length > 0) {
-      const eventsData = await Promise.all(
-        commonEventIds.slice(0, 10).map((eid) =>
-          api.entities.Event.filter({ id: eid }).then((res) => res[0]).catch(() => null)
-        )
+      // Shared events: events where both attended (approved/checked_in/invited)
+      const myEventIds = new Set(
+        myEntries
+          .filter((e) => ["approved", "invited", "checked_in"].includes(e.status) || e.checked_in_at)
+          .map((e) => e.event_id)
       );
-      setSharedEvents(eventsData.filter(Boolean));
+      const friendEventIds = friendEntries
+        .filter((e) => ["approved", "invited", "checked_in"].includes(e.status) || e.checked_in_at)
+        .map((e) => e.event_id);
+
+      const commonEventIds = [...new Set(friendEventIds.filter((eid) => myEventIds.has(eid)))];
+
+      if (commonEventIds.length > 0) {
+        const eventsData = await Promise.all(
+          commonEventIds.slice(0, 10).map((eid) =>
+            api.entities.Event.filter({ id: eid }).then((res) => res[0]).catch(() => null)
+          )
+        );
+        setSharedEvents(eventsData.filter(Boolean));
+      }
+
+      // Mutual friends
+      if (myFriends && myFriends.length > 0) {
+        // Get friend's friend list
+        const [theirSent, theirReceived] = await Promise.all([
+          api.entities.FriendRequest.filter({ sender_email: friend.email }),
+          api.entities.FriendRequest.filter({ receiver_email: friend.email }),
+        ]);
+
+        const theirFriendEmails = new Set([
+          ...theirSent.filter((r) => r.status === "accepted").map((r) => r.receiver_email),
+          ...theirReceived.filter((r) => r.status === "accepted").map((r) => r.sender_email),
+        ]);
+
+        const mutuals = myFriends.filter((f) => theirFriendEmails.has(f.email));
+        setMutualFriends(mutuals);
+      }
+    } catch {
+      // Render whatever loaded; never leave the modal stuck on the spinner.
+    } finally {
+      setLoading(false);
     }
-
-    // Mutual friends
-    if (myFriends && myFriends.length > 0) {
-      const friendEmailSet = new Set(myFriends.map((f) => f.email));
-
-      // Get friend's friend list
-      const [theirSent, theirReceived] = await Promise.all([
-        api.entities.FriendRequest.filter({ sender_email: friend.email }),
-        api.entities.FriendRequest.filter({ receiver_email: friend.email }),
-      ]);
-
-      const theirFriendEmails = new Set([
-        ...theirSent.filter((r) => r.status === "accepted").map((r) => r.receiver_email),
-        ...theirReceived.filter((r) => r.status === "accepted").map((r) => r.sender_email),
-      ]);
-
-      const mutuals = myFriends.filter((f) => theirFriendEmails.has(f.email));
-      setMutualFriends(mutuals);
-    }
-
-    setLoading(false);
   }
 
   return (
@@ -136,9 +131,6 @@ export default function FriendProfile({ friend, myEmail, myFriends, onClose }) {
                 <StatCard label="Events Hosted" value={stats.hosted} color="text-primary" />
                 <StatCard label="Events Attended" value={stats.attended} color="text-accent" />
                 <StatCard label="Hours Partied" value={`${stats.hoursPartied}h`} color="text-emerald-400" />
-                {stats.guestsEntertained > 0 && (
-                  <StatCard label="Guests Entertained" value={stats.guestsEntertained} color="text-pink-400" />
-                )}
               </div>
             </div>
 
