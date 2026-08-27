@@ -4,6 +4,7 @@
 // (cover_image, host_email, price, sender_name, ...) while the database
 // speaks the new ones (cover_image_url, host_id, price_minor, joins).
 import { supabase } from "./client";
+import { normalizePhone } from "@/lib/phone";
 
 // ---------------------------------------------------------------------------
 // Session + lookups
@@ -182,6 +183,7 @@ const ENTITIES = {
       ];
       for (const k of copy) if (k in obj) out[k] = obj[k];
       if (out.guest_email) out.guest_email = String(out.guest_email).toLowerCase();
+      if (out.guest_phone) out.guest_phone = normalizePhone(out.guest_phone);
       if ("checked_in_by" in obj) out.checked_in_by = await uid();
       if (isCreate) {
         out.created_by = await uid();
@@ -207,7 +209,7 @@ const ENTITIES = {
       const out = {};
       if ("event_id" in obj) out.event_id = obj.event_id;
       if ("staff_email" in obj) out.email = obj.staff_email ? String(obj.staff_email).toLowerCase() : null;
-      if ("staff_phone" in obj) out.phone = obj.staff_phone || null;
+      if ("staff_phone" in obj) out.phone = obj.staff_phone ? normalizePhone(obj.staff_phone) : null;
       if ("staff_name" in obj) out.name = obj.staff_name;
       if ("role" in obj) out.role = obj.role;
       if (isCreate) {
@@ -218,7 +220,7 @@ const ENTITIES = {
     },
     async filterKey(key, value) {
       if (key === "staff_email") return ["email", String(value).toLowerCase()];
-      if (key === "staff_phone") return ["phone", value];
+      if (key === "staff_phone") return ["phone", normalizePhone(value)];
       return [key, value];
     },
   },
@@ -679,6 +681,7 @@ const auth = {
       if (k in fields) patch[k] = fields[k];
     }
     if (patch.active_business_id === "") patch.active_business_id = null;
+    if (patch.phone) patch.phone = normalizePhone(patch.phone);
     if ("profile_picture" in fields) patch.avatar_url = fields.profile_picture;
     if (Object.keys(patch).length) {
       const { error } = await supabase.from("profiles").update(patch).eq("id", id);
