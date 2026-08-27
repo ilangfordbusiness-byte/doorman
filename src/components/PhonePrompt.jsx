@@ -2,6 +2,8 @@ import { useState } from "react";
 import { api } from "@/api/data";
 import { Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import PhoneInput from "@/components/PhoneInput";
+import { normalizePhone } from "@/lib/phone";
 
 export default function PhonePrompt({ onSaved }) {
   const [phone, setPhone] = useState("");
@@ -10,9 +12,10 @@ export default function PhonePrompt({ onSaved }) {
   async function save() {
     if (!phone.trim()) return;
     setSaving(true);
-    await api.auth.updateMe({ phone: phone.trim() });
+    const normalized = normalizePhone(phone);
+    await api.auth.updateMe({ phone: normalized });
     setSaving(false);
-    onSaved(phone.trim());
+    onSaved(normalized);
   }
 
   return (
@@ -25,13 +28,11 @@ export default function PhonePrompt({ onSaved }) {
         Hosts can invite or add you as staff using your phone number.
       </p>
       <div className="flex gap-2">
-        <input
+        <PhoneInput
           value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder="+1 (555) 000-0000"
-          inputMode="tel"
-          className="flex-1 h-10 px-3 text-sm bg-secondary/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-          onKeyDown={(e) => e.key === "Enter" && save()}
+          onChange={setPhone}
+          className="flex-1 h-10"
+          onEnter={save}
         />
         <Button size="sm" className="h-10 rounded-xl" onClick={save} disabled={saving || !phone.trim()}>
           {saving ? "..." : "Save"}

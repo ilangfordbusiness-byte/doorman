@@ -13,6 +13,8 @@ import GuestCard from "../components/GuestCard";
 import LoadingSpinner from "../components/LoadingSpinner";
 import Avatar from "../components/Avatar";
 import { useProfiles } from "@/hooks/useProfiles";
+import PhoneInput from "@/components/PhoneInput";
+import { normalizePhone } from "@/lib/phone";
 import FriendProfile from "../components/FriendProfile";
 
 export default function GuestlistManagement() {
@@ -102,10 +104,12 @@ export default function GuestlistManagement() {
     }
     setAdding(true);
 
+    const email = newGuest.email.trim().toLowerCase();
+    const phone = normalizePhone(newGuest.phone);
     const existing = guests.find(
       (g) =>
-        (newGuest.email && g.guest_email === newGuest.email) ||
-        (newGuest.phone && g.guest_phone === newGuest.phone)
+        (email && (g.guest_email || "").toLowerCase() === email) ||
+        (phone && normalizePhone(g.guest_phone || "") === phone)
     );
     if (existing) {
       toast({ title: "Guest already on list", variant: "destructive" });
@@ -115,9 +119,9 @@ export default function GuestlistManagement() {
 
     await api.entities.GuestlistEntry.create({
       event_id: id,
-      guest_email: newGuest.email || "",
+      guest_email: email,
       guest_name: newGuest.name,
-      guest_phone: newGuest.phone || "",
+      guest_phone: phone,
       status: "invited",
       source: "manual",
       qr_secret: crypto.randomUUID(),
@@ -132,10 +136,13 @@ export default function GuestlistManagement() {
 
   const filtered = guests.filter((g) => {
     const q = search.toLowerCase();
+    // Digits-only match lets "07700" find a stored "+447700…".
+    const qDigits = q.replace(/\D/g, "").replace(/^0/, "");
     return (
       (g.guest_name || "").toLowerCase().includes(q) ||
       (g.guest_email || "").toLowerCase().includes(q) ||
-      (g.guest_phone || "").includes(q)
+      (g.guest_phone || "").includes(q) ||
+      (qDigits && (g.guest_phone || "").replace(/\D/g, "").includes(qDigits))
     );
   });
 
@@ -214,11 +221,11 @@ export default function GuestlistManagement() {
                 onChange={(e) => setNewGuest((p) => ({ ...p, email: e.target.value }))}
                 className="bg-secondary/50 border-border h-11 rounded-xl"
               />
-              <Input
-                placeholder="Phone (or leave blank)"
+              <PhoneInput
                 value={newGuest.phone}
-                onChange={(e) => setNewGuest((p) => ({ ...p, phone: e.target.value }))}
-                className="bg-secondary/50 border-border h-11 rounded-xl"
+                onChange={(v) => setNewGuest((p) => ({ ...p, phone: v }))}
+                placeholder="Phone (or leave blank)"
+                className="h-11"
               />
               <p className="text-xs text-muted-foreground text-center">At least one of email or phone is required</p>
               <Button className="w-full h-11 rounded-xl bg-primary" onClick={addGuest} disabled={adding}>
