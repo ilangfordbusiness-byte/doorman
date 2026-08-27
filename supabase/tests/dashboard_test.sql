@@ -178,6 +178,35 @@ begin
   if v_count <> 1 then raise exception 'FAIL: click count %, want 1', v_count; end if;
   perform pg_temp.ok('promoter link: click counted once');
 
+  -- ---- phone normalization + phone-matched invites ----
+  if public.normalize_phone('07700 900123') <> '+447700900123'
+     or public.normalize_phone('+44 7700 900-123') <> '+447700900123'
+     or public.normalize_phone('00447700900123') <> '+447700900123'
+     or public.normalize_phone('7700900123') <> '+447700900123'
+     or public.normalize_phone('12025550123') <> '+12025550123'
+     or public.normalize_phone('not a phone') <> 'not a phone'
+     or public.normalize_phone('2079460000') <> '2079460000' then
+    raise exception 'FAIL: normalize_phone rules wrong';
+  end if;
+  perform pg_temp.ok('normalize_phone: E.164 canonicalization rules');
+
+  update public.profiles set phone = public.normalize_phone('07700 900123') where id = dave;
+  if (select phone from public.profiles where id = dave) <> '+447700900123' then
+    raise exception 'FAIL: dave phone stored un-normalized: %',
+      (select phone from public.profiles where id = dave);
+  end if;
+  -- phone-only entry: no user_id, email that is nobody's — only the phone
+  -- arm of get_guest_dashboard can match it
+  insert into public.guestlist_entries (event_id, guest_email, guest_phone, guest_name, status, source, created_by)
+    values (v_event, 'nobody@dash.dev', '+447700900123', 'Dave ByPhone', 'invited', 'manual', alice);
+  perform pg_temp.impersonate(dave, 'dave@dash.dev');
+  r := public.get_guest_dashboard();
+  if not jsonb_path_exists(r -> 'inviteEvents', '$[*] ? (@.guestStatus == "invited")') then
+    raise exception 'FAIL: phone-matched invite missing: %', r -> 'inviteEvents';
+  end if;
+  perform pg_temp.ok('guest hub: invite matched via normalized phone');
+
+  execute 'reset role';
   raise notice '';
   raise notice 'ALL % CHECKS PASSED', currval('pg_temp.t_pass');
 end $test$;
