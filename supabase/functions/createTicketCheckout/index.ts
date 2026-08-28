@@ -90,21 +90,27 @@ Deno.serve(async (req) => {
       promoDiscountFinal = Math.max(0, capDiscount - promoterDiscountMinor);
       totalDiscountMinor = promoterDiscountMinor + promoDiscountFinal;
     }
-    const paid = unitMinor - totalDiscountMinor; // per ticket
+    const paid = unitMinor - totalDiscountMinor; // per ticket, face value
 
     // Order-level money. The platform fee applies per ticket sold; all stored
     // amounts below are totals for the whole order (unit_price_minor stays
     // per-unit), which is what analytics/admin metrics sum as revenue.
-    const orderPaidMinor = paid * qty;
-    const feeMinor = computeFeeMinor(paid) * qty;
+    // fee_mode decides who pays the fee: 'pass_on' adds it to the buyer's
+    // total (displayed all-in in the app); 'absorb' deducts it from the host.
+    const passOn = event.fee_mode === 'pass_on';
+    const feePerTicketMinor = computeFeeMinor(paid);
+    const feeMinor = feePerTicketMinor * qty;
+    const orderFaceMinor = paid * qty;
+    const orderPaidMinor = passOn ? orderFaceMinor + feeMinor : orderFaceMinor;
     let hostNetMinor = orderPaidMinor - feeMinor;
 
-    // Commission comes out of the host's net, computed on the discounted price.
+    // Commission comes out of the host's net, computed on the discounted face
+    // value (never on the buyer-paid booking fee).
     let commissionMinor = 0;
     if (promoter) {
       commissionMinor = promoter.commission_type === 'flat'
         ? Number(promoter.commission_flat_minor || 0) * qty
-        : Math.round(orderPaidMinor * (Number(promoter.commission_percent || 0) / 100));
+        : Math.round(orderFaceMinor * (Number(promoter.commission_percent || 0) / 100));
       if (commissionMinor > hostNetMinor) commissionMinor = hostNetMinor;
       hostNetMinor -= commissionMinor;
     }
@@ -164,6 +170,14 @@ Deno.serve(async (req) => {
     params.append('line_items[0][price_data][currency]', currency);
     params.append('line_items[0][price_data][unit_amount]', String(paid));
     params.append('line_items[0][price_data][product_data][name]', `${event.title} — ${tier.name}`);
+    if (passOn) {
+      // Buyer-paid booking fee as its own line so the Stripe receipt matches
+      // the app's all-in price breakdown.
+      params.append('line_items[1][quantity]', String(qty));
+      params.append('line_items[1][price_data][currency]', currency);
+      params.append('line_items[1][price_data][unit_amount]', String(feePerTicketMinor));
+      params.append('line_items[1][price_data][product_data][name]', 'Booking fee');
+    }
     params.append('success_url', successUrl);
     params.append('cancel_url', cancelUrl);
     params.append('metadata[order_id]', order.id);

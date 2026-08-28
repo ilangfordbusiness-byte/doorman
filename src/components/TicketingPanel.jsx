@@ -5,12 +5,15 @@ import { Ticket, Tag, Plus, Trash2, Loader2, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
+import { buyerPrice } from "@/lib/fees";
 
 const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
 
 // stripeActive: null while loading, then whether the payout account is ready —
 // tier creation is server-gated on the same rule, this is the friendly path.
-export default function TicketingPanel({ eventId, paid, currency, stripeActive = null }) {
+// feeMode: the event's fee_mode; under 'pass_on' each tier shows the
+// fee-inclusive price buyers will actually see.
+export default function TicketingPanel({ eventId, paid, currency, stripeActive = null, feeMode = "absorb" }) {
   const { toast } = useToast();
   const [tiers, setTiers] = useState([]);
   const [promos, setPromos] = useState([]);
@@ -137,7 +140,9 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
             <div className="flex-1">
               <p className="text-sm font-medium">{t.name}</p>
               <p className="text-xs text-muted-foreground">
-                {sym}{Number(t.price).toFixed(2)} · {Math.max(0, Number(t.quantity || 0) - Number(t.sold || 0))} left
+                {sym}{Number(t.price).toFixed(2)}
+                {feeMode === "pass_on" && Number(t.price) > 0 && ` (buyers pay ${sym}${buyerPrice(t.price, feeMode).toFixed(2)})`}
+                {" · "}{Math.max(0, Number(t.quantity || 0) - Number(t.sold || 0))} left
                 {t.sales_status === "sold_out" && <span className="text-destructive"> · Sold out</span>}
               </p>
             </div>
