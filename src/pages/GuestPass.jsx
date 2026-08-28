@@ -394,13 +394,13 @@ export default function GuestPass() {
                 <p className="text-[10px] text-muted-foreground text-center mt-2">Transferring: {ticketLabel}</p>
               )}
               {entry.order_id && !pendingTransfer && (
-                <Button
-                  variant="ghost"
-                  className="w-full h-10 rounded-xl gap-2 mt-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                <button
+                  type="button"
                   onClick={() => setShowCancel(true)}
+                  className="w-full mt-3 text-xs text-muted-foreground hover:text-destructive transition-colors inline-flex items-center justify-center gap-1"
                 >
-                  <XCircle className="w-4 h-4" /> Cancel ticket &amp; get a refund
-                </Button>
+                  <XCircle className="w-3 h-3" /> Cancel ticket &amp; get a refund
+                </button>
               )}
             </div>
           )}
