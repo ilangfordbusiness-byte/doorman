@@ -3,7 +3,8 @@ import CoverPicker from "../components/CoverPicker";
 import CoverPhotoUpload from "../components/CoverPhotoUpload";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/data";
-import { ArrowLeft, Users, Eye, Plus, Ticket, Megaphone, Trash2, CreditCard, AtSign } from "lucide-react";
+import { ArrowLeft, Users, Eye, Plus, Ticket, Megaphone, Trash2, CreditCard, AtSign, Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import HomeButton from "@/components/HomeButton";
@@ -394,26 +395,26 @@ export default function CreateEvent({ business = null }) {
                   </div>
                 </div>
               )}
-              <div className="mt-4">
-                <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Who's Going Visibility</Label>
-                <div className="space-y-2">
-                  {[
-                    { v: "show_names", l: "Show names", d: "Guests see attendee names" },
-                    { v: "count_only", l: "Show count only", d: "Just a number, no names" },
-                    { v: "none", l: "Show nothing", d: "No attendee info at all" },
-                  ].map((o) => (
-                    <label key={o.v} className={`flex items-start gap-2 rounded-xl p-2.5 border cursor-pointer ${form.visibility === o.v ? "border-primary bg-primary/10" : "border-border bg-secondary/40"}`}>
-                      <input type="radio" name="createevent-visibility" checked={form.visibility === o.v} onChange={() => updateForm("visibility", o.v)} className="mt-0.5 accent-primary" />
-                      <div>
-                        <p className="text-sm font-medium">{o.l}</p>
-                        <p className="text-xs text-muted-foreground">{o.d}</p>
-                      </div>
-                    </label>
-                  ))}
-                </div>
-              </div>
             </div>
           )}
+          <div>
+            <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Who's Going Visibility</Label>
+            <div className="space-y-2">
+              {[
+                { v: "show_names", l: "Show names", d: "Guests see attendee names" },
+                { v: "count_only", l: "Show count only", d: "Just a number, no names" },
+                { v: "none", l: "Show nothing", d: "No attendee info at all" },
+              ].map((o) => (
+                <label key={o.v} className={`flex items-start gap-2 rounded-xl p-2.5 border cursor-pointer ${form.visibility === o.v ? "border-primary bg-primary/10" : "border-border bg-secondary/40"}`}>
+                  <input type="radio" name="createevent-visibility" checked={form.visibility === o.v} onChange={() => updateForm("visibility", o.v)} className="mt-0.5 accent-primary" />
+                  <div>
+                    <p className="text-sm font-medium">{o.l}</p>
+                    <p className="text-xs text-muted-foreground">{o.d}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Users className="w-4 h-4 text-muted-foreground" />
@@ -438,66 +439,34 @@ export default function CreateEvent({ business = null }) {
             </div>
             <Switch checked={form.is_paid} onCheckedChange={(v) => updateForm("is_paid", v)} />
           </div>
-          {form.is_paid && (
-            <div className="space-y-3">
-              {stripeConnected !== null && !stripeActive && (
-                <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-amber-400">
-                  <CreditCard className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <div className="text-xs leading-relaxed">
-                    Ticket money is paid straight to your Stripe account, so payment setup must be
-                    finished before you can sell tickets.{" "}
-                    <Link to={business ? "/business/create-event" : "/profile"} className="underline font-semibold">Finish Stripe setup</Link>.
-                  </div>
-                </div>
-              )}
-              <div>
-                <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Currency</Label>
-                <select value={form.currency} onChange={(e) => updateForm("currency", e.target.value)} className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm">
+          {form.is_paid && stripeConnected !== null && !stripeActive && (
+            <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-amber-400">
+              <CreditCard className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <div className="text-xs leading-relaxed">
+                Ticket money is paid straight to your Stripe account, so payment setup must be
+                finished before you can sell tickets.{" "}
+                <Link to={business ? "/business/create-event" : "/profile"} className="underline font-semibold">Finish Stripe setup</Link>.
+              </div>
+            </div>
+          )}
+        </div>
+
+        {form.is_paid && (
+          <>
+            {/* Ticket Tiers */}
+            <div className="space-y-4 bg-secondary/30 rounded-2xl p-4 border border-border/50">
+              <h3 className="font-heading font-semibold text-sm flex items-center gap-2">
+                <Ticket className="w-4 h-4 text-primary" /> Ticket Tiers
+              </h3>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider">Currency</Label>
+                <select value={form.currency} onChange={(e) => updateForm("currency", e.target.value)} className="h-9 w-32 rounded-md border border-input bg-transparent px-3 text-sm">
                   <option value="gbp">GBP (£)</option>
                   <option value="eur">EUR (€)</option>
                   <option value="usd">USD ($)</option>
                 </select>
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Booking Fee (45p + 4% per ticket)</Label>
-                <div className="space-y-2">
-                  {[
-                    { v: "pass_on", l: "Added to the ticket price", d: "Buyers pay it — prices are always shown fee-inclusive. You receive full face value." },
-                    { v: "absorb", l: "Absorbed in your payout", d: "Buyers pay exactly the price you set; the fee comes out of your share." },
-                  ].map((o) => (
-                    <label key={o.v} className={`flex items-start gap-2 rounded-xl p-2.5 border cursor-pointer ${form.fee_mode === o.v ? "border-primary bg-primary/10" : "border-border bg-secondary/40"}`}>
-                      <input type="radio" name="fee_mode" checked={form.fee_mode === o.v} onChange={() => updateForm("fee_mode", o.v)} className="mt-0.5 accent-primary" />
-                      <div>
-                        <p className="text-sm font-medium">{o.l}</p>
-                        <p className="text-xs text-muted-foreground">{o.d}</p>
-                      </div>
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Who's Going Visibility</Label>
-                <div className="space-y-2">
-                  {[
-                    { v: "show_names", l: "Show names", d: "Guests see attendee names" },
-                    { v: "count_only", l: "Show count only", d: "Just a number, no names" },
-                    { v: "none", l: "Show nothing", d: "No attendee info at all" },
-                  ].map((o) => (
-                    <label key={o.v} className={`flex items-start gap-2 rounded-xl p-2.5 border cursor-pointer ${form.visibility === o.v ? "border-primary bg-primary/10" : "border-border bg-secondary/40"}`}>
-                      <input type="radio" name="visibility" checked={form.visibility === o.v} onChange={() => updateForm("visibility", o.v)} className="mt-0.5 accent-primary" />
-                      <div>
-                        <p className="text-sm font-medium">{o.l}</p>
-                        <p className="text-xs text-muted-foreground">{o.d}</p>
-                      </div>
-                    </label>
-                  ))}
-                </div>
-              </div>
-              {/* Ticket tier builder */}
-              <div className="border-t border-border/50 pt-4">
-                <h3 className="font-heading font-semibold text-sm flex items-center gap-2 mb-2">
-                  <Ticket className="w-4 h-4 text-primary" /> Ticket Tiers
-                </h3>
                 <p className="text-xs text-muted-foreground mb-3">Add your ticket tiers now — they'll be live the moment you publish.</p>
                 {tiers.length > 0 && (
                   <div className="space-y-2 mb-3">
@@ -523,9 +492,41 @@ export default function CreateEvent({ business = null }) {
                   </Button>
                 </div>
               </div>
+              {/* Booking fee — who pays the platform fee */}
+              <div>
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Label className="text-xs text-muted-foreground uppercase tracking-wider">Booking Fee</Label>
+                  <TooltipProvider delayDuration={150}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" aria-label="Booking fee details" className="text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded">
+                          <Info className="w-3.5 h-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">45p + 4% per ticket</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <div className="space-y-2">
+                  {[
+                    { v: "pass_on", l: "Added to the ticket price", d: "Buyers pay it — prices are always shown fee-inclusive. You receive full face value." },
+                    { v: "absorb", l: "Absorbed in your payout", d: "Buyers pay exactly the price you set; the fee comes out of your share." },
+                  ].map((o) => (
+                    <label key={o.v} className={`flex items-start gap-2 rounded-xl p-2.5 border cursor-pointer ${form.fee_mode === o.v ? "border-primary bg-primary/10" : "border-border bg-secondary/40"}`}>
+                      <input type="radio" name="fee_mode" checked={form.fee_mode === o.v} onChange={() => updateForm("fee_mode", o.v)} className="mt-0.5 accent-primary" />
+                      <div>
+                        <p className="text-sm font-medium">{o.l}</p>
+                        <p className="text-xs text-muted-foreground">{o.d}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
 
-              {/* Promoter setup */}
-              <div className="border-t border-border/50 pt-4 mt-4">
+            {/* Promoters */}
+            <div className="space-y-4 bg-secondary/30 rounded-2xl p-4 border border-border/50">
+              <div>
                 <h3 className="font-heading font-semibold text-sm flex items-center gap-2 mb-3">
                   <Megaphone className="w-4 h-4 text-amber-400" /> Promoters
                 </h3>
@@ -578,8 +579,8 @@ export default function CreateEvent({ business = null }) {
                 </div>
               </div>
             </div>
-          )}
-        </div>
+          </>
+        )}
 
         {/* Actions */}
         <div className="flex gap-3 pt-2">
