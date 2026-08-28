@@ -743,7 +743,9 @@ const auth = {
           phone: extra.phone ? normalizePhone(extra.phone) : undefined,
           instagram: extra.instagram || undefined,
         },
-        emailRedirectTo: window.location.origin,
+        // Return to the page the user signed up from (e.g. an event page with
+        // a promoter ?ref=), not the bare homepage.
+        emailRedirectTo: window.location.href,
       },
     });
     throwOn(error);

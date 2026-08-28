@@ -10,6 +10,11 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Privacy from './pages/Privacy';
+import { stashRefFromUrl } from '@/lib/promoterRef';
+
+// Capture a promoter ?ref= before the auth gate decides what to render, so
+// attribution survives sign-up flows that never mount EventDetails.
+stashRefFromUrl();
 
 const Home = lazy(() => import('./pages/Home'));
 const CreateEvent = lazy(() => import('./pages/CreateEvent'));
