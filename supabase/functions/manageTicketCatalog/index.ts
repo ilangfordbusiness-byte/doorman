@@ -1,6 +1,7 @@
 // Host-only CRUD for ticket tiers and promo codes. Prices arrive in major
 // units from the UI and are stored as minor units.
 import { getCaller, json, preflight, serviceClient } from '../_shared/db.ts';
+import { PAYOUT_SETUP_ERROR, resolvePayoutAccount } from '../_shared/connect.ts';
 
 Deno.serve(async (req) => {
   const pre = preflight(req);
@@ -21,7 +22,8 @@ Deno.serve(async (req) => {
     }
     if (!eventId) return json({ error: 'Missing event_id' }, 400);
 
-    const { data: evt } = await svc.from('events').select('id, host_id').eq('id', eventId).single();
+    const { data: evt } = await svc.from('events').select('id, host_id, business_id')
+      .eq('id', eventId).single();
     if (!evt) return json({ error: 'Event not found' }, 404);
     if (evt.host_id !== user.id) {
       return json({ error: 'Only the event host can manage the ticket catalog' }, 403);
@@ -32,6 +34,10 @@ Deno.serve(async (req) => {
       if (!name || price == null || quantity == null) {
         return json({ error: 'Missing tier fields' }, 400);
       }
+      // Selling tickets requires payout-ready Stripe onboarding — the host's
+      // share is auto-routed at purchase, so there is no platform-held path.
+      const payout = await resolvePayoutAccount(svc, evt);
+      if (!payout.active) return json({ error: PAYOUT_SETUP_ERROR }, 400);
       const { data: tier, error } = await svc.from('ticket_tiers').insert({
         event_id: eventId,
         name,

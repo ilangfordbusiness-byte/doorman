@@ -20,9 +20,12 @@ const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
 export default function CreateEvent({ business = null }) {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { connected: personalConnected } = useStripeStatus();
-  const { connected: businessConnected } = useBusinessStripeStatus(business?.id);
+  const { connected: personalConnected, active: personalActive } = useStripeStatus();
+  const { connected: businessConnected, active: businessActive } = useBusinessStripeStatus(business?.id);
   const stripeConnected = business ? businessConnected : personalConnected;
+  // Selling tickets requires payouts-enabled onboarding, not just a connected
+  // account — the server enforces the same rule at tier creation and checkout.
+  const stripeActive = business ? businessActive : personalActive;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [coverId, setCoverId] = useState("");
@@ -101,8 +104,8 @@ export default function CreateEvent({ business = null }) {
       return;
     }
 
-    if (form.is_paid && status === "published" && stripeConnected === false) {
-      setError("Connect your Stripe account before publishing a paid event — go to Profile → Payouts & Earnings.");
+    if (form.is_paid && status === "published" && stripeConnected !== null && !stripeActive) {
+      setError("Finish your Stripe payment setup before publishing a paid event — go to Profile → Payouts & Earnings.");
       return;
     }
 
@@ -436,12 +439,13 @@ export default function CreateEvent({ business = null }) {
           </div>
           {form.is_paid && (
             <div className="space-y-3">
-              {stripeConnected === false && (
+              {stripeConnected !== null && !stripeActive && (
                 <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-amber-400">
                   <CreditCard className="w-4 h-4 mt-0.5 flex-shrink-0" />
                   <div className="text-xs leading-relaxed">
-                    You need a connected Stripe account to sell tickets and receive payouts.{" "}
-                    <Link to={business ? "/business/create-event" : "/profile"} className="underline font-semibold">Connect Stripe first</Link>.
+                    Ticket money is paid straight to your Stripe account, so payment setup must be
+                    finished before you can sell tickets.{" "}
+                    <Link to={business ? "/business/create-event" : "/profile"} className="underline font-semibold">Finish Stripe setup</Link>.
                   </div>
                 </div>
               )}

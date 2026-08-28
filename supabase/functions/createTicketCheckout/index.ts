@@ -5,6 +5,7 @@ import {
   computeFeeMinor, computePromoterDiscountMinor, MIN_PAID_MINOR,
   promoterDiscountAvailable,
 } from '../_shared/tickets.ts';
+import { PAYOUT_SETUP_ERROR, resolvePayoutAccount } from '../_shared/connect.ts';
 
 function allowedOrigins(req: Request): string[] {
   const extra = (Deno.env.get('ALLOWED_ORIGINS') || '').split(',').map((s) => s.trim()).filter(Boolean);
@@ -36,6 +37,12 @@ Deno.serve(async (req) => {
     const { data: event } = await svc.from('events').select('*').eq('id', tier.event_id).single();
     if (!event) return json({ error: 'Event not found' }, 404);
     const currency = String(event.currency || 'gbp').toLowerCase();
+
+    // Paid tickets require a payout-ready host: the host's share is routed to
+    // their connected account inside the payment itself (destination charge),
+    // so host money never accumulates on the platform balance.
+    const payout = await resolvePayoutAccount(svc, event);
+    if (!payout.active) return json({ error: PAYOUT_SETUP_ERROR }, 400);
 
     const unitMinor = Number(tier.price_minor);
 
@@ -120,6 +127,7 @@ Deno.serve(async (req) => {
       host_net_minor: hostNetMinor,
       currency,
       status: 'pending',
+      payout_destination: payout.accountId,
     }).select('*').single();
     if (orderErr || !order) throw new Error(orderErr?.message || 'Failed to create order');
 
@@ -147,6 +155,11 @@ Deno.serve(async (req) => {
     // payment_method_types. Payment methods come from the dashboard config.
     params.append('managed_payments[enabled]', 'false');
     params.append('mode', 'payment');
+    // Destination charge: Stripe transfers the host's share to their connected
+    // account on payment; the application fee (platform cut + any promoter
+    // commission, paid out manually) stays on the platform balance.
+    params.append('payment_intent_data[transfer_data][destination]', String(payout.accountId));
+    params.append('payment_intent_data[application_fee_amount]', String(feeMinor + commissionMinor));
     params.append('line_items[0][quantity]', String(qty));
     params.append('line_items[0][price_data][currency]', currency);
     params.append('line_items[0][price_data][unit_amount]', String(paid));

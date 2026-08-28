@@ -13,6 +13,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import LoadingSpinner from "../components/LoadingSpinner";
 import TicketingPanel from "../components/TicketingPanel";
+import { useStripeStatus } from "@/hooks/useStripeStatus";
+import { useBusinessStripeStatus } from "@/hooks/useBusinessStripeStatus";
 
 export default function EditEvent() {
   const { id } = useParams();
@@ -24,6 +26,15 @@ export default function EditEvent() {
   const [coverId, setCoverId] = useState("");
   const [coverPreview, setCoverPreview] = useState(null);
   const [original, setOriginal] = useState(null);
+  // Payout-readiness for the ticketing panel: business events route through the
+  // business account (or its owner, per stripe_mode); personal events through
+  // the host's own account. Server enforces the same rule on tier creation.
+  const { connected: personalConnected, active: personalActive } = useStripeStatus();
+  const { connected: businessConnected, active: businessActive } =
+    useBusinessStripeStatus(original?.business_id);
+  const stripeActive = original?.business_id
+    ? (businessConnected === null ? null : businessActive)
+    : (personalConnected === null ? null : personalActive);
   const [form, setForm] = useState({
     title: "",
     date: "",
@@ -360,7 +371,7 @@ export default function EditEvent() {
                   ))}
                 </div>
               </div>
-              <TicketingPanel eventId={id} paid={form.is_paid} currency={form.currency} />
+              <TicketingPanel eventId={id} paid={form.is_paid} currency={form.currency} stripeActive={stripeActive} />
             </>
           )}
         </div>

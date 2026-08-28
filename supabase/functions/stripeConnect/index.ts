@@ -54,8 +54,12 @@ Deno.serve(async (req) => {
       }
       const eventIds = (hostEvents ?? []).map((e) => e.id);
       if (eventIds.length) {
+        // Only platform-held (legacy, pre-auto-payout) orders count as owed
+        // here — orders with a payout_destination were paid to the host's
+        // connected account inside the charge itself.
         const { data: orders } = await svc.from('ticket_orders')
-          .select('event_id, host_net_minor').in('event_id', eventIds).eq('status', 'paid');
+          .select('event_id, host_net_minor').in('event_id', eventIds).eq('status', 'paid')
+          .is('payout_destination', null);
         for (const o of orders ?? []) {
           const cur = eventCurrency[o.event_id];
           if (!balances[cur]) balances[cur] = { earned: 0, withdrawn: 0, role: 'host' };
@@ -245,7 +249,8 @@ Deno.serve(async (req) => {
       const ids = (events ?? []).map((e) => e.id);
       if (ids.length) {
         const { data: orders } = await svc.from('ticket_orders')
-          .select('event_id, host_net_minor').in('event_id', ids).eq('status', 'paid');
+          .select('event_id, host_net_minor').in('event_id', ids).eq('status', 'paid')
+          .is('payout_destination', null);
         const curOf = Object.fromEntries(
           (events ?? []).map((e) => [e.id, String(e.currency || 'gbp').toLowerCase()]),
         );
