@@ -37,6 +37,7 @@ export default function Profile() {
   const [showAdminPin, setShowAdminPin] = useState(false);
   const [adminPin, setAdminPin] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [pendingPhoto, setPendingPhoto] = useState(null);
   const [showPhotoMenu, setShowPhotoMenu] = useState(false);
@@ -47,8 +48,14 @@ export default function Profile() {
 
   async function handleDeleteAccount() {
     if (deleteConfirmText !== "DELETE") return;
-    await api.auth.updateMe({ deleted: true, email: `deleted_${Date.now()}@deleted.com` });
-    api.auth.logout();
+    setDeleting(true);
+    try {
+      // Anonymises the account and signs out (redirects to the login screen).
+      await api.auth.deleteAccount();
+    } catch (e) {
+      toast({ title: e.message || "Couldn't delete account", variant: "destructive" });
+      setDeleting(false);
+    }
   }
 
   useEffect(() => {
@@ -426,7 +433,7 @@ export default function Profile() {
         <div className="fixed inset-0 bg-black/70 flex items-end justify-center z-50 px-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}>
           <div className="bg-card rounded-2xl border border-border p-6 w-full max-w-sm">
             <p className="font-heading font-bold text-lg mb-1">Delete Account</p>
-            <p className="text-sm text-muted-foreground mb-4">This permanently deletes your account, events, and guestlist data. Type <strong>DELETE</strong> to confirm.</p>
+            <p className="text-sm text-muted-foreground mb-4">This closes your account for good: you'll be signed out and unable to sign back in, and your name, phone, Instagram and photo are removed. Type <strong>DELETE</strong> to confirm.</p>
             <Input
               placeholder="Type DELETE"
               value={deleteConfirmText}
@@ -440,10 +447,10 @@ export default function Profile() {
               </Button>
               <Button
                 className="flex-1 rounded-xl bg-destructive hover:bg-destructive/90"
-                disabled={deleteConfirmText !== "DELETE"}
+                disabled={deleteConfirmText !== "DELETE" || deleting}
                 onClick={handleDeleteAccount}
               >
-                Delete
+                {deleting ? "Deleting..." : "Delete"}
               </Button>
             </div>
           </div>

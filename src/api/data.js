@@ -776,6 +776,13 @@ const auth = {
     await supabase.auth.signOut();
     window.location.assign("/");
   },
+  // Deletes the account server-side (a client can't remove an auth user): the
+  // deleteAccount edge function frees the email, blocks sign-in and scrubs
+  // personal data. Then sign out.
+  async deleteAccount() {
+    await invokeEdge("deleteAccount", {});
+    await auth.logout();
+  },
   async isAuthenticated() {
     const { data } = await supabase.auth.getSession();
     return !!data.session;
