@@ -4,9 +4,9 @@
 import { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { appOrigin, escapeHtml, formatEventDateLong, formatTimeRange, sendEmail } from './email.ts';
 
-// Platform cut per ticket sold: 45p + 3.5% of the (post-discount) ticket price.
+// Platform cut per ticket sold: 45p + 4% of the (post-discount) ticket price.
 export const PLATFORM_FEE_FIXED_MINOR = 45; // 0.45 in minor units
-export const PLATFORM_FEE_PERCENT = 0.035; // 3.5%
+export const PLATFORM_FEE_PERCENT = 0.04; // 4%
 export const MIN_PAID_MINOR = 50; // minimum chargeable amount
 
 export function toMajor(minor: number): number {
