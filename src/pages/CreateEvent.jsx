@@ -459,7 +459,7 @@ export default function CreateEvent({ business = null }) {
                 </select>
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Booking Fee (45p + 3.5% per ticket)</Label>
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Booking Fee (45p + 4% per ticket)</Label>
                 <div className="space-y-2">
                   {[
                     { v: "pass_on", l: "Added to the ticket price", d: "Buyers pay it — prices are always shown fee-inclusive. You receive full face value." },
