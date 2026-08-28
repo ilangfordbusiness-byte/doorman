@@ -16,7 +16,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   ArrowLeft, Calendar, Clock, MapPin, Shirt, Users, Share2,
-  QrCode, Shield, Edit, Trash2, Copy, Check, Plus, X, BarChart3, Megaphone, Instagram
+  QrCode, Edit, Check, Plus, X, BarChart3, Megaphone, Instagram
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -76,7 +76,7 @@ export default function EventDetails() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: me } = useCurrentUser();
-  const { data, isLoading: loading } = useQuery({
+  const { data, isLoading: loading, isError } = useQuery({
     queryKey: ["event", id],
     queryFn: () => loadEvent(id, me),
     enabled: !!me,
@@ -89,7 +89,11 @@ export default function EventDetails() {
   const stats = data?.stats ?? { invited: 0, approved: 0, checked_in: 0, total: 0 };
   const staff = data?.staff ?? [];
   const tiers = data?.tiers ?? [];
-  const loadError = data?.notFound ? "This event is no longer available or the link is invalid." : null;
+  const loadError = data?.notFound
+    ? "This event is no longer available or the link is invalid."
+    : isError
+    ? "Something went wrong loading this event. Please try again."
+    : null;
 
   const [copied, setCopied] = useState(false);
   const [newStaffEmail, setNewStaffEmail] = useState("");

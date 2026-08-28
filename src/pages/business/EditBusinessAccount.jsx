@@ -32,13 +32,18 @@ export default function EditBusinessAccount() {
   }, [id]);
 
   async function load() {
-    const list = await api.entities.BusinessAccount.filter({ id });
-    if (!list.length) { navigate(-1); return; }
-    const b = list[0];
-    setName(b.business_name || "");
-    setEmail(b.business_email || "");
-    setPicture(b.business_picture || "");
-    setLoading(false);
+    try {
+      const list = await api.entities.BusinessAccount.filter({ id });
+      if (!list.length) { navigate(-1); return; }
+      const b = list[0];
+      setName(b.business_name || "");
+      setEmail(b.business_email || "");
+      setPicture(b.business_picture || "");
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handlePhotoSave(file_url) {

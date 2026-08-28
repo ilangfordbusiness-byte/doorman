@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import CoverPicker, { COVERS } from "../components/CoverPicker";
+import CoverPicker from "../components/CoverPicker";
 import CoverPhotoUpload from "../components/CoverPhotoUpload";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/api/data";
 import { ArrowLeft, Ticket, AtSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import HomeButton from "@/components/HomeButton";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -49,44 +50,48 @@ export default function EditEvent() {
   }, [id]);
 
   async function loadEvent() {
-    const me = await api.auth.me();
-    const events = await api.entities.Event.filter({ id });
-    if (!events.length) return navigate("/");
-    const evt = events[0];
-    const coHostEmails = Array.isArray(evt.co_host_emails) ? evt.co_host_emails : [];
-    if (evt.host_email !== me.email && !coHostEmails.includes(me.email)) return navigate(`/event/${id}`);
+    try {
+      const me = await api.auth.me();
+      const events = await api.entities.Event.filter({ id });
+      if (!events.length) return navigate("/");
+      const evt = events[0];
+      const coHostEmails = Array.isArray(evt.co_host_emails) ? evt.co_host_emails : [];
+      if (evt.host_email !== me.email && !coHostEmails.includes(me.email)) return navigate(`/event/${id}`);
 
-    setOriginal(evt);
+      setOriginal(evt);
 
-    // Parse cover
-    if (evt.cover_image?.startsWith("__cover__")) {
-      setCoverId(evt.cover_image.replace("__cover__", ""));
-    } else if (evt.cover_image) {
-      setCoverPreview(evt.cover_image);
+      // Parse cover
+      if (evt.cover_image?.startsWith("__cover__")) {
+        setCoverId(evt.cover_image.replace("__cover__", ""));
+      } else if (evt.cover_image) {
+        setCoverPreview(evt.cover_image);
+      }
+
+      setForm({
+        title: evt.title || "",
+        date: evt.date || "",
+        start_time: evt.start_time || "",
+        end_time: evt.end_time || "",
+        venue_name: evt.venue_name || "",
+        address: evt.address || "",
+        dress_code: evt.dress_code || "",
+        description: evt.description || "",
+        entry_notes: evt.entry_notes || "",
+        host_notes: evt.host_notes || "",
+        is_public: evt.is_public || false,
+        discoverable: evt.discoverable || false,
+        plus_one_allowed: evt.plus_one_allowed || false,
+        capacity: evt.capacity ? String(evt.capacity) : "",
+        is_paid: evt.is_paid || false,
+        currency: evt.currency || "gbp",
+        visibility: evt.visibility || "show_names",
+        instagram: evt.instagram || "",
+      });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
     }
-
-    setForm({
-      title: evt.title || "",
-      date: evt.date || "",
-      start_time: evt.start_time || "",
-      end_time: evt.end_time || "",
-      venue_name: evt.venue_name || "",
-      address: evt.address || "",
-      dress_code: evt.dress_code || "",
-      description: evt.description || "",
-      entry_notes: evt.entry_notes || "",
-      host_notes: evt.host_notes || "",
-      is_public: evt.is_public || false,
-      discoverable: evt.discoverable || false,
-      plus_one_allowed: evt.plus_one_allowed || false,
-      capacity: evt.capacity ? String(evt.capacity) : "",
-      is_paid: evt.is_paid || false,
-      currency: evt.currency || "gbp",
-      visibility: evt.visibility || "show_names",
-      instagram: evt.instagram || "",
-    });
-
-    setLoading(false);
   }
 
   function updateForm(field, value) {
@@ -139,6 +144,12 @@ export default function EditEvent() {
   }
 
   if (loading) return <LoadingSpinner fullScreen />;
+  if (!original) return (
+    <div className="max-w-lg mx-auto px-4 pt-10 text-center">
+      <p className="text-sm text-muted-foreground">Couldn't load this event.</p>
+      <Button className="mt-4" onClick={() => navigate(`/event/${id}`)}>Back to event</Button>
+    </div>
+  );
 
   return (
     <div className="max-w-lg mx-auto px-4 pt-4 pb-8">
@@ -146,7 +157,8 @@ export default function EditEvent() {
         <Button variant="ghost" size="icon" className="rounded-full" onClick={() => navigate(`/event/${id}`)}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
-        <h1 className="font-heading font-bold text-xl">Edit Event</h1>
+        <h1 className="font-heading font-bold text-xl flex-1">Edit Event</h1>
+        <HomeButton />
       </div>
 
       <div className="space-y-5">

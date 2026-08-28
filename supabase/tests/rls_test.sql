@@ -284,6 +284,62 @@ begin
   if v_count < 3 then raise exception 'FAIL: phone doorman cannot see guestlist, saw %', v_count; end if;
   perform pg_temp.ok('staff matched by phone sees roster rows and the guestlist');
 
+  -- ---- admin ----
+  execute 'reset role';
+
+  -- the signup trigger promotes the one bootstrap email to admin
+  insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
+                          email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
+                          created_at, updated_at)
+  values ('00000000-0000-0000-0000-000000000000',
+          '55555555-5555-5555-5555-555555555555', 'authenticated', 'authenticated',
+          'ilangfordbusiness@gmail.com', '', now(), '{}',
+          json_build_object('full_name', 'Owner')::jsonb, now(), now());
+  if (select role from public.profiles where email = 'ilangfordbusiness@gmail.com') <> 'admin' then
+    raise exception 'FAIL: bootstrap email was not promoted to admin';
+  end if;
+  perform pg_temp.ok('signup trigger promotes the bootstrap email to admin');
+
+  -- a normal user can never self-grant the role or banned_at columns
+  -- (this is what keeps the in-app PIN unlock inert)
+  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  begin
+    update public.profiles set role = 'admin' where id = dave;
+    raise exception 'FAIL: authenticated could update role' using errcode = 'assert_failure';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    update public.profiles set banned_at = now() where id = dave;
+    raise exception 'FAIL: authenticated could update banned_at' using errcode = 'assert_failure';
+  exception when insufficient_privilege then null;
+  end;
+  perform pg_temp.ok('authenticated cannot self-grant role or banned_at');
+
+  -- seed an audit row as postgres, then confirm a non-admin sees none of it
+  execute 'reset role';
+  insert into public.admin_audit_log (admin_id, admin_email, action, target_type, target_id)
+    values (alice, 'alice@test.dev', 'test', 'profile', dave::text);
+
+  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  select count(*) into v_count from public.admin_audit_log;
+  if v_count <> 0 then raise exception 'FAIL: non-admin saw % audit rows', v_count; end if;
+  begin
+    perform public.admin_dashboard_metrics();
+    raise exception 'FAIL: non-admin ran admin_dashboard_metrics' using errcode = 'assert_failure';
+  exception when insufficient_privilege then null;
+  end;
+  perform pg_temp.ok('non-admin cannot read the audit log or run admin metrics');
+
+  -- an admin can read the audit log and run the metrics aggregate
+  execute 'reset role';
+  update public.profiles set role = 'admin' where id = alice;
+  perform pg_temp.impersonate(alice, 'alice@test.dev');
+  if not public.is_admin() then raise exception 'FAIL: alice should be admin'; end if;
+  select count(*) into v_count from public.admin_audit_log;
+  if v_count < 1 then raise exception 'FAIL: admin cannot read the audit log'; end if;
+  perform public.admin_dashboard_metrics();
+  perform pg_temp.ok('admin can read the audit log and run metrics');
+
   execute 'reset role';
   raise notice '';
   raise notice 'ALL % CHECKS PASSED', currval('pg_temp.t_pass');

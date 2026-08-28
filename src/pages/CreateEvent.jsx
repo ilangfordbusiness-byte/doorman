@@ -1,11 +1,12 @@
 import { useState } from "react";
-import CoverPicker, { COVERS } from "../components/CoverPicker";
+import CoverPicker from "../components/CoverPicker";
 import CoverPhotoUpload from "../components/CoverPhotoUpload";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/data";
-import { ArrowLeft, Calendar, Clock, MapPin, Users, Shirt, FileText, Eye, Lock, Plus, Ticket, Megaphone, Trash2, CreditCard, AtSign } from "lucide-react";
+import { ArrowLeft, Users, Eye, Plus, Ticket, Megaphone, Trash2, CreditCard, AtSign } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import HomeButton from "@/components/HomeButton";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -185,7 +186,8 @@ export default function CreateEvent({ business = null }) {
         <Button variant="ghost" size="icon" className="rounded-full" onClick={() => navigate(-1)}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
-        <h1 className="font-heading font-bold text-xl">Create Event</h1>
+        <h1 className="font-heading font-bold text-xl flex-1">Create Event</h1>
+        <HomeButton />
       </div>
 
       <div className="space-y-5">

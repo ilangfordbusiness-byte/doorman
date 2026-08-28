@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { api } from "@/api/data";
-import { LogOut, User, Calendar, Camera, ArrowLeft, Pencil, Check, X, Shield, Trash2, AtSign, Clock, Users, Mic2, ChevronRight, Building2, ArrowLeftRight } from "lucide-react";
+import { LogOut, User, Calendar, Camera, ArrowLeft, Pencil, Check, X, Shield, Trash2, AtSign, Mic2, ChevronRight, Building2, ArrowLeftRight } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import HomeButton from "@/components/HomeButton";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import LoadingSpinner from "../components/LoadingSpinner";
@@ -55,20 +56,26 @@ export default function Profile() {
   }, []);
 
   async function loadProfile() {
-    const me = await api.auth.me();
-    setUser(me);
-    const [events, entries] = await Promise.all([
-      api.entities.Event.filter({ host_email: me.email }),
-      api.entities.GuestlistEntry.filter({ guest_email: me.email }),
-    ]);
+    setLoading(true);
+    try {
+      const me = await api.auth.me();
+      setUser(me);
+      const [events, entries] = await Promise.all([
+        api.entities.Event.filter({ host_email: me.email }),
+        api.entities.GuestlistEntry.filter({ guest_email: me.email }),
+      ]);
 
-    const businesses = await api.entities.BusinessAccount.filter({ owner_email: me.email });
-    setBusinessAccounts(businesses);
-    setStats({
-      hosted: events.filter((e) => !e.business_id).length,
-      attended: entries.filter((e) => ["checked_in", "checked_out"].includes(e.status) || e.checked_in_at).length,
-    });
-    setLoading(false);
+      const businesses = await api.entities.BusinessAccount.filter({ owner_email: me.email });
+      setBusinessAccounts(businesses);
+      setStats({
+        hosted: events.filter((e) => !e.business_id).length,
+        attended: entries.filter((e) => ["checked_in", "checked_out"].includes(e.status) || e.checked_in_at).length,
+      });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   }
 
   function handlePhotoChange(e) {
@@ -132,6 +139,12 @@ export default function Profile() {
   }
 
   if (loading) return <LoadingSpinner fullScreen />;
+  if (!user) return (
+    <div className="max-w-lg mx-auto px-4 pt-10 text-center">
+      <p className="text-sm text-muted-foreground">Couldn't load your profile.</p>
+      <Button className="mt-4" onClick={() => loadProfile()}>Try again</Button>
+    </div>
+  );
 
   return (
     <div className="max-w-lg mx-auto px-4 pt-4 pb-8">
@@ -142,6 +155,7 @@ export default function Profile() {
           </button>
         </Link>
         <h1 className="font-heading font-bold text-xl flex-1">Account</h1>
+        <HomeButton />
         <NotificationDot count={coHostCount} className="top-0 right-0 w-4 h-4" />
       </div>
 
@@ -375,10 +389,14 @@ export default function Profile() {
       <StripeConnectPanel />
 
       {user?.role === "admin" && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 border border-primary/20 rounded-xl mb-4">
+        <Link
+          to="/admin"
+          className="flex items-center gap-2 px-3 py-2 bg-primary/10 border border-primary/20 rounded-xl mb-4 hover:bg-primary/15 transition-colors"
+        >
           <Shield className="w-4 h-4 text-primary" />
-          <span className="text-xs text-primary font-semibold">Admin Access</span>
-        </div>
+          <span className="text-xs text-primary font-semibold flex-1">Admin Panel</span>
+          <ChevronRight className="w-4 h-4 text-primary" />
+        </Link>
       )}
 
       <Button

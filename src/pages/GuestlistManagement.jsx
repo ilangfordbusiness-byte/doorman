@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/api/data";
-import { ArrowLeft, Search, UserPlus, Filter, Download } from "lucide-react";
+import { ArrowLeft, Search, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
@@ -39,23 +39,32 @@ export default function GuestlistManagement() {
   }, [id]);
 
   async function loadFriends() {
-    const user = await api.auth.me();
-    setMe(user);
-    const sent = await api.entities.FriendRequest.filter({ sender_email: user.email, status: "accepted" });
-    const received = await api.entities.FriendRequest.filter({ receiver_email: user.email, status: "accepted" });
-    const friendList = [
-      ...sent.map((r) => ({ name: r.receiver_name, email: r.receiver_email, picture: r.receiver_picture })),
-      ...received.map((r) => ({ name: r.sender_name, email: r.sender_email, picture: r.sender_picture })),
-    ];
-    setFriends(friendList);
+    try {
+      const user = await api.auth.me();
+      setMe(user);
+      const sent = await api.entities.FriendRequest.filter({ sender_email: user.email, status: "accepted" });
+      const received = await api.entities.FriendRequest.filter({ receiver_email: user.email, status: "accepted" });
+      const friendList = [
+        ...sent.map((r) => ({ name: r.receiver_name, email: r.receiver_email, picture: r.receiver_picture })),
+        ...received.map((r) => ({ name: r.sender_name, email: r.sender_email, picture: r.sender_picture })),
+      ];
+      setFriends(friendList);
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   async function loadData() {
-    const events = await api.entities.Event.filter({ id });
-    if (events.length) setEvent(events[0]);
-    const entries = await api.entities.GuestlistEntry.filter({ event_id: id }, "-created_date");
-    setGuests(entries);
-    setLoading(false);
+    try {
+      const events = await api.entities.Event.filter({ id });
+      if (events.length) setEvent(events[0]);
+      const entries = await api.entities.GuestlistEntry.filter({ event_id: id }, "-created_date");
+      setGuests(entries);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function updateStatus(guest, status) {

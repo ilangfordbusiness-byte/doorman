@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { api } from "@/api/data";
 import { ArrowLeft, TrendingUp, Ticket, Tag, Percent, Wallet, Megaphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import HomeButton from "@/components/HomeButton";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
 const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
@@ -19,23 +20,34 @@ export default function EventAnalytics() {
   useEffect(() => { load(); }, [id]);
 
   async function load() {
-    const me = await api.auth.me();
-    const [events, t, o, p] = await Promise.all([
-      api.entities.Event.filter({ id }),
-      api.entities.TicketTier.filter({ event_id: id }),
-      api.entities.TicketOrder.filter({ event_id: id }),
-      api.entities.PromoCode.filter({ event_id: id }),
-    ]);
-    if (!events.length) return navigate("/");
-    if (events[0].host_email !== me.email) return navigate(`/event/${id}`);
-    setEvent(events[0]);
-    setTiers(t);
-    setOrders(o.filter((x) => x.status === "paid"));
-    setPromos(p);
-    setLoading(false);
+    try {
+      const me = await api.auth.me();
+      const [events, t, o, p] = await Promise.all([
+        api.entities.Event.filter({ id }),
+        api.entities.TicketTier.filter({ event_id: id }),
+        api.entities.TicketOrder.filter({ event_id: id }),
+        api.entities.PromoCode.filter({ event_id: id }),
+      ]);
+      if (!events.length) return navigate("/");
+      if (events[0].host_email !== me.email) return navigate(`/event/${id}`);
+      setEvent(events[0]);
+      setTiers(t);
+      setOrders(o.filter((x) => x.status === "paid"));
+      setPromos(p);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (loading) return <LoadingSpinner fullScreen />;
+  if (!event) return (
+    <div className="max-w-lg mx-auto px-4 pt-10 text-center">
+      <p className="text-sm text-muted-foreground">Couldn't load analytics.</p>
+      <Button className="mt-4" onClick={() => navigate(`/event/${id}`)}>Back to event</Button>
+    </div>
+  );
 
   const cur = String(event.currency || "gbp").toLowerCase();
   const sym = SYMBOL[cur] || "";
@@ -71,7 +83,8 @@ export default function EventAnalytics() {
         <Button variant="ghost" size="icon" className="rounded-full" onClick={() => navigate(`/event/${id}`)}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
-        <h1 className="font-heading font-bold text-xl">Sales Analytics</h1>
+        <h1 className="font-heading font-bold text-xl flex-1">Sales Analytics</h1>
+        <HomeButton />
       </div>
       <p className="text-sm text-muted-foreground mb-5">{event.title}</p>
 

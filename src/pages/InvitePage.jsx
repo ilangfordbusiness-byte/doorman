@@ -25,26 +25,27 @@ export default function InvitePage() {
   }, [code]);
 
   async function loadInvite() {
-    const me = await api.auth.me();
-    setUser(me);
+    try {
+      const me = await api.auth.me();
+      setUser(me);
 
-    const events = await api.entities.Event.filter({ invite_code: code });
-    if (!events.length) {
+      const events = await api.entities.Event.filter({ invite_code: code });
+      if (!events.length) return;
+
+      const evt = events[0];
+      setEvent(evt);
+
+      // Check if already on guestlist
+      const entries = await api.entities.GuestlistEntry.filter({
+        event_id: evt.id,
+        guest_email: me.email,
+      });
+      if (entries.length) setMyEntry(entries[0]);
+    } catch (e) {
+      console.error(e);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const evt = events[0];
-    setEvent(evt);
-
-    // Check if already on guestlist
-    const entries = await api.entities.GuestlistEntry.filter({
-      event_id: evt.id,
-      guest_email: me.email,
-    });
-    if (entries.length) setMyEntry(entries[0]);
-
-    setLoading(false);
   }
 
   async function handleShare() {
