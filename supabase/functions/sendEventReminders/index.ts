@@ -48,17 +48,18 @@ Deno.serve(async (req) => {
             title: event.title,
             subtitle: `${guest.guest_name ? `Hi ${guest.guest_name}, this` : 'This'} event is happening ${label}.`,
             bodyHtml: emailCard('Event Details', detailRows([
-              ['Date', formatEventDateLong(event.date)],
-              ['Time', formatTimeRange(event)],
-              ['Venue', event.venue_name],
-              ['Address', event.address],
-              ['Dress code', event.dress_code],
-              ['Entry notes', event.entry_notes],
+              ['📅 Date', formatEventDateLong(event.date)],
+              ['🕐 Time', formatTimeRange(event)],
+              ['📍 Venue', event.venue_name],
+              ['🗺️ Address', event.address],
+              ['👔 Dress code', event.dress_code],
+              ['📋 Entry notes', event.entry_notes],
             ])),
             buttons: [
               { label: 'Open QR Pass', href: passUrl },
               { label: 'Event Details', href: eventUrl, secondary: true },
             ],
+            footnote: 'See you there! 🙌',
           }),
         })
       ));

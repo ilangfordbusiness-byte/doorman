@@ -38,15 +38,15 @@ Deno.serve(async (req) => {
     const fmt = (t: unknown) =>
       typeof t === 'string' ? t.slice(0, 5) + ukTimeSuffix(event.date) : String(t ?? '');
     const rows: [string, unknown][] = [];
-    if (changed.includes('title')) rows.push(['Title', event.title]);
-    if (changed.includes('date')) rows.push(['Date', formatEventDateLong(event.date)]);
-    if (changed.includes('start_time')) rows.push(['Start time', fmt(event.start_time)]);
-    if (changed.includes('end_time')) rows.push(['End time', fmt(event.end_time)]);
-    if (changed.includes('venue_name')) rows.push(['Venue', event.venue_name]);
-    if (changed.includes('address')) rows.push(['Address', event.address]);
-    if (changed.includes('dress_code')) rows.push(['Dress code', event.dress_code]);
-    if (changed.includes('entry_notes')) rows.push(['Entry notes', event.entry_notes]);
-    if (changed.includes('status')) rows.push(['Status', event.status]);
+    if (changed.includes('title')) rows.push(['✨ Title', event.title]);
+    if (changed.includes('date')) rows.push(['📅 Date', formatEventDateLong(event.date)]);
+    if (changed.includes('start_time')) rows.push(['🕐 Start time', fmt(event.start_time)]);
+    if (changed.includes('end_time')) rows.push(['🕐 End time', fmt(event.end_time)]);
+    if (changed.includes('venue_name')) rows.push(['📍 Venue', event.venue_name]);
+    if (changed.includes('address')) rows.push(['🗺️ Address', event.address]);
+    if (changed.includes('dress_code')) rows.push(['👔 Dress code', event.dress_code]);
+    if (changed.includes('entry_notes')) rows.push(['📋 Entry notes', event.entry_notes]);
+    if (changed.includes('status')) rows.push(['🔔 Status', event.status]);
     const cardBody = rows.length
       ? detailRows(rows)
       : `<p style="margin:0;font-size:14px;color:#e8e8f0;line-height:1.6;">The host has updated event details. Check the event page for more info.</p>`;
