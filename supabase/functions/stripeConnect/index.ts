@@ -8,7 +8,10 @@ const STRIPE_VERSION = '2025-10-29.clover';
 
 // deno-lint-ignore no-explicit-any
 async function stripeApi(path: string, opts: { method?: string; body?: string } = {}): Promise<any> {
-  const key = Deno.env.get('STRIPE_SECRET_KEY') || Deno.env.get('STRIPE_TEST_SECRET_KEY');
+  // Test-first, like every other Stripe function: while STRIPE_TEST_SECRET_KEY
+  // is set the whole stack runs coherently in test mode (test checkout can only
+  // route to test-mode connected accounts); unsetting it flips everything live.
+  const key = Deno.env.get('STRIPE_TEST_SECRET_KEY') || Deno.env.get('STRIPE_SECRET_KEY');
   if (!key) throw new Error('Stripe is not configured');
   const headers: Record<string, string> = {
     Authorization: `Bearer ${key}`,
