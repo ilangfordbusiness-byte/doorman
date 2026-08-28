@@ -5,6 +5,7 @@ import PhonePrompt from "../components/PhonePrompt";
 import { api } from "@/api/data";
 import { ArrowLeft, ScanLine, Calendar, MapPin, Clock, UserCheck, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import HomeButton from "@/components/HomeButton";
 import LoadingSpinner from "../components/LoadingSpinner";
 import TicketSalesQR from "../components/TicketSalesQR";
 import { COVERS } from "../components/CoverPicker";
@@ -107,7 +108,8 @@ export default function StaffHub() {
             <ArrowLeft className="w-5 h-5" />
           </Button>
         </Link>
-        <h1 className="font-heading font-bold text-xl">Doorman / Staff</h1>
+        <h1 className="font-heading font-bold text-xl flex-1">Doorman / Staff</h1>
+        <HomeButton />
       </div>
 
       {/* Tabs */}

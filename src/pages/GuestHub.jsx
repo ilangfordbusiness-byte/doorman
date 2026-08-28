@@ -7,6 +7,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { ArrowLeft, Sparkles, QrCode, Clock, CheckCircle2, Link as LinkIcon, Compass, ArrowLeftRight, Check, X } from "lucide-react";
 import DiscoverEvents from "../components/DiscoverEvents";
 import { Button } from "@/components/ui/button";
+import HomeButton from "@/components/HomeButton";
 import { useToast } from "@/components/ui/use-toast";
 import EventCard from "../components/EventCard";
 import LoadingSpinner from "../components/LoadingSpinner";
@@ -80,6 +81,7 @@ export default function GuestHub() {
         <div className="flex-1">
           <h1 className="font-heading font-bold text-xl">Guest</h1>
         </div>
+        <HomeButton />
       </div>
 
       {/* Tabs */}

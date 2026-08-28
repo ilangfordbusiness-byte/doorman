@@ -3,6 +3,7 @@ import { api } from "@/api/data";
 import { LogOut, User, Calendar, Camera, ArrowLeft, Pencil, Check, X, Shield, Trash2, AtSign, Mic2, ChevronRight, Building2, ArrowLeftRight } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import HomeButton from "@/components/HomeButton";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import LoadingSpinner from "../components/LoadingSpinner";
@@ -152,6 +153,7 @@ export default function Profile() {
           </button>
         </Link>
         <h1 className="font-heading font-bold text-xl flex-1">Account</h1>
+        <HomeButton />
         <NotificationDot count={coHostCount} className="top-0 right-0 w-4 h-4" />
       </div>
 

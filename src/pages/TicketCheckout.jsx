@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/api/data";
 import { ArrowLeft, CreditCard, Tag, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import HomeButton from "@/components/HomeButton";
 import { Input } from "@/components/ui/input";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useToast } from "@/components/ui/use-toast";
@@ -156,7 +157,8 @@ export default function TicketCheckout() {
         <Button variant="ghost" size="icon" className="rounded-full" onClick={() => navigate(`/event/${id}`)}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
-        <h1 className="font-heading font-bold text-xl">Get Tickets</h1>
+        <h1 className="font-heading font-bold text-xl flex-1">Get Tickets</h1>
+        <HomeButton />
       </div>
       <p className="text-sm text-muted-foreground mb-4">{event.title}</p>
 
