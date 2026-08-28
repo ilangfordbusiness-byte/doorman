@@ -795,7 +795,7 @@ const auth = {
       sessionStorage.setItem("login_next", nextUrl || window.location.href);
     } catch { /* storage unavailable */ }
     // No /login route exists — the app root renders the Login screen when
-    // there is no session.
+    // there is no session. The Login screen returns to login_next on success.
     window.location.assign("/");
   },
 };
