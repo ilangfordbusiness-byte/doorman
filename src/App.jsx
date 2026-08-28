@@ -32,6 +32,7 @@ const BusinessLayout = lazy(() => import('./components/BusinessLayout'));
 const BusinessCreateEvent = lazy(() => import('./pages/business/BusinessCreateEvent'));
 const BusinessPastEvents = lazy(() => import('./pages/business/BusinessPastEvents'));
 const EditBusinessAccount = lazy(() => import('./pages/business/EditBusinessAccount'));
+const Admin = lazy(() => import('./pages/Admin'));
 
 const PageLoader = () => (
   <div className="fixed inset-0 flex items-center justify-center bg-background">
@@ -94,6 +95,7 @@ const AuthenticatedApp = () => {
         <Route path="/friends" element={<Friends />} />
         <Route path="/invite/:code" element={<InvitePage />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/admin" element={<Admin />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
       <Route path="/pass/:id" element={<GuestPass />} />
