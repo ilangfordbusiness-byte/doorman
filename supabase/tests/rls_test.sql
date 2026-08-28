@@ -60,6 +60,21 @@ begin
   end if;
   perform pg_temp.ok('signup trigger creates profiles');
 
+  -- signup metadata (phone + instagram) is copied into the profile by the trigger
+  insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
+                          email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
+                          created_at, updated_at)
+  values ('00000000-0000-0000-0000-000000000000',
+          '66666666-6666-6666-6666-666666666666', 'authenticated', 'authenticated',
+          'meta@signup.dev', '', now(), '{}',
+          json_build_object('full_name', 'Meta User', 'phone', '+447700900123', 'instagram', 'metahandle')::jsonb,
+          now(), now());
+  if (select phone from public.profiles where email = 'meta@signup.dev') is distinct from '+447700900123'
+     or (select instagram from public.profiles where email = 'meta@signup.dev') is distinct from 'metahandle' then
+    raise exception 'FAIL: signup trigger did not copy phone/instagram from metadata';
+  end if;
+  perform pg_temp.ok('signup trigger copies phone + instagram from metadata');
+
   -- ---- alice creates events ----
   perform pg_temp.impersonate(alice, 'alice@test.dev');
   insert into public.events (host_id, title, date, start_time, status, requests_open, host_notes)

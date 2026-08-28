@@ -2,7 +2,8 @@ import { useState } from "react";
 import { api } from "@/api/data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Mail, ListChecks, QrCode, ScanLine } from "lucide-react";
+import { ArrowLeft, Mail, ListChecks, QrCode, ScanLine, UserPlus } from "lucide-react";
+import PhoneInput from "@/components/PhoneInput";
 
 // Sign-in screen, rendered by the app shell whenever there is no session.
 // Not a route — views are local state: root (Google + manual entry point),
@@ -16,6 +17,8 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [instagram, setInstagram] = useState("");
 
   async function withBusy(fn) {
     setBusy(true);
@@ -106,6 +109,14 @@ export default function Login() {
               <Mail className="w-4 h-4" />
               Sign in with email
             </Button>
+            <Button
+              disabled={busy}
+              onClick={() => go("signup")}
+              className="w-full h-12 rounded-xl font-semibold gap-3 mt-3"
+            >
+              <UserPlus className="w-4 h-4" />
+              Create an account
+            </Button>
           </>
         )}
 
@@ -142,14 +153,17 @@ export default function Login() {
 
         {view === "signup" && (
           <>
-            {header("Create an account", "Your name is what hosts see on the guestlist.")}
+            {header("Create an account", "Add your details — this is what hosts see on the guestlist.")}
             <form
               className="space-y-3 text-left"
               onSubmit={(e) => {
                 e.preventDefault();
                 withBusy(async () => {
+                  if (!phone.trim()) throw new Error("Please enter your phone number.");
+                  if (!instagram.trim()) throw new Error("Please enter your Instagram handle.");
                   const { needsConfirmation } = await api.auth.signUp(
                     email, password, `${firstName.trim()} ${lastName.trim()}`.trim(),
+                    { phone, instagram: instagram.trim().replace(/^@/, "") },
                   );
                   if (needsConfirmation) go("check-email");
                   // else: session arrived; AuthContext unmounts this screen.
@@ -164,9 +178,16 @@ export default function Login() {
               </div>
               <Input className={inputCls} type="email" placeholder="Email" autoComplete="email"
                 value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <PhoneInput value={phone} onChange={setPhone} className="h-12" />
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">@</span>
+                <Input className={`${inputCls} pl-7`} placeholder="Instagram handle" autoComplete="off"
+                  value={instagram} onChange={(e) => setInstagram(e.target.value.replace(/^@/, ""))} required />
+              </div>
               <Input className={inputCls} type="password" placeholder="Password (min 6 characters)"
                 autoComplete="new-password" minLength={6}
                 value={password} onChange={(e) => setPassword(e.target.value)} required />
+              <p className="text-xs text-muted-foreground px-1">You'll add a profile picture right after confirming your email.</p>
               <Button disabled={busy} className="w-full h-12 rounded-xl font-semibold">
                 Create account
               </Button>

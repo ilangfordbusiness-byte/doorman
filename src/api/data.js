@@ -729,14 +729,20 @@ const auth = {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     throwOn(error);
   },
-  // Email sign-up. full_name rides in user metadata so the on_auth_user_created
-  // trigger pre-fills the profile (skips the name step of onboarding).
-  async signUp(email, password, fullName) {
+  // Email sign-up. full_name/phone/instagram ride in user metadata so the
+  // on_auth_user_created trigger pre-fills the profile (skips those onboarding
+  // steps). The avatar can't be set here — there's no session until the user
+  // confirms their email — so it's collected on first sign-in by the gate.
+  async signUp(email, password, fullName, extra = {}) {
     const { data, error } = await supabase.auth.signUp({
       email: String(email).trim().toLowerCase(),
       password,
       options: {
-        data: { full_name: fullName },
+        data: {
+          full_name: fullName,
+          phone: extra.phone ? normalizePhone(extra.phone) : undefined,
+          instagram: extra.instagram || undefined,
+        },
         emailRedirectTo: window.location.origin,
       },
     });
