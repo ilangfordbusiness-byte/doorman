@@ -81,7 +81,8 @@ export function buildTicketEmailHtml(entryOrEntries: any, event: any, tierName?:
   const dateStr = formatEventDateLong(event.date);
   const venueParts = [event.venue_name, event.address].filter(Boolean).join(' · ');
   const title = escapeHtml(event.title);
-  const guestName = escapeHtml(entries[0].guest_name);
+  // Multi-ticket entries are named "Name (1 of 2)" — greet with the bare name.
+  const guestName = escapeHtml(String(entries[0].guest_name || '').replace(/\s*\(\d+ of \d+\)$/, ''));
   const timeRange = formatTimeRange(event);
 
   // deno-lint-ignore no-explicit-any
@@ -97,10 +98,10 @@ export function buildTicketEmailHtml(entryOrEntries: any, event: any, tierName?:
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="margin:0;padding:0;background:#0a0a12;font-family:Inter,Segoe UI,Arial,sans-serif;">
-  <div style="max-width:480px;margin:0 auto;background:#0a0a12;color:#e8e8f0;padding:32px 24px 48px;">
+  <div style="max-width:480px;margin:0 auto;background:#0a0a12;color:#e8e8f0;padding:32px 24px;">
     <p style="margin:0 0 24px;font-size:11px;letter-spacing:0.25em;text-transform:uppercase;color:#7a7a9a;text-align:center;">DoorMan · Ticket Confirmation</p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#ffffff;text-align:center;">${title}</h1>
-    ${guestName ? `<p style="margin:0 0 24px;text-align:center;color:#b0b0c8;">Hi ${guestName}${entries.length > 1 ? ` · ${entries.length} tickets` : ''}</p>` : ''}
+    ${guestName ? `<p style="margin:0 0 24px;text-align:center;color:#b0b0c8;">Hi ${guestName},${entries.length > 1 ? ` here are your ${entries.length} tickets` : ''}</p>` : ''}
     ${entries.length > 1 ? `<p style="margin:0 0 16px;text-align:center;font-size:12px;color:#7a7a9a;">Each QR admits one person — forward or show them separately.</p>` : ''}
     ${qrBlocks}
     <div style="background:#15151f;border:1px solid #2a2a3a;border-radius:16px;padding:20px;margin-top:16px;">
@@ -112,11 +113,11 @@ export function buildTicketEmailHtml(entryOrEntries: any, event: any, tierName?:
         ${tierName ? `<div><span style="color:#7a7a9a;">Ticket:</span> ${escapeHtml(tierName)}</div>` : ''}
       </div>
     </div>
-    <div style="text-align:center;margin:24px 0 8px;">
+    <div style="text-align:center;margin:24px 0 20px;">
       <a href="${passLink}" style="display:inline-block;background:#7c3aed;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:14px 28px;border-radius:12px;">View My Ticket</a>
     </div>
-    <p style="margin:8px 0 0;text-align:center;font-size:11px;color:#5a5a7a;">Or visit <a href="${passLink}" style="color:#7c3aed;">${escapeHtml(appOrigin().replace(/^https?:\/\//, ''))}</a> — log in with the email you used to purchase.</p>
-    <p style="margin:32px 0 0;text-align:center;font-size:10px;color:#3a3a4a;">Powered by DoorMan</p>
+    <p style="margin:0;text-align:center;font-size:11px;color:#5a5a7a;">Or visit <a href="${passLink}" style="color:#7c3aed;">${escapeHtml(appOrigin().replace(/^https?:\/\//, ''))}</a> — log in with the email you used to purchase.</p>
+    <p style="margin:24px 0 0;text-align:center;font-size:10px;color:#3a3a4a;">Powered by DoorMan</p>
   </div>
 </body>
 </html>`;
