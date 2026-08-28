@@ -115,7 +115,7 @@ export default function GuestHub() {
         </button>
       </div>
 
-      {tab === "invites" && !myPhone && <PhonePrompt onSaved={(p) => { queryClient.invalidateQueries(["currentUser"]); queryClient.invalidateQueries(["guestDashboard"]); }} />}
+      {tab === "invites" && !myPhone && <PhonePrompt onSaved={() => { queryClient.invalidateQueries(["currentUser"]); queryClient.invalidateQueries(["guestDashboard"]); }} />}
 
       {tab === "discover" ? (
         <DiscoverEvents />

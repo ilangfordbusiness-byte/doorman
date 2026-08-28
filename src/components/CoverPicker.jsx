@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Upload, X, ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 export const COVERS = [
   // --- Purples / Violets ---

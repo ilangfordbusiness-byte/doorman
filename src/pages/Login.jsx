@@ -5,6 +5,26 @@ import { Input } from "@/components/ui/input";
 import { ArrowLeft, Mail, ListChecks, QrCode, ScanLine, UserPlus } from "lucide-react";
 import PhoneInput from "@/components/PhoneInput";
 
+// Where to land after signing in: redirectToLogin() stores the page the user
+// was heading for (e.g. a shared /pass or /event/...?ref= link) in
+// sessionStorage. Same-origin URLs only — anything else is ignored.
+function peekLoginNext() {
+  try {
+    const raw = sessionStorage.getItem("login_next");
+    if (!raw) return null;
+    const url = new URL(raw, window.location.origin);
+    return url.origin === window.location.origin ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+function takeLoginNext() {
+  const next = peekLoginNext();
+  try { sessionStorage.removeItem("login_next"); } catch { /* ignore */ }
+  return next;
+}
+
 // Sign-in screen, rendered by the app shell whenever there is no session.
 // Not a route — views are local state: root (Google + manual entry point),
 // signin, signup, check-email (confirmation pending), forgot, forgot-sent.
@@ -88,7 +108,7 @@ export default function Login() {
             </div>
             <Button
               disabled={busy}
-              onClick={() => withBusy(() => api.auth.signInWithGoogle(window.location.href))}
+              onClick={() => withBusy(() => api.auth.signInWithGoogle(peekLoginNext() || window.location.href))}
               variant="outline"
               className="w-full h-12 rounded-xl font-semibold gap-3"
             >
@@ -127,7 +147,11 @@ export default function Login() {
               className="space-y-3 text-left"
               onSubmit={(e) => {
                 e.preventDefault();
-                withBusy(() => api.auth.signInWithPassword(email, password));
+                withBusy(async () => {
+                  await api.auth.signInWithPassword(email, password);
+                  const next = takeLoginNext();
+                  if (next) window.location.assign(next);
+                });
               }}
             >
               <Input className={inputCls} type="email" placeholder="Email" autoComplete="email"
