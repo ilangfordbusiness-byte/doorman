@@ -51,18 +51,24 @@ export function normalizePhone(raw, defaultCountry = DEFAULT_COUNTRY) {
   return parsed && parsed.isPossible() ? parsed.number : text;
 }
 
-// E.164 → national format for the default country ("07700 900123"),
-// international format otherwise; non-E.164 values come back as-is.
-// Compared by calling code, not parsed.country: shared codes (+44 covers
-// GB/GG/JE/IM, +1 the whole NANP) leave country undefined in the min build.
+// E.164 → international format with the dial code ("+44 7700 900123") for all
+// read-only displays, so numbers are unambiguous across regions; non-E.164
+// values come back as-is.
 export function formatPhoneDisplay(value) {
   const text = String(value ?? "").trim();
   if (!text.startsWith("+")) return text;
   const parsed = parsePhoneNumberFromString(text);
-  if (!parsed) return text;
-  return parsed.countryCallingCode === getCountryCallingCode(DEFAULT_COUNTRY)
-    ? parsed.formatNational()
-    : parsed.formatInternational();
+  return parsed ? parsed.formatInternational() : text;
+}
+
+// E.164 → national format ("07700 900123") for seeding PhoneInput's text
+// field, whose country dropdown already carries the dial code; non-E.164
+// values come back as-is.
+export function formatPhoneEditText(value) {
+  const text = String(value ?? "").trim();
+  if (!text.startsWith("+")) return text;
+  const parsed = parsePhoneNumberFromString(text);
+  return parsed ? parsed.formatNational() : text;
 }
 
 // One keystroke's worth of as-you-type formatting. When the text starts with

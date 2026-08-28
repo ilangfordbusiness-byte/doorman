@@ -12,7 +12,7 @@ import {
   countryEntry,
   countryFromValue,
   formatAsYouType,
-  formatPhoneDisplay,
+  formatPhoneEditText,
   normalizePhone,
   parseNational,
 } from "@/lib/phone";
@@ -24,14 +24,14 @@ export default function PhoneInput({
   value = "",
   onChange,
   defaultCountry = DEFAULT_COUNTRY,
-  placeholder = "07700 900123",
+  placeholder,
   className = "",
   autoFocus,
   onEnter,
   id,
 }) {
   const [country, setCountry] = useState(() => countryFromValue(value) || defaultCountry);
-  const [text, setText] = useState(() => formatPhoneDisplay(value));
+  const [text, setText] = useState(() => formatPhoneEditText(value));
   const lastEmitted = useRef(value);
 
   // Follow external resets (e.g. a form clearing after submit) without
@@ -40,7 +40,7 @@ export default function PhoneInput({
     if (value === lastEmitted.current) return;
     lastEmitted.current = value;
     setCountry(countryFromValue(value) || defaultCountry);
-    setText(formatPhoneDisplay(value));
+    setText(formatPhoneEditText(value));
   }, [value, defaultCountry]);
 
   function emit(nextText, nextCountry) {
@@ -67,6 +67,11 @@ export default function PhoneInput({
     setText(nextText);
     emit(nextText, code);
   }
+
+  // Only the UK gets an example number; other regions' formats vary too much
+  // for one sample to look right, so they fall back to a generic hint.
+  const effectivePlaceholder =
+    placeholder ?? (country === "GB" ? "07700 900123" : "Phone number");
 
   const entries = countryEntry(country)
     ? COUNTRIES.some((c) => c.code === country)
@@ -111,7 +116,7 @@ export default function PhoneInput({
         inputMode="tel"
         value={text}
         onChange={handleTextChange}
-        placeholder={placeholder}
+        placeholder={effectivePlaceholder}
         autoFocus={autoFocus}
         onKeyDown={(e) => e.key === "Enter" && onEnter?.()}
         className="flex-1 min-w-0 bg-transparent px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
