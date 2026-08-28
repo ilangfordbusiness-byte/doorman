@@ -252,6 +252,38 @@ begin
   end;
   perform pg_temp.ok('anon sees only published events, nothing else');
 
+  -- ---- staff added by phone: access + backlink ----
+  perform pg_temp.impersonate(alice, 'alice@test.dev');
+  insert into public.event_staff (event_id, phone, name, role, created_by)
+    values (v_event, public.normalize_phone('07700 900999'), 'Phone Doorman A', 'doorman', alice);
+
+  -- dave has no profile phone yet: the row must be invisible to him
+  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  select count(*) into v_count from public.event_staff where event_id = v_event;
+  if v_count <> 0 then raise exception 'FAIL: phone staff row leaked pre-phone, saw %', v_count; end if;
+  perform pg_temp.ok('phone-added staff row hidden until the phone is claimed');
+
+  -- setting dave's phone back-links the pre-existing row (trigger)
+  execute 'reset role';
+  update public.profiles set phone = public.normalize_phone('07700900999') where id = dave;
+  if (select user_id from public.event_staff
+      where event_id = v_event and phone = '+447700900999') is distinct from dave then
+    raise exception 'FAIL: phone staff row not back-linked to dave';
+  end if;
+  perform pg_temp.ok('profile phone write back-links pre-signup staff rows');
+
+  -- a phone-only row added AFTER the claim stays user_id-less: the policy's
+  -- phone arm alone must make it (and staff access) work
+  perform pg_temp.impersonate(alice, 'alice@test.dev');
+  insert into public.event_staff (event_id, phone, name, role, created_by)
+    values (v_event, '+447700900999', 'Phone Doorman B', 'doorman', alice);
+  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  select count(*) into v_count from public.event_staff where event_id = v_event;
+  if v_count <> 2 then raise exception 'FAIL: dave should see both staff rows, saw %', v_count; end if;
+  select count(*) into v_count from public.guestlist_entries where event_id = v_event;
+  if v_count < 3 then raise exception 'FAIL: phone doorman cannot see guestlist, saw %', v_count; end if;
+  perform pg_temp.ok('staff matched by phone sees roster rows and the guestlist');
+
   -- ---- admin ----
   execute 'reset role';
 

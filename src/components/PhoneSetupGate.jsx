@@ -3,6 +3,8 @@ import { api } from "@/api/data";
 import { User, Phone, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import PhoneInput from "@/components/PhoneInput";
+import { normalizePhone } from "@/lib/phone";
 
 export default function PhoneSetupGate({ children }) {
   const [checking, setChecking] = useState(true);
@@ -49,7 +51,7 @@ export default function PhoneSetupGate({ children }) {
   async function savePhone() {
     if (!phone.trim()) return;
     setSaving(true);
-    await api.auth.updateMe({ phone: phone.trim() });
+    await api.auth.updateMe({ phone: normalizePhone(phone) });
     setStep(null);
     setSaving(false);
   }
@@ -129,14 +131,12 @@ export default function PhoneSetupGate({ children }) {
           <p className="text-muted-foreground text-sm text-center mb-7">Hosts and staff use your number to find you on the guestlist.</p>
 
           <div className="mb-5">
-            <Input
-              placeholder="+1 (555) 000-0000"
+            <PhoneInput
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="bg-secondary/50 border-border h-12 rounded-xl"
-              type="tel"
+              onChange={setPhone}
+              className="h-12"
               autoFocus
-              onKeyDown={(e) => e.key === "Enter" && savePhone()}
+              onEnter={savePhone}
             />
           </div>
 

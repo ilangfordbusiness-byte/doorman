@@ -2,6 +2,7 @@ import { Check, X, Clock, UserPlus, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import StatusBadge from "./StatusBadge";
 import Avatar from "./Avatar";
+import { formatPhoneDisplay } from "@/lib/phone";
 
 export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, onToggleChat, showActions = true, picture, onViewProfile }) {
   const canApprove = ["requested", "waitlist", "denied"].includes(guest.status);
@@ -25,7 +26,7 @@ export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, onTogg
             {guest.guest_name || "Unknown"}
           </p>
           <p className="text-xs text-muted-foreground truncate">
-            {guest.guest_phone || guest.guest_email}
+            {formatPhoneDisplay(guest.guest_phone) || guest.guest_email}
           </p>
           {guest.plus_one && (
             <span className="inline-flex items-center gap-1 text-[10px] text-accent mt-0.5">

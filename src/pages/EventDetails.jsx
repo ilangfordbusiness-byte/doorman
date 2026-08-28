@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { COVERS } from "../components/CoverPicker";
 import LoadingSpinner from "../components/LoadingSpinner";
+import { normalizePhone, formatPhoneDisplay } from "@/lib/phone";
 
 function getCoverStyle(cover_image) {
   if (cover_image?.startsWith("__cover__")) {
@@ -144,11 +145,12 @@ export default function EventDetails() {
     setAddingStaff(true);
     const val = newStaffEmail.trim();
     const isPhone = /^[\+\d][\d\s\-().]{5,}$/.test(val);
+    const phone = isPhone ? normalizePhone(val) : "";
     await api.entities.EventStaff.create({
       event_id: id,
       staff_email: isPhone ? "" : val.toLowerCase(),
-      staff_phone: isPhone ? val : "",
-      staff_name: val,
+      staff_phone: phone,
+      staff_name: isPhone ? formatPhoneDisplay(phone) : val,
       role: "doorman",
     });
     queryClient.invalidateQueries(["event", id]);

@@ -16,6 +16,8 @@ import { useSwitchAccount } from "@/hooks/useActiveAccount";
 import { useNotifications } from "@/hooks/useNotifications";
 import NotificationDot from "../components/NotificationDot";
 import CoHostInvitesSection from "../components/CoHostInvitesSection";
+import PhoneInput from "@/components/PhoneInput";
+import { normalizePhone, formatPhoneDisplay } from "@/lib/phone";
 
 export default function Profile() {
   const { toast } = useToast();
@@ -101,7 +103,7 @@ export default function Profile() {
   async function saveEdit() {
     if (!editValue.trim()) return;
     setSaving(true);
-    const update = editing === "name" ? { full_name: editValue.trim() } : editing === "phone" ? { phone: editValue.trim() } : { instagram: editValue.trim().replace(/^@/, "") };
+    const update = editing === "name" ? { full_name: editValue.trim() } : editing === "phone" ? { phone: normalizePhone(editValue) } : { instagram: editValue.trim().replace(/^@/, "") };
     await api.auth.updateMe(update);
     setUser((prev) => ({ ...prev, ...update }));
     setEditing(null);
@@ -317,13 +319,12 @@ export default function Profile() {
             <p className="text-xs text-muted-foreground mb-0.5">Phone</p>
             {editing === "phone" ? (
               <div className="flex items-center gap-2">
-                <Input
+                <PhoneInput
                   value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
-                  placeholder="+1 (555) 000-0000"
-                  className="h-8 text-sm bg-secondary/50 border-border rounded-lg flex-1"
+                  onChange={setEditValue}
+                  className="h-8 rounded-lg flex-1"
                   autoFocus
-                  onKeyDown={(e) => e.key === "Enter" && saveEdit()}
+                  onEnter={saveEdit}
                 />
                 <button onClick={saveEdit} disabled={saving} className="text-emerald-400 hover:text-emerald-300">
                   <Check className="w-4 h-4" />
@@ -333,7 +334,7 @@ export default function Profile() {
                 </button>
               </div>
             ) : (
-              <p className="text-sm font-medium">{user?.phone || <span className="text-muted-foreground">Add phone number</span>}</p>
+              <p className="text-sm font-medium">{formatPhoneDisplay(user?.phone) || <span className="text-muted-foreground">Add phone number</span>}</p>
             )}
           </div>
           {editing !== "phone" && (
