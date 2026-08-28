@@ -12,12 +12,11 @@ function buildTransferEmailHtml(senderName: string, eventTitle: string, recipien
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="margin:0;padding:0;background:#0a0a12;font-family:Inter,Segoe UI,Arial,sans-serif;">
-  <div style="max-width:480px;margin:0 auto;background:#0a0a12;color:#e8e8f0;padding:32px 24px;">
+  <div style="max-width:480px;margin:0 auto;background:#0a0a12;color:#e8e8f0;padding:32px 24px 48px;">
     <p style="margin:0 0 24px;font-size:11px;letter-spacing:0.25em;text-transform:uppercase;color:#7a7a9a;text-align:center;">DoorMan · Ticket Transfer</p>
     <h1 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#ffffff;text-align:center;">${s} sent you a ticket</h1>
     ${r ? `<p style="margin:0 0 24px;text-align:center;color:#b0b0c8;">Hi ${r},</p>` : ''}
     <div style="background:#15151f;border:1px solid #2a2a3a;border-radius:16px;padding:20px;text-align:center;">
-      <p style="margin:0 0 6px;font-size:13px;color:#7a7a9a;">For</p>
       <p style="margin:0 0 16px;font-size:18px;font-weight:700;color:#ffffff;">${e}</p>
       <p style="margin:0;font-size:13px;color:#b0b0c8;line-height:1.6;">${s} wants to transfer their ticket to you. Accept it to get your own QR pass for the event.</p>
     </div>
@@ -25,7 +24,7 @@ function buildTransferEmailHtml(senderName: string, eventTitle: string, recipien
       <a href="${link}" style="display:inline-block;background:#7c3aed;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:14px 28px;border-radius:12px;">View &amp; Accept Transfer</a>
     </div>
     <p style="margin:8px 0 0;text-align:center;font-size:11px;color:#7a7a9a;line-height:1.6;">Open the DoorMan app and check your <strong>Transfers</strong> tab. If you don't have an account yet, sign up first, then accept the transfer once logged in.</p>
-    <p style="margin:24px 0 0;text-align:center;font-size:10px;color:#3a3a4a;">Powered by DoorMan</p>
+    <p style="margin:32px 0 0;text-align:center;font-size:10px;color:#3a3a4a;">Powered by DoorMan</p>
   </div>
 </body>
 </html>`;

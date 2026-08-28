@@ -112,14 +112,14 @@ export function brandedEmail(opts: {
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="margin:0;padding:0;background:#0a0a12;font-family:Inter,Segoe UI,Arial,sans-serif;">
-  <div style="max-width:480px;margin:0 auto;background:#0a0a12;color:#e8e8f0;padding:32px 24px;">
+  <div style="max-width:480px;margin:0 auto;background:#0a0a12;color:#e8e8f0;padding:32px 24px 48px;">
     <p style="margin:0 0 24px;font-size:11px;letter-spacing:0.25em;text-transform:uppercase;color:#7a7a9a;text-align:center;">DoorMan · ${escapeHtml(opts.kicker)}</p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#ffffff;text-align:center;">${escapeHtml(opts.title)}</h1>
     ${opts.subtitle ? `<p style="margin:0 0 24px;text-align:center;color:#b0b0c8;">${escapeHtml(opts.subtitle)}</p>` : ''}
     ${opts.bodyHtml}
     ${buttons ? `<div style="text-align:center;margin:24px 0 8px;">${buttons}</div>` : ''}
     ${opts.footnote ? `<p style="margin:8px 0 0;text-align:center;font-size:11px;color:#7a7a9a;line-height:1.6;">${opts.footnote}</p>` : ''}
-    <p style="margin:24px 0 0;text-align:center;font-size:10px;color:#3a3a4a;">Powered by DoorMan</p>
+    <p style="margin:32px 0 0;text-align:center;font-size:10px;color:#3a3a4a;">Powered by DoorMan</p>
   </div>
 </body>
 </html>`;
