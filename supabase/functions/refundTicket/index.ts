@@ -128,6 +128,26 @@ Deno.serve(async (req) => {
         : {}),
     }).eq('id', order.id);
 
+    // Claw back this ticket's commission share so the weekly promoter payout
+    // never pays out on refunded tickets. Per-ticket share, with the last
+    // refundable ticket sweeping the rounding remainder (mirrors the refund
+    // amount math above); clamped so owed never dips below what's been paid.
+    if (order.promoter_id && Number(order.commission_minor) > 0) {
+      const perTicketComm = Math.floor(Number(order.commission_minor) / qty);
+      const claw = othersRefundable === 0
+        ? Number(order.commission_minor) - perTicketComm * (qty - 1)
+        : perTicketComm;
+      const { data: prom } = await svc.from('promoters')
+        .select('commission_owed_minor, commission_paid_minor')
+        .eq('id', order.promoter_id).maybeSingle();
+      if (prom) {
+        const floorMinor = Number(prom.commission_paid_minor || 0);
+        const next = Math.max(floorMinor, Number(prom.commission_owed_minor) - claw);
+        await svc.from('promoters').update({ commission_owed_minor: next })
+          .eq('id', order.promoter_id);
+      }
+    }
+
     if (order.tier_id) {
       const { data: tier } = await svc.from('ticket_tiers').select('*')
         .eq('id', order.tier_id).single();

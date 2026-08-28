@@ -20,7 +20,7 @@ export default function PromoterDashboard() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isOwner, setIsOwner] = useState(false);
-  const { connected: stripeConnected } = useStripeStatus();
+  const { connected: stripeConnected, active: stripeActive } = useStripeStatus();
 
   useEffect(() => {
     load();
@@ -98,14 +98,22 @@ export default function PromoterDashboard() {
         })()}
       </div>
 
-      {isOwner && stripeConnected === false && (
+      {isOwner && stripeConnected !== null && !stripeActive && (
         <div className="flex items-start gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 mb-4 text-amber-400">
           <CreditCard className="w-4 h-4 mt-0.5 flex-shrink-0" />
           <div className="text-xs leading-relaxed">
-            Connect a Stripe account to receive your commission payouts.{" "}
+            Commissions are paid automatically every Monday — finish your Stripe setup to
+            receive them.{" "}
             <Link to="/profile" className="underline font-semibold">Set up payouts in your Profile</Link>.
+            Your earnings keep accruing until then.
           </div>
         </div>
+      )}
+      {isOwner && stripeActive && (
+        <p className="text-[11px] text-muted-foreground mb-4">
+          Commissions are paid to your Stripe account every Monday for events that have
+          finished, once you're over {sym}10.
+        </p>
       )}
 
       <div className="grid grid-cols-2 gap-2 mb-4">
