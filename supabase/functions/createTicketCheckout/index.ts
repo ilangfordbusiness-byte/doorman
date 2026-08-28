@@ -83,17 +83,21 @@ Deno.serve(async (req) => {
       promoDiscountFinal = Math.max(0, capDiscount - promoterDiscountMinor);
       totalDiscountMinor = promoterDiscountMinor + promoDiscountFinal;
     }
-    const paid = unitMinor - totalDiscountMinor;
+    const paid = unitMinor - totalDiscountMinor; // per ticket
 
-    const feeMinor = computeFeeMinor(paid);
-    let hostNetMinor = paid - feeMinor;
+    // Order-level money. The platform fee applies per ticket sold; all stored
+    // amounts below are totals for the whole order (unit_price_minor stays
+    // per-unit), which is what analytics/admin metrics sum as revenue.
+    const orderPaidMinor = paid * qty;
+    const feeMinor = computeFeeMinor(paid) * qty;
+    let hostNetMinor = orderPaidMinor - feeMinor;
 
     // Commission comes out of the host's net, computed on the discounted price.
     let commissionMinor = 0;
     if (promoter) {
       commissionMinor = promoter.commission_type === 'flat'
         ? Number(promoter.commission_flat_minor || 0) * qty
-        : Math.round(paid * (Number(promoter.commission_percent || 0) / 100));
+        : Math.round(orderPaidMinor * (Number(promoter.commission_percent || 0) / 100));
       if (commissionMinor > hostNetMinor) commissionMinor = hostNetMinor;
       hostNetMinor -= commissionMinor;
     }
@@ -108,9 +112,9 @@ Deno.serve(async (req) => {
       promoter_id: promoter?.id ?? null,
       quantity: qty,
       unit_price_minor: unitMinor,
-      discount_minor: totalDiscountMinor,
-      promoter_discount_minor: promoterDiscountMinor,
-      paid_minor: paid,
+      discount_minor: totalDiscountMinor * qty,
+      promoter_discount_minor: promoterDiscountMinor * qty,
+      paid_minor: orderPaidMinor,
       platform_fee_minor: feeMinor,
       commission_minor: commissionMinor,
       host_net_minor: hostNetMinor,
