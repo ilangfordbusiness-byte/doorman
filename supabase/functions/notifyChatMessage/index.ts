@@ -2,7 +2,7 @@
 // database webhook (pg_net) on event_messages INSERT; guarded by
 // AUTOMATION_SECRET. verify_jwt=false — the secret header is the auth.
 import { hasAutomationSecret, json, serviceClient } from '../_shared/db.ts';
-import { appOrigin, escapeHtml, sendEmail } from '../_shared/email.ts';
+import { appOrigin, brandedEmail, emailCard, escapeHtml, sendEmail } from '../_shared/email.ts';
 
 Deno.serve(async (req) => {
   try {
@@ -45,17 +45,21 @@ Deno.serve(async (req) => {
     if (!targets.length) return json({ ok: true, skipped: 'no guests' });
 
     const eventUrl = `${appOrigin()}/event/${event.id}`;
-    const senderName = escapeHtml(host?.full_name || 'The host');
+    const senderName = host?.full_name || 'The host';
     const results = await Promise.allSettled(targets.map((guest) =>
       sendEmail({
         to: guest.guest_email,
-        subject: `💬 New message from ${host?.full_name || 'the host'} – ${event.title}`,
-        html: `
-Hi ${escapeHtml(guest.guest_name || 'there')},<br><br>
-<strong>${senderName}</strong> sent a message in <strong>${escapeHtml(event.title)}</strong>:<br>
-<blockquote style="border-left:3px solid #7c3aed;padding:8px 16px;margin:12px 0;color:#ccc;">${escapeHtml(message.text || '')}</blockquote>
-<a href="${eventUrl}" style="display:inline-block;margin-top:12px;padding:10px 20px;background:#7c3aed;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;">View Event Chat</a><br><br>
-— DoorMan`.trim(),
+        subject: `New message from ${senderName} – ${event.title}`,
+        html: brandedEmail({
+          kicker: 'Event Chat',
+          title: event.title,
+          subtitle: guest.guest_name ? `Hi ${guest.guest_name},` : undefined,
+          bodyHtml: emailCard(
+            `Message from ${senderName}`,
+            `<p style="margin:0;font-size:15px;color:#e8e8f0;line-height:1.6;border-left:3px solid #7c3aed;padding-left:14px;text-align:left;">${escapeHtml(message.text || '')}</p>`,
+          ),
+          buttons: [{ label: 'View Event Chat', href: eventUrl }],
+        }),
       })
     ));
     const sent = results.filter((r) => r.status === 'fulfilled' && r.value.sent).length;

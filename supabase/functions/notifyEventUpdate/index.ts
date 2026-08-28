@@ -2,7 +2,9 @@
 // database webhook (pg_net) on events UPDATE; guarded by AUTOMATION_SECRET.
 // verify_jwt=false — the secret header is the authentication.
 import { hasAutomationSecret, json, serviceClient } from '../_shared/db.ts';
-import { appOrigin, escapeHtml, sendEmail } from '../_shared/email.ts';
+import {
+  appOrigin, brandedEmail, detailRows, emailCard, formatEventDateLong, sendEmail, ukTimeSuffix,
+} from '../_shared/email.ts';
 
 const RELEVANT_FIELDS = [
   'title', 'date', 'start_time', 'end_time', 'venue_name', 'address',
@@ -33,31 +35,36 @@ Deno.serve(async (req) => {
       .in('status', ['approved', 'invited', 'checked_in']);
     if (!guests?.length) return json({ ok: true, skipped: 'no guests' });
 
-    const fmt = (t: unknown) => typeof t === 'string' ? t.slice(0, 5) : String(t ?? '');
-    const changes: string[] = [];
-    if (changed.includes('date')) changes.push(`📅 Date changed to: ${event.date}`);
-    if (changed.includes('start_time')) changes.push(`🕐 Start time changed to: ${fmt(event.start_time)}`);
-    if (changed.includes('end_time')) changes.push(`🕐 End time changed to: ${fmt(event.end_time)}`);
-    if (changed.includes('venue_name')) changes.push(`📍 Venue changed to: ${event.venue_name}`);
-    if (changed.includes('address')) changes.push(`🗺️ Address changed to: ${event.address}`);
-    if (changed.includes('dress_code')) changes.push(`👔 Dress code changed to: ${event.dress_code}`);
-    if (changed.includes('entry_notes')) changes.push(`📋 Entry notes updated: ${event.entry_notes}`);
-    if (changed.includes('status')) changes.push(`🔔 Event status changed to: ${event.status}`);
-    if (!changes.length) {
-      changes.push('The host has updated event details. Check the event page for more info.');
-    }
+    const fmt = (t: unknown) =>
+      typeof t === 'string' ? t.slice(0, 5) + ukTimeSuffix(event.date) : String(t ?? '');
+    const rows: [string, unknown][] = [];
+    if (changed.includes('title')) rows.push(['Title', event.title]);
+    if (changed.includes('date')) rows.push(['Date', formatEventDateLong(event.date)]);
+    if (changed.includes('start_time')) rows.push(['Start time', fmt(event.start_time)]);
+    if (changed.includes('end_time')) rows.push(['End time', fmt(event.end_time)]);
+    if (changed.includes('venue_name')) rows.push(['Venue', event.venue_name]);
+    if (changed.includes('address')) rows.push(['Address', event.address]);
+    if (changed.includes('dress_code')) rows.push(['Dress code', event.dress_code]);
+    if (changed.includes('entry_notes')) rows.push(['Entry notes', event.entry_notes]);
+    if (changed.includes('status')) rows.push(['Status', event.status]);
+    const cardBody = rows.length
+      ? detailRows(rows)
+      : `<p style="margin:0;font-size:14px;color:#e8e8f0;line-height:1.6;">The host has updated event details. Check the event page for more info.</p>`;
 
     const eventUrl = `${appOrigin()}/event/${event.id}`;
     const results = await Promise.allSettled(guests.map((guest) =>
       sendEmail({
         to: guest.guest_email,
-        subject: `🔔 Update: ${event.title}`,
-        html: `
-Hi ${escapeHtml(guest.guest_name || 'there')},<br><br>
-The host has made updates to <strong>${escapeHtml(event.title)}</strong>:<br><br>
-${changes.map((c) => `• ${escapeHtml(c)}`).join('<br>')}<br>
-<a href="${eventUrl}" style="display:inline-block;margin-top:12px;padding:10px 20px;background:#7c3aed;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;">View Event</a><br><br>
-— DoorMan`.trim(),
+        subject: `Update: ${event.title}`,
+        html: brandedEmail({
+          kicker: 'Event Update',
+          title: event.title,
+          subtitle: guest.guest_name
+            ? `Hi ${guest.guest_name}, the host has updated this event.`
+            : 'The host has updated this event.',
+          bodyHtml: emailCard('What changed', cardBody),
+          buttons: [{ label: 'View Event', href: eventUrl }],
+        }),
       })
     ));
     const sent = results.filter((r) => r.status === 'fulfilled' && r.value.sent).length;
