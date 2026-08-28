@@ -80,6 +80,7 @@ Deno.serve(async (req) => {
     const qty = Math.max(1, Number(order.quantity) || 1);
     const rows = Array.from({ length: qty }, (_, i) => ({
       event_id: order.event_id,
+      order_id: order.id,
       guest_user_id: order.guest_user_id,
       guest_email: order.guest_email,
       guest_name: qty > 1 ? `${order.guest_name} (${i + 1} of ${qty})` : order.guest_name,

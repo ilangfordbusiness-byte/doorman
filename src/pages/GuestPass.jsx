@@ -1,12 +1,19 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/api/data";
-import { ArrowLeft, Shield, Send, ChevronLeft, ChevronRight, Clock as ClockIcon } from "lucide-react";
+import { ArrowLeft, Shield, Send, ChevronLeft, ChevronRight, Clock as ClockIcon, Loader2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import StatusBadge from "../components/StatusBadge";
 import LoadingSpinner from "../components/LoadingSpinner";
 import TransferTicketDialog from "../components/TransferTicketDialog";
+import { useToast } from "@/components/ui/use-toast";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import moment from "moment";
+
+const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
 
 export default function GuestPass() {
   const { id } = useParams();
@@ -21,6 +28,9 @@ export default function GuestPass() {
   const [autoCheckedOut, setAutoCheckedOut] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
   const [pendingTransfer, setPendingTransfer] = useState(null);
+  const [showCancel, setShowCancel] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const { toast } = useToast();
   const intervalRef = useRef(null);
   const watchIdRef = useRef(null);
 
@@ -154,6 +164,23 @@ export default function GuestPass() {
     } catch (e) {
       console.error("Failed to generate QR payload:", e);
       setQrData("");
+    }
+  }
+
+  async function refundTicket() {
+    setCancelling(true);
+    try {
+      const res = await api.functions.invoke("refundTicket", { guestlist_entry_id: entry.id });
+      if (res.data?.error) throw new Error(res.data.error);
+      const sym = SYMBOL[String(event.currency || "gbp").toLowerCase()] || "";
+      const amount = (Number(res.data?.refunded_minor || 0) / 100).toFixed(2);
+      toast({ title: "Ticket cancelled", description: `${sym}${amount} is on its way back to your payment method.` });
+      setShowCancel(false);
+      await loadPass();
+    } catch (e) {
+      toast({ title: e.message || "Couldn't cancel this ticket", variant: "destructive" });
+    } finally {
+      setCancelling(false);
     }
   }
 
@@ -366,10 +393,42 @@ export default function GuestPass() {
               {hasMultiple && (
                 <p className="text-[10px] text-muted-foreground text-center mt-2">Transferring: {ticketLabel}</p>
               )}
+              {entry.order_id && !pendingTransfer && (
+                <button
+                  type="button"
+                  onClick={() => setShowCancel(true)}
+                  className="w-full mt-3 text-xs text-muted-foreground hover:text-destructive transition-colors inline-flex items-center justify-center gap-1"
+                >
+                  <XCircle className="w-3 h-3" /> Cancel ticket &amp; get a refund
+                </button>
+              )}
             </div>
           )}
         </div>
       </div>
+
+      <AlertDialog open={showCancel} onOpenChange={setShowCancel}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this ticket?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your ticket for {event.title} will be cancelled and its price refunded to the
+              payment method you paid with (arrives within 5–10 business days). The QR code
+              stops working immediately and this can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancelling}>Keep ticket</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={cancelling}
+              onClick={(e) => { e.preventDefault(); refundTicket(); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {cancelling ? <Loader2 className="w-4 h-4 animate-spin" /> : "Cancel & refund"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {showTransfer && (
         <TransferTicketDialog
