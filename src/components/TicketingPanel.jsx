@@ -5,10 +5,15 @@ import { Ticket, Tag, Plus, Trash2, Loader2, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
+import { buyerPrice } from "@/lib/fees";
 
 const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
 
-export default function TicketingPanel({ eventId, paid, currency }) {
+// stripeActive: null while loading, then whether the payout account is ready —
+// tier creation is server-gated on the same rule, this is the friendly path.
+// feeMode: the event's fee_mode; under 'pass_on' each tier shows the
+// fee-inclusive price buyers will actually see.
+export default function TicketingPanel({ eventId, paid, currency, stripeActive = null, feeMode = "absorb" }) {
   const { toast } = useToast();
   const [tiers, setTiers] = useState([]);
   const [promos, setPromos] = useState([]);
@@ -135,7 +140,9 @@ export default function TicketingPanel({ eventId, paid, currency }) {
             <div className="flex-1">
               <p className="text-sm font-medium">{t.name}</p>
               <p className="text-xs text-muted-foreground">
-                {sym}{Number(t.price).toFixed(2)} · {Math.max(0, Number(t.quantity || 0) - Number(t.sold || 0))} left
+                {sym}{Number(t.price).toFixed(2)}
+                {feeMode === "pass_on" && Number(t.price) > 0 && ` (buyers pay ${sym}${buyerPrice(t.price, feeMode).toFixed(2)})`}
+                {" · "}{Math.max(0, Number(t.quantity || 0) - Number(t.sold || 0))} left
                 {t.sales_status === "sold_out" && <span className="text-destructive"> · Sold out</span>}
               </p>
             </div>
@@ -146,15 +153,25 @@ export default function TicketingPanel({ eventId, paid, currency }) {
         ))}
         {tiers.length === 0 && <p className="text-xs text-muted-foreground">No tiers yet — add one below. Leave blank to keep the event free.</p>}
       </div>
-      <div className="grid grid-cols-3 gap-2">
-        <Input placeholder="Tier name" value={newTier.name} onChange={(e) => setNewTier((s) => ({ ...s, name: e.target.value }))} className="h-10" />
-        <Input type="number" placeholder="Price" value={newTier.price} onChange={(e) => setNewTier((s) => ({ ...s, price: e.target.value }))} className="h-10" />
-        <Input type="number" placeholder="Qty" value={newTier.quantity} onChange={(e) => setNewTier((s) => ({ ...s, quantity: e.target.value }))} className="h-10" />
-      </div>
-      <Button className="w-full h-10 rounded-xl" onClick={addTier} disabled={!newTier.name || newTier.price === "" || newTier.quantity === ""}>
-        <Plus className="w-4 h-4" /> Add Tier
-      </Button>
-      <p className="text-[11px] text-muted-foreground">Click <span className="font-medium text-foreground">Add Tier</span> to save each tier — tiers save instantly, not on “Save Changes”.</p>
+      {stripeActive === false ? (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-amber-400 text-xs leading-relaxed">
+          Ticket money is paid straight to your Stripe account, so payment setup must be finished
+          before you can sell tickets.{" "}
+          <Link to="/profile" className="underline font-semibold">Finish Stripe setup</Link>.
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-3 gap-2">
+            <Input placeholder="Tier name" value={newTier.name} onChange={(e) => setNewTier((s) => ({ ...s, name: e.target.value }))} className="h-10" />
+            <Input type="number" placeholder="Price" value={newTier.price} onChange={(e) => setNewTier((s) => ({ ...s, price: e.target.value }))} className="h-10" />
+            <Input type="number" placeholder="Qty" value={newTier.quantity} onChange={(e) => setNewTier((s) => ({ ...s, quantity: e.target.value }))} className="h-10" />
+          </div>
+          <Button className="w-full h-10 rounded-xl" onClick={addTier} disabled={!newTier.name || newTier.price === "" || newTier.quantity === ""}>
+            <Plus className="w-4 h-4" /> Add Tier
+          </Button>
+          <p className="text-[11px] text-muted-foreground">Click <span className="font-medium text-foreground">Add Tier</span> to save each tier — tiers save instantly, not on “Save Changes”.</p>
+        </>
+      )}
 
       <h3 className="font-heading font-semibold text-sm flex items-center gap-2 pt-2"><Tag className="w-4 h-4" /> Promo Codes</h3>
       <div className="space-y-2">

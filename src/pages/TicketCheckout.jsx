@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useToast } from "@/components/ui/use-toast";
 import { getStoredRef, captureRef, getLinkDomain, getPromoterByCode, computePromoterDiscount, promoterDiscountActive, discountLabel, usesRemaining, MIN_PAID } from "@/lib/promoterRef";
+import { bookingFee } from "@/lib/fees";
 import CheckoutSuccess from "@/components/checkout/CheckoutSuccess";
 import CheckoutCancelled from "@/components/checkout/CheckoutCancelled";
 
@@ -150,6 +151,12 @@ export default function TicketCheckout() {
   if (total < MIN_PAID) total = MIN_PAID;
   if (total > unit) total = unit;
   const discExhausted = !discActive && promoter && promoter.discount_type && promoter.discount_type !== "none" && Number(promoter.discount_value || 0) > 0;
+  // Under pass_on the booking fee rides on the buyer's price; every displayed
+  // price is fee-inclusive (the server recomputes on the discounted face value).
+  const passOn = event.fee_mode === "pass_on";
+  const disp = (p) => (passOn ? p + bookingFee(p) : p);
+  const fee = passOn ? bookingFee(total) : 0;
+  const totalDue = total + fee;
 
   return (
     <div className="max-w-lg mx-auto px-4 pt-4 pb-8">
@@ -189,11 +196,11 @@ export default function TicketCheckout() {
                 <div className="text-right">
                   {discActive ? (
                     <>
-                      <p className="text-xs text-muted-foreground line-through">{sym}{Number(t.price).toFixed(2)}</p>
-                      <p className="text-sm font-bold text-emerald-400">{sym}{computePromoterDiscount(Number(t.price), promoter).paid.toFixed(2)}</p>
+                      <p className="text-xs text-muted-foreground line-through">{sym}{disp(Number(t.price)).toFixed(2)}</p>
+                      <p className="text-sm font-bold text-emerald-400">{sym}{disp(computePromoterDiscount(Number(t.price), promoter).paid).toFixed(2)}</p>
                     </>
                   ) : (
-                    <p className="text-sm font-bold">{sym}{Number(t.price).toFixed(2)}</p>
+                    <p className="text-sm font-bold">{sym}{disp(Number(t.price)).toFixed(2)}</p>
                   )}
                 </div>
               </div>
@@ -221,11 +228,12 @@ export default function TicketCheckout() {
             <div className="flex justify-between"><span className="text-muted-foreground">Ticket ({tier?.name})</span><span>{sym}{unit.toFixed(2)}</span></div>
             {discActive && promoterDiscount > 0 && <div className="flex justify-between text-emerald-400"><span>Promoter discount</span><span>-{sym}{promoterDiscount.toFixed(2)}</span></div>}
             {promo && <div className="flex justify-between text-emerald-400"><span>Promo ({promo.discount_percent}%)</span><span>-{sym}{promoDiscount.toFixed(2)}</span></div>}
-            <div className="flex justify-between font-bold pt-1.5 border-t border-border/50"><span>Total</span><span>{sym}{total.toFixed(2)}</span></div>
+            {passOn && <div className="flex justify-between"><span className="text-muted-foreground">Booking fee</span><span>{sym}{fee.toFixed(2)}</span></div>}
+            <div className="flex justify-between font-bold pt-1.5 border-t border-border/50"><span>Total</span><span>{sym}{totalDue.toFixed(2)}</span></div>
           </div>
 
           <Button className="w-full h-14 rounded-xl font-bold text-base gap-2" onClick={pay} disabled={paying}>
-            {paying ? <Loader2 className="w-5 h-5 animate-spin" /> : <><CreditCard className="w-5 h-5" /> Pay {sym}{total.toFixed(2)}</>}
+            {paying ? <Loader2 className="w-5 h-5 animate-spin" /> : <><CreditCard className="w-5 h-5" /> Pay {sym}{totalDue.toFixed(2)}</>}
           </Button>
           <p className="text-[10px] text-muted-foreground text-center">Secure card payment via Stripe. You'll receive a QR pass after payment.</p>
         </div>

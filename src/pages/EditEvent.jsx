@@ -13,6 +13,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import LoadingSpinner from "../components/LoadingSpinner";
 import TicketingPanel from "../components/TicketingPanel";
+import { useStripeStatus } from "@/hooks/useStripeStatus";
+import { useBusinessStripeStatus } from "@/hooks/useBusinessStripeStatus";
 
 export default function EditEvent() {
   const { id } = useParams();
@@ -24,6 +26,15 @@ export default function EditEvent() {
   const [coverId, setCoverId] = useState("");
   const [coverPreview, setCoverPreview] = useState(null);
   const [original, setOriginal] = useState(null);
+  // Payout-readiness for the ticketing panel: business events route through the
+  // business account (or its owner, per stripe_mode); personal events through
+  // the host's own account. Server enforces the same rule on tier creation.
+  const { connected: personalConnected, active: personalActive } = useStripeStatus();
+  const { connected: businessConnected, active: businessActive } =
+    useBusinessStripeStatus(original?.business_id);
+  const stripeActive = original?.business_id
+    ? (businessConnected === null ? null : businessActive)
+    : (personalConnected === null ? null : personalActive);
   const [form, setForm] = useState({
     title: "",
     date: "",
@@ -41,6 +52,7 @@ export default function EditEvent() {
     capacity: "",
     is_paid: false,
     currency: "gbp",
+    fee_mode: "absorb",
     visibility: "show_names",
     instagram: "",
   });
@@ -84,6 +96,7 @@ export default function EditEvent() {
         capacity: evt.capacity ? String(evt.capacity) : "",
         is_paid: evt.is_paid || false,
         currency: evt.currency || "gbp",
+        fee_mode: evt.fee_mode || "absorb",
         visibility: evt.visibility || "show_names",
         instagram: evt.instagram || "",
       });
@@ -343,6 +356,23 @@ export default function EditEvent() {
                 </select>
               </div>
               <div>
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Booking Fee (45p + 4% per ticket)</Label>
+                <div className="space-y-2">
+                  {[
+                    { v: "pass_on", l: "Added to the ticket price", d: "Buyers pay it — prices are always shown fee-inclusive. You receive full face value." },
+                    { v: "absorb", l: "Absorbed in your payout", d: "Buyers pay exactly the price you set; the fee comes out of your share." },
+                  ].map((o) => (
+                    <label key={o.v} className={`flex items-start gap-2 rounded-xl p-2.5 border cursor-pointer ${form.fee_mode === o.v ? "border-primary bg-primary/10" : "border-border bg-secondary/40"}`}>
+                      <input type="radio" name="fee_mode" checked={form.fee_mode === o.v} onChange={() => updateForm("fee_mode", o.v)} className="mt-0.5 accent-primary" />
+                      <div>
+                        <p className="text-sm font-medium">{o.l}</p>
+                        <p className="text-xs text-muted-foreground">{o.d}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div>
                 <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Who's Going Visibility</Label>
                 <div className="space-y-2">
                   {[
@@ -360,7 +390,7 @@ export default function EditEvent() {
                   ))}
                 </div>
               </div>
-              <TicketingPanel eventId={id} paid={form.is_paid} currency={form.currency} />
+              <TicketingPanel eventId={id} paid={form.is_paid} currency={form.currency} stripeActive={stripeActive} feeMode={form.fee_mode} />
             </>
           )}
         </div>

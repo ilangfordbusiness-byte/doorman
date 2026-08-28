@@ -5,6 +5,7 @@ import {
   computeFeeMinor, computePromoterDiscountMinor, MIN_PAID_MINOR,
   promoterDiscountAvailable,
 } from '../_shared/tickets.ts';
+import { PAYOUT_SETUP_ERROR, resolvePayoutAccount } from '../_shared/connect.ts';
 
 function allowedOrigins(req: Request): string[] {
   const extra = (Deno.env.get('ALLOWED_ORIGINS') || '').split(',').map((s) => s.trim()).filter(Boolean);
@@ -36,6 +37,12 @@ Deno.serve(async (req) => {
     const { data: event } = await svc.from('events').select('*').eq('id', tier.event_id).single();
     if (!event) return json({ error: 'Event not found' }, 404);
     const currency = String(event.currency || 'gbp').toLowerCase();
+
+    // Paid tickets require a payout-ready host: the host's share is routed to
+    // their connected account inside the payment itself (destination charge),
+    // so host money never accumulates on the platform balance.
+    const payout = await resolvePayoutAccount(svc, event);
+    if (!payout.active) return json({ error: PAYOUT_SETUP_ERROR }, 400);
 
     const unitMinor = Number(tier.price_minor);
 
@@ -83,17 +90,27 @@ Deno.serve(async (req) => {
       promoDiscountFinal = Math.max(0, capDiscount - promoterDiscountMinor);
       totalDiscountMinor = promoterDiscountMinor + promoDiscountFinal;
     }
-    const paid = unitMinor - totalDiscountMinor;
+    const paid = unitMinor - totalDiscountMinor; // per ticket, face value
 
-    const feeMinor = computeFeeMinor(paid);
-    let hostNetMinor = paid - feeMinor;
+    // Order-level money. The platform fee applies per ticket sold; all stored
+    // amounts below are totals for the whole order (unit_price_minor stays
+    // per-unit), which is what analytics/admin metrics sum as revenue.
+    // fee_mode decides who pays the fee: 'pass_on' adds it to the buyer's
+    // total (displayed all-in in the app); 'absorb' deducts it from the host.
+    const passOn = event.fee_mode === 'pass_on';
+    const feePerTicketMinor = computeFeeMinor(paid);
+    const feeMinor = feePerTicketMinor * qty;
+    const orderFaceMinor = paid * qty;
+    const orderPaidMinor = passOn ? orderFaceMinor + feeMinor : orderFaceMinor;
+    let hostNetMinor = orderPaidMinor - feeMinor;
 
-    // Commission comes out of the host's net, computed on the discounted price.
+    // Commission comes out of the host's net, computed on the discounted face
+    // value (never on the buyer-paid booking fee).
     let commissionMinor = 0;
     if (promoter) {
       commissionMinor = promoter.commission_type === 'flat'
         ? Number(promoter.commission_flat_minor || 0) * qty
-        : Math.round(paid * (Number(promoter.commission_percent || 0) / 100));
+        : Math.round(orderFaceMinor * (Number(promoter.commission_percent || 0) / 100));
       if (commissionMinor > hostNetMinor) commissionMinor = hostNetMinor;
       hostNetMinor -= commissionMinor;
     }
@@ -108,14 +125,15 @@ Deno.serve(async (req) => {
       promoter_id: promoter?.id ?? null,
       quantity: qty,
       unit_price_minor: unitMinor,
-      discount_minor: totalDiscountMinor,
-      promoter_discount_minor: promoterDiscountMinor,
-      paid_minor: paid,
+      discount_minor: totalDiscountMinor * qty,
+      promoter_discount_minor: promoterDiscountMinor * qty,
+      paid_minor: orderPaidMinor,
       platform_fee_minor: feeMinor,
       commission_minor: commissionMinor,
       host_net_minor: hostNetMinor,
       currency,
       status: 'pending',
+      payout_destination: payout.accountId,
     }).select('*').single();
     if (orderErr || !order) throw new Error(orderErr?.message || 'Failed to create order');
 
@@ -143,10 +161,23 @@ Deno.serve(async (req) => {
     // payment_method_types. Payment methods come from the dashboard config.
     params.append('managed_payments[enabled]', 'false');
     params.append('mode', 'payment');
+    // Destination charge: Stripe transfers the host's share to their connected
+    // account on payment; the application fee (platform cut + any promoter
+    // commission, paid out manually) stays on the platform balance.
+    params.append('payment_intent_data[transfer_data][destination]', String(payout.accountId));
+    params.append('payment_intent_data[application_fee_amount]', String(feeMinor + commissionMinor));
     params.append('line_items[0][quantity]', String(qty));
     params.append('line_items[0][price_data][currency]', currency);
     params.append('line_items[0][price_data][unit_amount]', String(paid));
     params.append('line_items[0][price_data][product_data][name]', `${event.title} — ${tier.name}`);
+    if (passOn) {
+      // Buyer-paid booking fee as its own line so the Stripe receipt matches
+      // the app's all-in price breakdown.
+      params.append('line_items[1][quantity]', String(qty));
+      params.append('line_items[1][price_data][currency]', currency);
+      params.append('line_items[1][price_data][unit_amount]', String(feePerTicketMinor));
+      params.append('line_items[1][price_data][product_data][name]', 'Booking fee');
+    }
     params.append('success_url', successUrl);
     params.append('cancel_url', cancelUrl);
     params.append('metadata[order_id]', order.id);

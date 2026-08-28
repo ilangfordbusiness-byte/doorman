@@ -53,8 +53,8 @@ const ENTITIES = {
     select: `id, host_id, business_id, title, cover_image_url, date, start_time,
       end_time, venue_name, address, venue_lat, venue_lng, dress_code,
       description, entry_notes, instagram, is_public, discoverable, capacity,
-      requests_open, plus_one_allowed, status, is_paid, currency, visibility,
-      created_at, updated_at,
+      requests_open, plus_one_allowed, status, is_paid, currency, fee_mode,
+      visibility, created_at, updated_at,
       host:profiles!events_host_id_fkey(${PROFILE_JOIN}),
       co_host_rows:event_co_hosts(id, email, status, user_id,
         profile:profiles(full_name, avatar_url))`,
@@ -88,6 +88,7 @@ const ENTITIES = {
         status: r.status,
         is_paid: r.is_paid,
         currency: r.currency,
+        fee_mode: r.fee_mode,
         visibility: r.visibility,
         business_id: r.business_id,
         host_id: r.host_id,
@@ -104,8 +105,8 @@ const ENTITIES = {
         "title", "date", "venue_name", "address", "venue_lat", "venue_lng",
         "dress_code", "description", "entry_notes", "host_notes", "instagram",
         "is_public", "discoverable", "capacity", "requests_open",
-        "plus_one_allowed", "status", "is_paid", "currency", "visibility",
-        "business_id",
+        "plus_one_allowed", "status", "is_paid", "currency", "fee_mode",
+        "visibility", "business_id",
       ];
       for (const k of copy) if (k in obj) out[k] = obj[k];
       // The legacy platform tolerated "" in typed columns; Postgres uuid/numeric/date do not.
