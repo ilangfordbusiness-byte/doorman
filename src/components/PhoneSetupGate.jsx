@@ -180,6 +180,14 @@ export default function PhoneSetupGate({ children }) {
         disabled={saving}>
         {saving ? "Saving..." : "Choose a photo"} {!saving && <ChevronRight className="w-4 h-4" />}
       </Button>
+      <button
+        type="button"
+        onClick={() => setStep(null)}
+        disabled={saving}
+        className="w-full mt-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
+      >
+        Skip for now
+      </button>
       {photoFile && (
         <ProfilePictureEditor file={photoFile} onSave={saveAvatar} onClose={() => setPhotoFile(null)} />
       )}
