@@ -5,6 +5,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/api/data";
 import { ArrowLeft, Ticket, AtSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import HomeButton from "@/components/HomeButton";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -156,7 +157,8 @@ export default function EditEvent() {
         <Button variant="ghost" size="icon" className="rounded-full" onClick={() => navigate(`/event/${id}`)}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
-        <h1 className="font-heading font-bold text-xl">Edit Event</h1>
+        <h1 className="font-heading font-bold text-xl flex-1">Edit Event</h1>
+        <HomeButton />
       </div>
 
       <div className="space-y-5">

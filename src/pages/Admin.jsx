@@ -4,6 +4,7 @@ import { api } from "@/api/data";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { ArrowLeft, Shield, Ban, Search, Trash2, EyeOff, XCircle, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import HomeButton from "@/components/HomeButton";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -34,7 +35,8 @@ export default function Admin() {
           </Button>
         </Link>
         <Shield className="w-5 h-5 text-primary" />
-        <h1 className="font-heading font-bold text-xl">Admin</h1>
+        <h1 className="font-heading font-bold text-xl flex-1">Admin</h1>
+        <HomeButton />
       </div>
 
       <div className="flex gap-1 bg-secondary/50 rounded-xl p-1 mb-5">

@@ -5,6 +5,7 @@ import { api } from "@/api/data";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { ArrowLeft, UserPlus, Users, Check, X, UserCheck, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import HomeButton from "@/components/HomeButton";
 import { useToast } from "@/components/ui/use-toast";
 import LoadingSpinner from "../components/LoadingSpinner";
 import UserAvatar from "../components/UserAvatar";
@@ -125,7 +126,8 @@ export default function Friends() {
             <ArrowLeft className="w-5 h-5" />
           </Button>
         </Link>
-        <h1 className="font-heading font-bold text-xl">Friends</h1>
+        <h1 className="font-heading font-bold text-xl flex-1">Friends</h1>
+        <HomeButton />
       </div>
 
       {/* Tabs */}

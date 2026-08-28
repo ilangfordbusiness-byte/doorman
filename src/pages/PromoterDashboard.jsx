@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { api } from "@/api/data";
 import { ArrowLeft, Ticket, TrendingUp, Wallet, MousePointerClick, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import HomeButton from "@/components/HomeButton";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useStripeStatus } from "@/hooks/useStripeStatus";
 import { discountLabel, usesRemaining } from "@/lib/promoterRef";
@@ -74,7 +75,8 @@ export default function PromoterDashboard() {
         <Button variant="ghost" size="icon" className="rounded-full" onClick={() => navigate("/")}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
-        <h1 className="font-heading font-bold text-xl">Promoter Dashboard</h1>
+        <h1 className="font-heading font-bold text-xl flex-1">Promoter Dashboard</h1>
+        <HomeButton />
       </div>
 
       <div className="bg-card rounded-2xl border border-border p-4 mb-5">

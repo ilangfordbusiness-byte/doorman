@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { api } from "@/api/data";
 import { ArrowLeft, TrendingUp, Ticket, Tag, Percent, Wallet, Megaphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import HomeButton from "@/components/HomeButton";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
 const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
@@ -82,7 +83,8 @@ export default function EventAnalytics() {
         <Button variant="ghost" size="icon" className="rounded-full" onClick={() => navigate(`/event/${id}`)}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
-        <h1 className="font-heading font-bold text-xl">Sales Analytics</h1>
+        <h1 className="font-heading font-bold text-xl flex-1">Sales Analytics</h1>
+        <HomeButton />
       </div>
       <p className="text-sm text-muted-foreground mb-5">{event.title}</p>
 
