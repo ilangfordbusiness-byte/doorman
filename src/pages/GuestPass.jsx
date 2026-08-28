@@ -32,41 +32,45 @@ export default function GuestPass() {
   }, [id]);
 
   async function loadPass() {
-    const authed = await api.auth.isAuthenticated();
-    if (!authed) {
-      api.auth.redirectToLogin(window.location.href);
-      return;
-    }
-    const me = await api.auth.me();
-    const events = await api.entities.Event.filter({ id });
-    if (!events.length) return navigate("/");
-    setEvent(events[0]);
+    try {
+      const authed = await api.auth.isAuthenticated();
+      if (!authed) {
+        api.auth.redirectToLogin(window.location.href);
+        return;
+      }
+      const me = await api.auth.me();
+      const events = await api.entities.Event.filter({ id });
+      if (!events.length) return navigate("/");
+      setEvent(events[0]);
 
-    const allEntries = await api.entities.GuestlistEntry.filter({
-      event_id: id,
-      guest_email: me.email,
-    });
-    if (!allEntries.length) return navigate(`/event/${id}`);
+      const allEntries = await api.entities.GuestlistEntry.filter({
+        event_id: id,
+        guest_email: me.email,
+      });
+      if (!allEntries.length) return navigate(`/event/${id}`);
 
-    // Order: usable tickets (approved/invited) first, then the rest.
-    const rank = (s) => (["approved", "invited"].includes(s) ? 0 : s === "checked_in" ? 1 : 2);
-    allEntries.sort((a, b) => rank(a.status) - rank(b.status));
+      // Order: usable tickets (approved/invited) first, then the rest.
+      const rank = (s) => (["approved", "invited"].includes(s) ? 0 : s === "checked_in" ? 1 : 2);
+      allEntries.sort((a, b) => rank(a.status) - rank(b.status));
 
-    setEntries(allEntries);
-    setEntryIndex(0);
-    setEntry(allEntries[0]);
+      setEntries(allEntries);
+      setEntryIndex(0);
+      setEntry(allEntries[0]);
 
-    if (["approved", "invited"].includes(allEntries[0].status)) {
-      generateQR(allEntries[0]);
-    }
+      if (["approved", "invited"].includes(allEntries[0].status)) {
+        generateQR(allEntries[0]);
+      }
 
-    loadPendingTransfer(allEntries[0].id);
+      loadPendingTransfer(allEntries[0].id);
 
-    setLoading(false);
-
-    // Start location watch if already checked in
-    if (allEntries[0].status === "checked_in" && !allEntries[0].checked_out_at) {
-      startLocationWatch(allEntries[0], events[0]);
+      // Start location watch if already checked in
+      if (allEntries[0].status === "checked_in" && !allEntries[0].checked_out_at) {
+        startLocationWatch(allEntries[0], events[0]);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -166,7 +170,12 @@ export default function GuestPass() {
 
   if (loading) return <LoadingSpinner fullScreen />;
 
-  if (!event || !entry) return null;
+  if (!event || !entry) return (
+    <div className="max-w-lg mx-auto px-4 pt-10 text-center">
+      <p className="text-sm text-muted-foreground">Couldn't load this ticket.</p>
+      <Button className="mt-4" onClick={() => navigate("/guest")}>My tickets</Button>
+    </div>
+  );
 
   const eventDate = moment(event.date);
   const isApproved = ["approved", "invited"].includes(entry.status);

@@ -20,14 +20,19 @@ export default function TicketingPanel({ eventId, paid, currency }) {
 
   async function load() {
     setLoading(true);
-    const [t, p] = await Promise.all([
-      api.entities.TicketTier.filter({ event_id: eventId }),
-      api.entities.PromoCode.filter({ event_id: eventId }),
-    ]);
-    t.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-    setTiers(t);
-    setPromos(p);
-    setLoading(false);
+    try {
+      const [t, p] = await Promise.all([
+        api.entities.TicketTier.filter({ event_id: eventId }),
+        api.entities.PromoCode.filter({ event_id: eventId }),
+      ]);
+      t.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+      setTiers(t);
+      setPromos(p);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function addTier() {

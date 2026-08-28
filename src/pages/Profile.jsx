@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { api } from "@/api/data";
-import { LogOut, User, Calendar, Camera, ArrowLeft, Pencil, Check, X, Shield, Trash2, AtSign, Clock, Users, Mic2, ChevronRight, Building2, ArrowLeftRight } from "lucide-react";
+import { LogOut, User, Calendar, Camera, ArrowLeft, Pencil, Check, X, Shield, Trash2, AtSign, Mic2, ChevronRight, Building2, ArrowLeftRight } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,20 +53,26 @@ export default function Profile() {
   }, []);
 
   async function loadProfile() {
-    const me = await api.auth.me();
-    setUser(me);
-    const [events, entries] = await Promise.all([
-      api.entities.Event.filter({ host_email: me.email }),
-      api.entities.GuestlistEntry.filter({ guest_email: me.email }),
-    ]);
+    setLoading(true);
+    try {
+      const me = await api.auth.me();
+      setUser(me);
+      const [events, entries] = await Promise.all([
+        api.entities.Event.filter({ host_email: me.email }),
+        api.entities.GuestlistEntry.filter({ guest_email: me.email }),
+      ]);
 
-    const businesses = await api.entities.BusinessAccount.filter({ owner_email: me.email });
-    setBusinessAccounts(businesses);
-    setStats({
-      hosted: events.filter((e) => !e.business_id).length,
-      attended: entries.filter((e) => ["checked_in", "checked_out"].includes(e.status) || e.checked_in_at).length,
-    });
-    setLoading(false);
+      const businesses = await api.entities.BusinessAccount.filter({ owner_email: me.email });
+      setBusinessAccounts(businesses);
+      setStats({
+        hosted: events.filter((e) => !e.business_id).length,
+        attended: entries.filter((e) => ["checked_in", "checked_out"].includes(e.status) || e.checked_in_at).length,
+      });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   }
 
   function handlePhotoChange(e) {
@@ -130,6 +136,12 @@ export default function Profile() {
   }
 
   if (loading) return <LoadingSpinner fullScreen />;
+  if (!user) return (
+    <div className="max-w-lg mx-auto px-4 pt-10 text-center">
+      <p className="text-sm text-muted-foreground">Couldn't load your profile.</p>
+      <Button className="mt-4" onClick={() => loadProfile()}>Try again</Button>
+    </div>
+  );
 
   return (
     <div className="max-w-lg mx-auto px-4 pt-4 pb-8">

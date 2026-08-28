@@ -12,14 +12,14 @@ export default function DiscoverEvents() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    api.entities.Event.filter({ status: "published" }, "-date").then((data) => {
-      setEvents(data.filter((e) => e.is_public || e.discoverable));
-      setLoading(false);
-    });
+    api.entities.Event.filter({ status: "published" }, "-date")
+      .then((data) => setEvents(data.filter((e) => e.is_public || e.discoverable)))
+      .catch((e) => console.error(e))
+      .finally(() => setLoading(false));
   }, []);
 
   const filtered = events.filter((e) =>
-    e.title.toLowerCase().includes(search.toLowerCase()) ||
+    (e.title || "").toLowerCase().includes(search.toLowerCase()) ||
     (e.venue_name || "").toLowerCase().includes(search.toLowerCase())
   );
 

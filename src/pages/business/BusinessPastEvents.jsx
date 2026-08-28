@@ -10,7 +10,7 @@ const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
 export default function BusinessPastEvents() {
   const { data: business } = useActiveAccount();
 
-  const { data: rows, isLoading } = useQuery({
+  const { data: rows, isLoading, isError } = useQuery({
     queryKey: ["businessPastEvents", business?.id],
     queryFn: async () => {
       const events = await api.entities.Event.filter({ business_id: business.id }, "-date");
@@ -38,6 +38,17 @@ export default function BusinessPastEvents() {
   });
 
   if (!business || isLoading) return <LoadingSpinner fullScreen />;
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center pt-12 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
+          <History className="w-8 h-8 text-primary" />
+        </div>
+        <h3 className="font-heading font-semibold">Couldn't load past events</h3>
+        <p className="text-sm text-muted-foreground mt-1 max-w-xs">Something went wrong fetching your history. Please try again.</p>
+      </div>
+    );
+  }
 
   const list = rows || [];
   if (list.length === 0) {
