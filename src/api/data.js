@@ -884,4 +884,68 @@ const integrations = {
   },
 };
 
-export const api = { entities, auth, functions, integrations };
+// ---------------------------------------------------------------------------
+// Admin surface. Reads use the already-client-readable profiles/events tables
+// and the admin-gated audit log + metrics RPC; every mutation goes through a
+// service-role edge function that re-checks the admin role server-side.
+// ---------------------------------------------------------------------------
+const admin = {
+  async metrics() {
+    const { data } = await rpc("admin_dashboard_metrics");
+    return data;
+  },
+  async listUsers({ search } = {}) {
+    let q = supabase
+      .from("profiles")
+      .select("id, email, full_name, phone, instagram, avatar_url, role, banned_at, created_at")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (search) q = q.or(`email.ilike.%${search}%,full_name.ilike.%${search}%`);
+    const { data, error } = await q;
+    throwOn(error);
+    return (data ?? []).map((p) => ({ ...profileToUser(p), banned_at: p.banned_at }));
+  },
+  setRole(userId, role) {
+    return invokeEdge("adminUsers", { action: "set_role", user_id: userId, role });
+  },
+  updateUser(userId, fields) {
+    return invokeEdge("adminUsers", { action: "update_profile", user_id: userId, ...fields });
+  },
+  banUser(userId) {
+    return invokeEdge("adminUsers", { action: "ban", user_id: userId });
+  },
+  unbanUser(userId) {
+    return invokeEdge("adminUsers", { action: "unban", user_id: userId });
+  },
+  async listEvents({ search } = {}) {
+    let q = supabase
+      .from("events")
+      .select("id, title, date, status, host_id, business_id, is_paid, currency, created_at")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (search) q = q.ilike("title", `%${search}%`);
+    const { data, error } = await q;
+    throwOn(error);
+    return data ?? [];
+  },
+  updateEventStatus(eventId, action) {
+    return invokeEdge("adminEvents", { action, event_id: eventId });
+  },
+  deleteEvent(eventId) {
+    return invokeEdge("adminEvents", { action: "delete", event_id: eventId });
+  },
+  deleteMessage(messageId) {
+    return invokeEdge("adminEvents", { action: "delete_message", message_id: messageId });
+  },
+  async listAuditLog() {
+    const { data, error } = await supabase
+      .from("admin_audit_log")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    throwOn(error);
+    return data ?? [];
+  },
+};
+
+export const api = { entities, auth, functions, integrations, admin };

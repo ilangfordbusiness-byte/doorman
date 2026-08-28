@@ -386,10 +386,14 @@ export default function Profile() {
       <StripeConnectPanel />
 
       {user?.role === "admin" && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 border border-primary/20 rounded-xl mb-4">
+        <Link
+          to="/admin"
+          className="flex items-center gap-2 px-3 py-2 bg-primary/10 border border-primary/20 rounded-xl mb-4 hover:bg-primary/15 transition-colors"
+        >
           <Shield className="w-4 h-4 text-primary" />
-          <span className="text-xs text-primary font-semibold">Admin Access</span>
-        </div>
+          <span className="text-xs text-primary font-semibold flex-1">Admin Panel</span>
+          <ChevronRight className="w-4 h-4 text-primary" />
+        </Link>
       )}
 
       <Button

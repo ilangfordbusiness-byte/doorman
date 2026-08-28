@@ -35,6 +35,28 @@ export async function getCaller(req: Request, svc: SupabaseClient): Promise<any 
   return profile ?? null;
 }
 
+// Resolve the caller and require the admin role. Returns the admin's profile
+// row, or null if the caller is missing or not an admin (callers return 403).
+// deno-lint-ignore no-explicit-any
+export async function requireAdmin(req: Request, svc: SupabaseClient): Promise<any | null> {
+  const user = await getCaller(req, svc);
+  if (!user || user.role !== 'admin') return null;
+  return user;
+}
+
+// Append a row to admin_audit_log. Service-role only; never throws the caller's
+// action away — log failures are swallowed so the action still reports success.
+// deno-lint-ignore no-explicit-any
+export async function auditAdmin(
+  svc: SupabaseClient, admin: any, action: string,
+  target_type: string, target_id: string, metadata: Record<string, unknown> = {},
+): Promise<void> {
+  const { error } = await svc.from('admin_audit_log').insert({
+    admin_id: admin.id, admin_email: admin.email, action, target_type, target_id, metadata,
+  });
+  if (error) console.log('auditAdmin insert failed:', error.message);
+}
+
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
