@@ -2,7 +2,7 @@
 // All amounts are integer minor units end to end (the schema stores minor units,
 // so the old toMinor/toMajor conversions on stored values are gone).
 import { SupabaseClient } from 'npm:@supabase/supabase-js@2';
-import { appOrigin, escapeHtml, sendEmail } from './email.ts';
+import { appOrigin, escapeHtml, formatEventDateLong, formatTimeRange, sendEmail } from './email.ts';
 
 export const PLATFORM_FEE_FIXED_MINOR = 50; // 0.50 in minor units
 export const PLATFORM_FEE_PERCENT = 0.04; // 4%
@@ -74,27 +74,16 @@ export function buildQrImageUrl(entry: any): string {
   return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(payload)}&bgcolor=FFFFFF&color=000000`;
 }
 
-function formatEventDate(dateStr: string): string {
-  if (!dateStr) return '';
-  try {
-    return new Date(dateStr).toLocaleDateString('en-GB', {
-      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-    });
-  } catch {
-    return dateStr;
-  }
-}
-
 // deno-lint-ignore no-explicit-any
 export function buildTicketEmailHtml(entryOrEntries: any, event: any, tierName?: string | null): string {
   const entries = Array.isArray(entryOrEntries) ? entryOrEntries : [entryOrEntries];
   const passLink = `${appOrigin()}/pass/${event.id}`;
-  const dateStr = formatEventDate(event.date);
+  const dateStr = formatEventDateLong(event.date);
   const venueParts = [event.venue_name, event.address].filter(Boolean).join(' · ');
   const title = escapeHtml(event.title);
-  const guestName = escapeHtml(entries[0].guest_name);
-  const startTime = typeof event.start_time === 'string' ? event.start_time.slice(0, 5) : '';
-  const endTime = typeof event.end_time === 'string' ? event.end_time.slice(0, 5) : '';
+  // Multi-ticket entries are named "Name (1 of 2)" — greet with the bare name.
+  const guestName = escapeHtml(String(entries[0].guest_name || '').replace(/\s*\(\d+ of \d+\)$/, ''));
+  const timeRange = formatTimeRange(event);
 
   // deno-lint-ignore no-explicit-any
   const qrBlocks = entries.map((entry: any, i: number) => `
@@ -112,22 +101,22 @@ export function buildTicketEmailHtml(entryOrEntries: any, event: any, tierName?:
   <div style="max-width:480px;margin:0 auto;background:#0a0a12;color:#e8e8f0;padding:32px 24px;">
     <p style="margin:0 0 24px;font-size:11px;letter-spacing:0.25em;text-transform:uppercase;color:#7a7a9a;text-align:center;">DoorMan · Ticket Confirmation</p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#ffffff;text-align:center;">${title}</h1>
-    ${guestName ? `<p style="margin:0 0 24px;text-align:center;color:#b0b0c8;">${guestName}${entries.length > 1 ? ` · ${entries.length} tickets` : ''}</p>` : ''}
+    ${guestName ? `<p style="margin:0 0 24px;text-align:center;color:#b0b0c8;">Hi ${guestName},${entries.length > 1 ? ` here are your ${entries.length} tickets` : ''}</p>` : ''}
     ${entries.length > 1 ? `<p style="margin:0 0 16px;text-align:center;font-size:12px;color:#7a7a9a;">Each QR admits one person — forward or show them separately.</p>` : ''}
     ${qrBlocks}
     <div style="background:#15151f;border:1px solid #2a2a3a;border-radius:16px;padding:20px;margin-top:16px;">
       <p style="margin:0 0 12px;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#7a7a9a;">Event Details</p>
       <div style="font-size:14px;color:#e8e8f0;line-height:1.7;">
         ${dateStr ? `<div><span style="color:#7a7a9a;">Date:</span> ${escapeHtml(dateStr)}</div>` : ''}
-        ${startTime ? `<div><span style="color:#7a7a9a;">Time:</span> ${escapeHtml(startTime)}${endTime ? ' – ' + escapeHtml(endTime) : ''}</div>` : ''}
+        ${timeRange ? `<div><span style="color:#7a7a9a;">Time:</span> ${escapeHtml(timeRange)}</div>` : ''}
         ${venueParts ? `<div><span style="color:#7a7a9a;">Venue:</span> ${escapeHtml(venueParts)}</div>` : ''}
         ${tierName ? `<div><span style="color:#7a7a9a;">Ticket:</span> ${escapeHtml(tierName)}</div>` : ''}
       </div>
     </div>
-    <div style="text-align:center;margin:24px 0 8px;">
+    <div style="text-align:center;margin:24px 0 20px;">
       <a href="${passLink}" style="display:inline-block;background:#7c3aed;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:14px 28px;border-radius:12px;">View My Ticket</a>
     </div>
-    <p style="margin:8px 0 0;text-align:center;font-size:11px;color:#5a5a7a;">Or visit <a href="${passLink}" style="color:#7c3aed;">${escapeHtml(appOrigin().replace(/^https?:\/\//, ''))}</a> — log in with the email you used to purchase.</p>
+    <p style="margin:0;text-align:center;font-size:11px;color:#5a5a7a;">Or visit <a href="${passLink}" style="color:#7c3aed;">${escapeHtml(appOrigin().replace(/^https?:\/\//, ''))}</a> — log in with the email you used to purchase.</p>
     <p style="margin:24px 0 0;text-align:center;font-size:10px;color:#3a3a4a;">Powered by DoorMan</p>
   </div>
 </body>

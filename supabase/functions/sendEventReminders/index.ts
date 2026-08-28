@@ -1,7 +1,9 @@
 // Daily reminder emails for events happening today, tomorrow, or in 7 days.
 // Triggered by pg_cron; guarded by AUTOMATION_SECRET. verify_jwt=false.
 import { hasAutomationSecret, json, serviceClient } from '../_shared/db.ts';
-import { appOrigin, escapeHtml, sendEmail } from '../_shared/email.ts';
+import {
+  appOrigin, brandedEmail, detailRows, emailCard, formatEventDateLong, formatTimeRange, sendEmail,
+} from '../_shared/email.ts';
 
 Deno.serve(async (req) => {
   try {
@@ -26,8 +28,7 @@ Deno.serve(async (req) => {
     for (const event of events) {
       const isToday = event.date === todayStr;
       const isTomorrow = event.date === tomorrowStr;
-      const label = isToday ? 'TODAY' : isTomorrow ? 'TOMORROW' : 'in 7 days';
-      const emoji = isToday ? '🎉' : isTomorrow ? '⏰' : '📅';
+      const label = isToday ? 'today' : isTomorrow ? 'tomorrow' : 'in 7 days';
 
       const { data: guests } = await svc.from('guestlist_entries')
         .select('guest_email, guest_name')
@@ -37,26 +38,29 @@ Deno.serve(async (req) => {
 
       const eventUrl = `${appOrigin()}/event/${event.id}`;
       const passUrl = `${appOrigin()}/pass/${event.id}`;
-      const fmt = (t: unknown) => typeof t === 'string' ? t.slice(0, 5) : '';
 
       const results = await Promise.allSettled(guests.map((guest) =>
         sendEmail({
           to: guest.guest_email,
-          subject: `${emoji} Reminder: ${event.title} is ${label}!`,
-          html: `
-Hi ${escapeHtml(guest.guest_name || 'there')},<br><br>
-This is a friendly reminder that <strong>${escapeHtml(event.title)}</strong> is happening <strong>${label}</strong>!<br><br>
-📅 Date: ${escapeHtml(event.date)}<br>
-🕐 Time: ${escapeHtml(fmt(event.start_time))}${event.end_time ? ` – ${escapeHtml(fmt(event.end_time))}` : ''}<br>
-${event.venue_name ? `📍 Venue: ${escapeHtml(event.venue_name)}<br>` : ''}
-${event.address ? `🗺️ Address: ${escapeHtml(event.address)}<br>` : ''}
-${event.dress_code ? `👔 Dress Code: ${escapeHtml(event.dress_code)}<br>` : ''}
-${event.entry_notes ? `📋 Entry Notes: ${escapeHtml(event.entry_notes)}<br>` : ''}
-<div style="margin-top:16px;">
-  <a href="${passUrl}" style="display:inline-block;padding:10px 20px;background:#7c3aed;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;margin-right:8px;">Open QR Pass</a>
-  <a href="${eventUrl}" style="display:inline-block;padding:10px 20px;background:#1f1f2e;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;border:1px solid #444;">Event Details</a>
-</div><br>
-See you there! 🙌<br>— DoorMan`.trim(),
+          subject: `Reminder: ${event.title} is ${label}`,
+          html: brandedEmail({
+            kicker: 'Event Reminder',
+            title: event.title,
+            subtitle: `${guest.guest_name ? `Hi ${guest.guest_name}, this` : 'This'} event is happening ${label}.`,
+            bodyHtml: emailCard('Event Details', detailRows([
+              ['📅 Date', formatEventDateLong(event.date)],
+              ['🕐 Time', formatTimeRange(event)],
+              ['📍 Venue', event.venue_name],
+              ['🗺️ Address', event.address],
+              ['👔 Dress code', event.dress_code],
+              ['📋 Entry notes', event.entry_notes],
+            ])),
+            buttons: [
+              { label: 'Open QR Pass', href: passUrl },
+              { label: 'Event Details', href: eventUrl, secondary: true },
+            ],
+            footnote: 'See you there! 🙌',
+          }),
         })
       ));
       totalNotified += results.filter((r) => r.status === 'fulfilled' && r.value.sent).length;
