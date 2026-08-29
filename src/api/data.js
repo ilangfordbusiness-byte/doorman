@@ -707,6 +707,25 @@ const auth = {
     throwOn(error);
     return data ? profileToUser(data) : null;
   },
+  // Search people by name for the friends directory. profiles is readable by
+  // any signed-in user, so this is a small bounded query instead of loading
+  // thousands of rows from guestlists/staff/promoters to build a directory.
+  async searchProfiles(query, limit = 8) {
+    const q = String(query || "").trim();
+    if (!q) return [];
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, email, full_name, avatar_url, instagram")
+      .ilike("full_name", `%${q}%`)
+      .limit(limit);
+    throwOn(error);
+    return (data ?? []).map((p) => ({
+      email: p.email,
+      full_name: p.full_name,
+      profile_picture: p.avatar_url,
+      instagram: p.instagram,
+    }));
+  },
   async updateMe(fields) {
     const id = await uid();
     if (!id) throw new Error("Not authenticated");

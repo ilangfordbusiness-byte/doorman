@@ -4,54 +4,37 @@ import { Search, UserPlus, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Avatar from "./Avatar";
 
-// Search the app's people directory (everyone who has appeared on a guestlist)
-// by name, see mutual-friend counts, and send friend requests directly.
+// Search the app's people directory by name over the profiles table (readable
+// by any signed-in user), see mutual-friend counts, and send friend requests.
 export default function FriendsSearch({ me, friendEmails, sentSet, onSend }) {
   const [query, setQuery] = useState("");
-  const [directory, setDirectory] = useState([]);
-  const [loadingDir, setLoadingDir] = useState(true);
+  const [results, setResults] = useState([]);
+  const [searching, setSearching] = useState(false);
   const [mutuals, setMutuals] = useState({});
   const [sendingTo, setSendingTo] = useState(null);
   const mutualCache = useRef({});
 
-  useEffect(() => { loadDirectory(); }, []);
+  const q = query.trim();
 
-  async function loadDirectory() {
-    try {
-      // Build the widest people directory we can see across the app's entities.
-      // (The User entity itself is admin-only to list, so we aggregate every
-      //  identity the platform exposes to regular users.)
-      const [entries, reqs, staff, promoters] = await Promise.all([
-        api.entities.GuestlistEntry.list("-created_date", 1000),
-        api.entities.FriendRequest.list("-created_date", 1000),
-        api.entities.EventStaff.list("-created_date", 500),
-        api.entities.Promoter.list("-created_date", 500),
-      ]);
-      const map = new Map();
-      const add = (email, name, picture) => {
-        if (!email) return;
-        const e = String(email).toLowerCase();
-        if (e === me?.email) return;
-        if (!map.has(e)) {
-          map.set(e, { email: e, full_name: name || e, profile_picture: picture || "" });
-        }
-      };
-      entries.forEach((x) => add(x.guest_email, x.guest_name));
-      reqs.forEach((x) => {
-        add(x.sender_email, x.sender_name, x.sender_picture);
-        add(x.receiver_email, x.receiver_name, x.receiver_picture);
-      });
-      staff.forEach((x) => add(x.staff_email, x.staff_name));
-      promoters.forEach((x) => add(x.email, x.name));
-      setDirectory([...map.values()]);
-    } catch {}
-    setLoadingDir(false);
-  }
+  // Debounced server-side search: a small bounded query per keystroke instead
+  // of loading the whole directory up front.
+  useEffect(() => {
+    if (!q) { setResults([]); setSearching(false); return; }
+    setSearching(true);
+    let active = true;
+    const t = setTimeout(async () => {
+      try {
+        const rows = await api.auth.searchProfiles(q, 8);
+        if (active) setResults(rows.filter((r) => r.email && r.email !== me?.email));
+      } catch {
+        if (active) setResults([]);
+      } finally {
+        if (active) setSearching(false);
+      }
+    }, 300);
+    return () => { active = false; clearTimeout(t); };
+  }, [q, me?.email]);
 
-  const q = query.trim().toLowerCase();
-  const results = q
-    ? directory.filter((d) => String(d.full_name || "").toLowerCase().includes(q)).slice(0, 8)
-    : [];
   const resultsKey = results.map((r) => r.email).join("|");
 
   useEffect(() => {
@@ -102,15 +85,15 @@ export default function FriendsSearch({ me, friendEmails, sentSet, onSend }) {
         />
       </div>
 
-      {loadingDir && <p className="text-xs text-muted-foreground text-center py-4">Loading people...</p>}
+      {searching && <p className="text-xs text-muted-foreground text-center py-4">Searching…</p>}
 
-      {!loadingDir && q && results.length === 0 && (
+      {!searching && q && results.length === 0 && (
         <div className="py-8 text-center">
           <p className="text-sm text-muted-foreground">No one found matching "{query}"</p>
         </div>
       )}
 
-      {!loadingDir && !q && (
+      {!q && (
         <div className="py-8 text-center">
           <Search className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
           <p className="text-sm text-muted-foreground">Search for people by name to send a friend request.</p>
