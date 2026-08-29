@@ -24,13 +24,22 @@ export default function PromoterDashboard() {
 
   useEffect(() => {
     load();
-    const unsubOrders = api.entities.TicketOrder.subscribe(() => { load(); });
-    const unsubProms = api.entities.Promoter.subscribe(() => { load(); });
+  }, [code]);
+
+  // Subscribe only once we know the promoter, scoped to their own rows so we
+  // don't wake on every ticket sale platform-wide. Debounce bursts into one reload.
+  useEffect(() => {
+    if (!promoter?.id) return;
+    let t;
+    const reload = () => { clearTimeout(t); t = setTimeout(load, 800); };
+    const unsubOrders = api.entities.TicketOrder.subscribe(reload, `promoter_id=eq.${promoter.id}`);
+    const unsubProms = api.entities.Promoter.subscribe(reload, `id=eq.${promoter.id}`);
     return () => {
+      clearTimeout(t);
       if (typeof unsubOrders === "function") unsubOrders();
       if (typeof unsubProms === "function") unsubProms();
     };
-  }, [code]);
+  }, [promoter?.id]);
 
   async function load() {
     try {

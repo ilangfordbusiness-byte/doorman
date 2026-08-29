@@ -625,10 +625,14 @@ function makeEntity(name) {
       throwOn(error);
       return { ok: true };
     },
-    subscribe(cb) {
+    // `filter` (optional) scopes the subscription server-side to matching rows,
+    // e.g. "event_id=eq.<uuid>" — without it a client wakes on every change to
+    // the whole table. Always pass one when the relevant id is known.
+    subscribe(cb, filter) {
       const channel = supabase
         .channel(`sub-${def.table}-${Math.random().toString(36).slice(2)}`)
-        .on("postgres_changes", { event: "*", schema: "public", table: def.table },
+        .on("postgres_changes",
+          { event: "*", schema: "public", table: def.table, ...(filter ? { filter } : {}) },
           async (payload) => {
             const type = { INSERT: "create", UPDATE: "update", DELETE: "delete" }[
               payload.eventType

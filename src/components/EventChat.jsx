@@ -16,9 +16,9 @@ export default function EventChat({ eventId, user, isHost, canChat }) {
     const unsub = api.entities.EventMessage.subscribe((event) => {
       if (event.data?.event_id !== eventId) return;
       if (event.type === "create") {
-        setMessages((prev) => [...prev, event.data]);
+        setMessages((prev) => (prev.some((m) => m.id === event.data.id) ? prev : [...prev, event.data]));
       }
-    });
+    }, `event_id=eq.${eventId}`);
     return unsub;
   }, [eventId]);
 
