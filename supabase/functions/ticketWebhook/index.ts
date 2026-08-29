@@ -4,6 +4,44 @@
 import { json, serviceClient } from '../_shared/db.ts';
 import { sendTicketConfirmationEmail } from '../_shared/tickets.ts';
 
+// The tier sold out before this payment landed: refund it in full (no seat to
+// give) and mark the order refunded. The Idempotency-Key makes a Stripe retry
+// safe; on a refund failure we release the claim so the retry tries again
+// rather than stranding a paid-but-seatless order.
+// deno-lint-ignore no-explicit-any
+async function refundSoldOut(svc: any, order: any, session: any): Promise<void> {
+  const stripeKey = Deno.env.get('STRIPE_TEST_SECRET_KEY') || Deno.env.get('STRIPE_SECRET_KEY');
+  const pi = order.stripe_payment_intent_id || session.payment_intent;
+  if (stripeKey && pi) {
+    const params = new URLSearchParams();
+    params.append('payment_intent', pi);
+    params.append('refund_application_fee', 'true');
+    if (order.payout_destination) params.append('reverse_transfer', 'true');
+    params.append('metadata[order_id]', order.id);
+    params.append('metadata[reason]', 'sold_out');
+    const res = await fetch('https://api.stripe.com/v1/refunds', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${stripeKey}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Idempotency-Key': `soldout-refund-${order.id}`,
+      },
+      body: params,
+    });
+    const refund = await res.json();
+    if (!res.ok || refund.error) {
+      await svc.from('ticket_orders')
+        .update({ status: 'pending', stripe_payment_intent_id: null }).eq('id', order.id);
+      throw new Error(refund.error?.message || 'sold-out refund failed');
+    }
+  }
+  await svc.from('ticket_orders').update({
+    status: 'refunded',
+    refunded_at: new Date().toISOString(),
+    refunded_minor: order.paid_minor,
+  }).eq('id', order.id);
+}
+
 async function verifyStripeSignature(rawBody: string, sigHeader: string, secret: string) {
   const parts = (sigHeader || '').split(',').map((p) => p.trim());
   let t: string | null = null;
@@ -71,6 +109,21 @@ Deno.serve(async (req) => {
     if (!claimed || !claimed.length) return json({ received: true }); // already handled
     const order = claimed[0];
 
+    // Capacity gate: atomically grant the purchased seats. If the tier sold out
+    // first (concurrent buyers racing for the last seats), there is no seat for
+    // this payment — refund it in full and issue no ticket. Free tiers (no
+    // tier_id) have no seat cap here.
+    let granted = false;
+    if (order.tier_id) {
+      const grant = await svc.rpc('grant_tier_seats', { p_tier: order.tier_id, p_qty: order.quantity });
+      if (grant.error) throw new Error(grant.error.message); // unknown state — let Stripe retry
+      if (grant.data === false) {
+        await refundSoldOut(svc, order, session);
+        return json({ received: true });
+      }
+      granted = true;
+    }
+
     const { data: tier } = order.tier_id
       ? await svc.from('ticket_tiers').select('name').eq('id', order.tier_id).single()
       : { data: null };
@@ -96,6 +149,10 @@ Deno.serve(async (req) => {
       if (res.error || !res.data?.length) throw new Error(res.error?.message || 'Failed to create entries');
       entries = res.data;
     } catch (e) {
+      // Give the granted seats back so the retry doesn't double-count them.
+      if (granted) {
+        await svc.rpc('release_tier_seats', { p_tier: order.tier_id, p_qty: order.quantity });
+      }
       await svc.from('ticket_orders')
         .update({ status: 'pending', stripe_payment_intent_id: null })
         .eq('id', order.id);
@@ -109,10 +166,7 @@ Deno.serve(async (req) => {
       .update({ guestlist_entry_id: entries[0].id }).eq('id', order.id);
     if (link.error) console.log('ticketWebhook link entry error', link.error.message);
 
-    if (order.tier_id) {
-      const r = await svc.rpc('record_tier_sale', { p_tier: order.tier_id, p_qty: order.quantity });
-      if (r.error) console.log('record_tier_sale error', r.error.message);
-    }
+    // Tier `sold` was already incremented by grant_tier_seats above.
     if (order.promo_code_id) {
       const r = await svc.rpc('record_promo_use', {
         p_promo: order.promo_code_id, p_discount_minor: order.discount_minor,
