@@ -18,11 +18,15 @@ export default function PromoterAccountSection({ email }) {
 
   useEffect(() => {
     load();
-    const unsubP = api.entities.Promoter.subscribe(() => load());
-    const unsubO = api.entities.TicketOrder.subscribe(() => load());
+    // The webhook updates this user's promoter rows (counters) on every sale, so
+    // watching those rows — scoped to this email — is enough; no need for a
+    // global TicketOrder subscription. Debounce so a burst coalesces.
+    let t;
+    const reload = () => { clearTimeout(t); t = setTimeout(load, 800); };
+    const unsubP = api.entities.Promoter.subscribe(reload, `email=eq.${email}`);
     return () => {
+      clearTimeout(t);
       if (typeof unsubP === "function") unsubP();
-      if (typeof unsubO === "function") unsubO();
     };
   }, [email]);
 
