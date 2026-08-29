@@ -14,12 +14,36 @@ import { normalizePhone } from "@/lib/phone";
 // lives here (not on the signup form) because uploading it needs a session.
 const ORDER = ["name", "phone", "instagram", "avatar"];
 
-function firstMissing(me) {
+// The avatar prompt (unlike name/phone/instagram, which are always required) is
+// throttled: shown at most once per local calendar day, and only once local
+// time is past 10:00. State lives in localStorage, per user, per device.
+function localDayKey(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function avatarPromptedToday(uid) {
+  try {
+    return localStorage.getItem(`dm_avatar_prompt_${uid}`) === localDayKey();
+  } catch {
+    return false; // storage blocked — treat as not-yet-prompted
+  }
+}
+function markAvatarPrompted(uid) {
+  try {
+    localStorage.setItem(`dm_avatar_prompt_${uid}`, localDayKey());
+  } catch { /* storage unavailable */ }
+}
+function avatarEligible(me) {
+  if (!me || me.profile_picture) return false;   // already has a picture
+  if (new Date().getHours() < 10) return false;  // only after 10:00 local
+  return !avatarPromptedToday(me.id);             // once per local calendar day
+}
+
+function firstMissing(me, includeAvatar) {
   const hasName = !!me?.full_name && me.full_name.trim().split(/\s+/).length >= 2;
   if (!hasName) return "name";
   if (!me?.phone) return "phone";
   if (!me?.instagram) return "instagram";
-  if (!me?.profile_picture) return "avatar";
+  if (includeAvatar && !me?.profile_picture) return "avatar";
   return null;
 }
 
@@ -33,6 +57,8 @@ export default function PhoneSetupGate({ children }) {
   const [instagram, setInstagram] = useState("");
   const [photoFile, setPhotoFile] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [userId, setUserId] = useState(null);
+  const [includeAvatar, setIncludeAvatar] = useState(false);
   const fileRef = useRef(null);
 
   useEffect(() => {
@@ -40,24 +66,33 @@ export default function PhoneSetupGate({ children }) {
       const parts = (me?.full_name || "").trim().split(/\s+/);
       setFirstName(parts[0] || "");
       setLastName(parts.slice(1).join(" ") || "");
+      setUserId(me?.id ?? null);
+      const wantAvatar = avatarEligible(me);
+      setIncludeAvatar(wantAvatar);
       const missing = ORDER.filter((s) => {
-        if (s === "name") return firstMissing(me) === "name";
+        if (s === "name") return firstMissing(me, wantAvatar) === "name";
         if (s === "phone") return !me?.phone;
         if (s === "instagram") return !me?.instagram;
-        if (s === "avatar") return !me?.profile_picture;
+        if (s === "avatar") return wantAvatar && !me?.profile_picture;
         return false;
       });
       setSteps(missing);
-      setStep(firstMissing(me));
+      setStep(firstMissing(me, wantAvatar));
       setChecking(false);
     });
   }, []);
+
+  // Once the avatar step is actually shown, record it for today so it won't
+  // reappear again until after 10:00 on the next local date.
+  useEffect(() => {
+    if (step === "avatar" && userId) markAvatarPrompted(userId);
+  }, [step, userId]);
 
   async function advance(patch) {
     setSaving(true);
     try {
       const updated = await api.auth.updateMe(patch);
-      setStep(firstMissing(updated));
+      setStep(firstMissing(updated, includeAvatar));
     } finally {
       setSaving(false);
     }
