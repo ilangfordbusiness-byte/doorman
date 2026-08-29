@@ -57,26 +57,28 @@ Deno.serve(async (req) => {
     if (!orderId) return json({ received: true });
 
     const svc = serviceClient();
-    const { data: order } = await svc.from('ticket_orders').select('*').eq('id', orderId).single();
-    if (!order || order.status === 'paid') return json({ received: true }); // idempotent
 
-    // Atomic counter updates (SQL functions from the ticket_helpers migration).
-    if (order.tier_id) {
-      await svc.rpc('record_tier_sale', { p_tier: order.tier_id, p_qty: order.quantity });
-    }
-    if (order.promo_code_id) {
-      await svc.rpc('record_promo_use', {
-        p_promo: order.promo_code_id, p_discount_minor: order.discount_minor,
-      });
-    }
+    // Atomically claim the order: only the delivery that flips pending -> paid
+    // proceeds. Stripe delivers duplicates and retries, so the previous
+    // read-then-write status check could let two concurrent deliveries both
+    // fulfil (double tickets + double promoter commission). The conditional
+    // update makes fulfilment exactly-once.
+    const { data: claimed, error: claimErr } = await svc.from('ticket_orders')
+      .update({ status: 'paid', stripe_payment_intent_id: session.payment_intent || '' })
+      .eq('id', orderId).eq('status', 'pending')
+      .select('*');
+    if (claimErr) throw new Error(claimErr.message);
+    if (!claimed || !claimed.length) return json({ received: true }); // already handled
+    const order = claimed[0];
 
     const { data: tier } = order.tier_id
       ? await svc.from('ticket_tiers').select('name').eq('id', order.tier_id).single()
       : { data: null };
 
     // Issue one ticket (entry + QR) per seat purchased. qr_secret comes from
-    // the column default. All tickets belong to the buyer's account; they can
-    // transfer the extras to real people or show the QRs one by one.
+    // the column default. This is the critical exactly-once step: if it fails,
+    // release the claim (back to pending) so Stripe's retry reprocesses cleanly
+    // — no entries exist yet, so there is nothing to duplicate.
     const qty = Math.max(1, Number(order.quantity) || 1);
     const rows = Array.from({ length: qty }, (_, i) => ({
       event_id: order.event_id,
@@ -88,15 +90,45 @@ Deno.serve(async (req) => {
       source: 'request',
       notes: `Paid ticket — ${tier?.name ?? ''}${qty > 1 ? ` (${i + 1} of ${qty})` : ''}`,
     }));
-    const { data: entries, error: entryErr } = await svc.from('guestlist_entries')
-      .insert(rows).select('*');
-    if (entryErr || !entries?.length) throw new Error(entryErr?.message || 'Failed to create entries');
+    let entries;
+    try {
+      const res = await svc.from('guestlist_entries').insert(rows).select('*');
+      if (res.error || !res.data?.length) throw new Error(res.error?.message || 'Failed to create entries');
+      entries = res.data;
+    } catch (e) {
+      await svc.from('ticket_orders')
+        .update({ status: 'pending', stripe_payment_intent_id: null })
+        .eq('id', order.id);
+      throw e;
+    }
 
-    await svc.from('ticket_orders').update({
-      status: 'paid',
-      stripe_payment_intent_id: session.payment_intent || '',
-      guestlist_entry_id: entries[0].id,
-    }).eq('id', order.id);
+    // Side effects below run exactly once (the claim guaranteed it) but are
+    // best-effort: the order is paid and the ticket issued, so a failure here
+    // must not undo that or trigger reprocessing. Log and continue.
+    const link = await svc.from('ticket_orders')
+      .update({ guestlist_entry_id: entries[0].id }).eq('id', order.id);
+    if (link.error) console.log('ticketWebhook link entry error', link.error.message);
+
+    if (order.tier_id) {
+      const r = await svc.rpc('record_tier_sale', { p_tier: order.tier_id, p_qty: order.quantity });
+      if (r.error) console.log('record_tier_sale error', r.error.message);
+    }
+    if (order.promo_code_id) {
+      const r = await svc.rpc('record_promo_use', {
+        p_promo: order.promo_code_id, p_discount_minor: order.discount_minor,
+      });
+      if (r.error) console.log('record_promo_use error', r.error.message);
+    }
+    if (order.promoter_id) {
+      const r = await svc.rpc('record_promoter_sale', {
+        p_promoter: order.promoter_id,
+        p_qty: order.quantity,
+        p_paid_minor: order.paid_minor,
+        p_commission_minor: order.commission_minor,
+        p_promoter_discount_minor: order.promoter_discount_minor,
+      });
+      if (r.error) console.log('record_promoter_sale error', r.error.message);
+    }
 
     // Ticket email (all QRs in one email) — non-blocking.
     try {
@@ -104,16 +136,6 @@ Deno.serve(async (req) => {
       if (event) await sendTicketConfirmationEmail(svc, entries, event, tier?.name ?? null);
     } catch (e) {
       console.log('ticketWebhook email send error', e instanceof Error ? e.message : String(e));
-    }
-
-    if (order.promoter_id) {
-      await svc.rpc('record_promoter_sale', {
-        p_promoter: order.promoter_id,
-        p_qty: order.quantity,
-        p_paid_minor: order.paid_minor,
-        p_commission_minor: order.commission_minor,
-        p_promoter_discount_minor: order.promoter_discount_minor,
-      });
     }
 
     return json({ received: true });
