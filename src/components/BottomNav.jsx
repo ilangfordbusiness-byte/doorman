@@ -4,7 +4,7 @@ import { useNotifications } from "@/hooks/useNotifications";
 import NotificationDot from "./NotificationDot";
 
 const tabs = [
-  { path: "/guest?tab=discover", icon: Compass, label: "Discover", notif: "eventInvites" },
+  { path: "/guest?tab=discover", icon: Compass, label: "Discover", notif: ["eventInvites", "transfers"] },
   { path: "/friends", icon: Heart, label: "Activity", notif: "friendRequests" },
   { path: "/profile", icon: UserCircle, label: "Profile", notif: "coHost" },
 ];
@@ -50,7 +50,12 @@ export default function BottomNav() {
                   <Icon
                     className={`w-5 h-5 transition-all ${active ? "text-primary drop-shadow-[0_0_6px_hsl(270_90%_65%/0.9)]" : "text-muted-foreground"}`}
                   />
-                  {notif && <NotificationDot count={counts[notif] || 0} className="-top-1.5 -right-2.5 w-4 h-4" />}
+                  {notif && (
+                    <NotificationDot
+                      count={Array.isArray(notif) ? notif.reduce((s, k) => s + (counts[k] || 0), 0) : (counts[notif] || 0)}
+                      className="-top-1.5 -right-2.5 w-4 h-4"
+                    />
+                  )}
                 </div>
                 <span
                   className={`text-[9px] font-mono tracking-widest uppercase transition-all ${
