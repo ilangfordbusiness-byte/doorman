@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import { api } from "@/api/data";
 import { Send, MessageCircle } from "lucide-react";
 import UserAvatar from "./UserAvatar";
+import Avatar from "./Avatar";
 
-export default function EventChat({ eventId, user, isHost, canChat }) {
+export default function EventChat({ eventId, user, isHost, canChat, hostIsBusiness = false, businessName = "", businessPicture = "" }) {
   const canSend = isHost || canChat === true;
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
@@ -61,13 +62,20 @@ export default function EventChat({ eventId, user, isHost, canChat }) {
           )}
           {messages.map((msg) => {
             const isMe = msg.sender_email === user.email;
+            // Host messages on a business-hosted event show the business identity.
+            const asBusiness = msg.is_host && hostIsBusiness;
+            const displayName = asBusiness ? businessName : (msg.sender_name || msg.sender_email);
             return (
               <div key={msg.id} className={`flex gap-2 ${isMe ? "flex-row-reverse" : "flex-row"}`}>
-                <UserAvatar email={msg.sender_email} fallbackSrc={msg.sender_picture} name={msg.sender_name || msg.sender_email} size="w-7 h-7" textClass="text-xs" />
+                {asBusiness ? (
+                  <Avatar src={businessPicture} name={businessName} size="w-7 h-7" textClass="text-xs" />
+                ) : (
+                  <UserAvatar email={msg.sender_email} fallbackSrc={msg.sender_picture} name={msg.sender_name || msg.sender_email} size="w-7 h-7" textClass="text-xs" />
+                )}
                 <div className={`max-w-[70%] ${isMe ? "items-end" : "items-start"} flex flex-col gap-0.5`}>
                   <div className="flex items-center gap-1.5">
                     <span className={`text-[10px] text-muted-foreground ${isMe ? "order-last" : ""}`}>
-                      {msg.sender_name || msg.sender_email}
+                      {displayName}
                     </span>
                     {msg.is_host && (
                       <span className="text-[9px] bg-primary/20 text-primary px-1.5 py-0.5 rounded-full font-semibold">Host</span>

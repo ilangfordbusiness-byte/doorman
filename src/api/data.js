@@ -95,6 +95,7 @@ const ENTITIES = {
         host_email: r.host?.email ?? null,
         host_name: r.host?.full_name ?? "",
         host_picture: r.host?.avatar_url ?? "",
+        host_is_business: false,
         co_hosts: coHosts,
         co_host_emails: coHosts.filter((c) => c.status === "accepted").map((c) => c.email),
       };
@@ -151,6 +152,24 @@ const ENTITIES = {
     },
     // Managers additionally get invite_code / staff_code / host_notes.
     async enrich(rows) {
+      // Business-hosted events show the business's name + picture as the host.
+      // business_accounts is owner-only, so read the safe display fields from
+      // the business_public view (works for guests and anon too).
+      const bizIds = [...new Set(rows.filter((r) => r.business_id).map((r) => r.business_id))];
+      if (bizIds.length) {
+        const { data: bz } = await supabase
+          .from("business_public")
+          .select("id, business_name, business_picture_url")
+          .in("id", bizIds);
+        const m = new Map((bz ?? []).map((b) => [b.id, b]));
+        rows = rows.map((r) => {
+          const b = r.business_id && m.get(r.business_id);
+          return b
+            ? { ...r, host_name: b.business_name, host_picture: b.business_picture_url || "", host_is_business: true }
+            : r;
+        });
+      }
+
       const me = await uid();
       if (!me) return rows;
       const { data: myEmailRow } = await supabase

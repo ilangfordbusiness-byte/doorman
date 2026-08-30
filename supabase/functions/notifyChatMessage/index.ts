@@ -45,7 +45,13 @@ Deno.serve(async (req) => {
     if (!targets.length) return json({ ok: true, skipped: 'no guests' });
 
     const eventUrl = `${appOrigin()}/event/${event.id}`;
-    const senderName = host?.full_name || 'The host';
+    // Business-hosted events notify as the business, not the owner.
+    let senderName = host?.full_name || 'The host';
+    if (event.business_id) {
+      const { data: biz } = await svc.from('business_accounts')
+        .select('business_name').eq('id', event.business_id).maybeSingle();
+      if (biz?.business_name) senderName = biz.business_name;
+    }
     const results = await Promise.allSettled(targets.map((guest) =>
       sendEmail({
         to: guest.guest_email,
