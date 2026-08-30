@@ -46,6 +46,7 @@ export default function Friends() {
   const sentSet = fd?.sentSet ?? new Set();
   const [viewingFriend, setViewingFriend] = useState(null);
   const [viewingSuggestion, setViewingSuggestion] = useState(null);
+  const [viewingRequest, setViewingRequest] = useState(null);
 
   // Paginated suggestions state
   const [suggestions, setSuggestions] = useState([]);
@@ -165,6 +166,25 @@ export default function Friends() {
         />
       )}
 
+      {viewingRequest && (
+        <SuggestionProfile
+          user={{ email: viewingRequest.sender_email, full_name: viewingRequest.sender_name, profile_picture: viewingRequest.sender_picture }}
+          myEmail={me?.email}
+          myFriends={friends}
+          onClose={() => setViewingRequest(null)}
+          footer={
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1 rounded-xl" onClick={() => { respond(viewingRequest, "declined"); setViewingRequest(null); }}>
+                <X className="w-4 h-4" /> Decline
+              </Button>
+              <Button className="flex-1 rounded-xl" onClick={() => { respond(viewingRequest, "accepted"); setViewingRequest(null); }}>
+                <Check className="w-4 h-4" /> Accept
+              </Button>
+            </div>
+          }
+        />
+      )}
+
       {loading ? (
         <LoadingSpinner />
       ) : (
@@ -216,12 +236,12 @@ export default function Friends() {
             <div className="space-y-2">
               {requests.length === 0 && <Empty message="No pending requests" />}
               {requests.map((req) => (
-                <UserRow key={req.id} user={{ full_name: req.sender_name, email: req.sender_email, profile_picture: req.sender_picture }} reason="Wants to be friends">
+                <UserRow key={req.id} user={{ full_name: req.sender_name, email: req.sender_email, profile_picture: req.sender_picture }} reason="Wants to be friends" onClick={() => setViewingRequest(req)}>
                   <div className="flex gap-1.5">
-                    <button onClick={() => respond(req, "accepted")} className="w-8 h-8 rounded-full bg-emerald-500/15 flex items-center justify-center text-emerald-400 hover:bg-emerald-500/25 transition-colors">
+                    <button onClick={(e) => { e.stopPropagation(); respond(req, "accepted"); }} className="w-8 h-8 rounded-full bg-emerald-500/15 flex items-center justify-center text-emerald-400 hover:bg-emerald-500/25 transition-colors">
                       <Check className="w-4 h-4" />
                     </button>
-                    <button onClick={() => respond(req, "declined")} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+                    <button onClick={(e) => { e.stopPropagation(); respond(req, "declined"); }} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
