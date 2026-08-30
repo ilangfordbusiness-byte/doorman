@@ -25,6 +25,7 @@ import StatusBadge from "../components/StatusBadge";
 import WhoIsGoing from "../components/WhoIsGoing";
 import EventChat from "../components/EventChat";
 import UserAvatar from "../components/UserAvatar";
+import Avatar from "../components/Avatar";
 import HostProfileModal from "../components/HostProfileModal";
 import CoHostsSection from "../components/CoHostsSection";
 import EventJoinActions from "../components/EventJoinActions";
@@ -234,7 +235,11 @@ export default function EventDetails() {
           <h1 className="font-heading font-bold text-2xl text-foreground">{event.title}</h1>
           <div className="flex items-center gap-2 mt-2 flex-wrap">
             <button onClick={() => setShowHostModal(true)} className="flex items-center gap-2 group">
-              <UserAvatar email={event.host_email} fallbackSrc={event.host_picture} name={event.host_name} size="w-6 h-6" textClass="text-[10px]" />
+              {event.host_is_business ? (
+                <Avatar src={event.host_picture} name={event.host_name} size="w-6 h-6" textClass="text-[10px]" />
+              ) : (
+                <UserAvatar email={event.host_email} fallbackSrc={event.host_picture} name={event.host_name} size="w-6 h-6" textClass="text-[10px]" />
+              )}
               <span className="text-sm text-muted-foreground group-hover:text-primary transition-colors">by {event.host_name}</span>
             </button>
             {acceptedCoHosts.map((c) => (
@@ -431,7 +436,8 @@ export default function EventDetails() {
 
         {/* Chat — visible to host and approved/checked-in guests */}
         {(canManage || (myEntry && ["approved", "invited", "checked_in"].includes(myEntry.status))) && (
-          <EventChat eventId={id} user={user} isHost={isHost} canChat={isHost || myEntry?.can_chat === true} />
+          <EventChat eventId={id} user={user} isHost={isHost} canChat={isHost || myEntry?.can_chat === true}
+            hostIsBusiness={event.host_is_business} businessName={event.host_name} businessPicture={event.host_picture} />
         )}
 
         {/* Guest Actions */}
@@ -501,6 +507,7 @@ export default function EventDetails() {
         {showHostModal && (
           <HostProfileModal
             host={{ name: event.host_name, email: event.host_email, picture: event.host_picture }}
+            isBusiness={event.host_is_business}
             me={user}
             onClose={() => setShowHostModal(false)}
           />
