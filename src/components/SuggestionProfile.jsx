@@ -7,18 +7,28 @@ import Avatar from "./Avatar";
 import { Button } from "@/components/ui/button";
 import moment from "moment";
 
-// Pre-friend preview of a suggested user: name, picture, instagram, events in
-// common (only when any exist), and mutual friends (only when any exist).
-export default function SuggestionProfile({ user, myEmail, myFriends, sent, onSend, onClose }) {
+// Pre-friend preview of a suggested user (or an incoming request): name,
+// picture, instagram, events in common and mutual friends (each only when any
+// exist). `footer` overrides the default Add-Friend button (e.g. Accept/Decline
+// for a request); otherwise onSend/sent render the Add-Friend action.
+export default function SuggestionProfile({ user, myEmail, myFriends, sent, onSend, onClose, footer }) {
   const [loading, setLoading] = useState(true);
   const [sharedEvents, setSharedEvents] = useState([]);
   const [mutualFriends, setMutualFriends] = useState([]);
+  const [instagram, setInstagram] = useState(user.instagram || null);
 
   useEffect(() => { load(); }, [user.email]);
 
   async function load() {
     setLoading(true);
     try {
+      // Backfill the instagram handle when the caller didn't supply one (a
+      // friend request row has no instagram, unlike a suggestion).
+      if (!user.instagram) {
+        api.auth.getProfile(user.email)
+          .then((p) => { if (p?.instagram) setInstagram(p.instagram); })
+          .catch(() => {});
+      }
       const [friendEntries, myEntries] = await Promise.all([
         api.entities.GuestlistEntry.filter({ guest_email: user.email }),
         api.entities.GuestlistEntry.filter({ guest_email: myEmail }),
@@ -77,14 +87,14 @@ export default function SuggestionProfile({ user, myEmail, myFriends, sent, onSe
               <Avatar src={user.profile_picture} name={user.full_name} size="w-20 h-20" rounded="rounded-2xl" textClass="text-3xl" className="flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <h3 className="font-heading font-bold text-xl leading-tight">{user.full_name}</h3>
-                {user.instagram && (
+                {instagram && (
                   <a
-                    href={`https://instagram.com/${user.instagram}`}
+                    href={`https://instagram.com/${instagram}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 mt-1 text-sm text-pink-400 hover:text-pink-300 transition-colors"
                   >
-                    <Instagram className="w-3.5 h-3.5" />@{user.instagram}
+                    <Instagram className="w-3.5 h-3.5" />@{instagram}
                   </a>
                 )}
               </div>
@@ -134,9 +144,9 @@ export default function SuggestionProfile({ user, myEmail, myFriends, sent, onSe
               </div>
             )}
 
-            {/* Add friend */}
+            {/* Footer action: custom (e.g. Accept/Decline) or the default Add Friend */}
             <div className="pt-2">
-              {sent ? (
+              {footer ? footer : sent ? (
                 <Button disabled className="w-full rounded-xl">
                   <UserPlus className="w-4 h-4" /> Request Sent
                 </Button>
