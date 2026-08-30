@@ -51,7 +51,14 @@ Deno.serve(async (req) => {
 
     if (action === 'delete_tier') {
       const { error } = await svc.from('ticket_tiers').delete().eq('id', body.id);
-      if (error) return json({ error: error.message }, 400);
+      if (error) {
+        // A tier with orders can't be deleted — the FK (on delete restrict)
+        // protects the order/payment history behind its sold tickets.
+        if (error.code === '23503') {
+          return json({ error: "This tier already has sold tickets, so it can't be deleted." }, 400);
+        }
+        return json({ error: error.message }, 400);
+      }
       return json({ ok: true });
     }
 
