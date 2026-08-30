@@ -3,7 +3,7 @@ import CoverPicker from "../components/CoverPicker";
 import CoverPhotoUpload from "../components/CoverPhotoUpload";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/data";
-import { ArrowLeft, Users, Eye, Plus, Ticket, Megaphone, Trash2, CreditCard, AtSign, Info } from "lucide-react";
+import { ArrowLeft, Eye, Plus, Ticket, Megaphone, Trash2, CreditCard, AtSign, Info } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -414,16 +414,6 @@ export default function CreateEvent({ business = null }) {
                 </label>
               ))}
             </div>
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Users className="w-4 h-4 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-medium">Plus-Ones</p>
-                <p className="text-xs text-muted-foreground">Allow guests to bring +1</p>
-              </div>
-            </div>
-            <Switch checked={form.plus_one_allowed} onCheckedChange={(v) => updateForm("plus_one_allowed", v)} />
           </div>
         </div>
 

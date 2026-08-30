@@ -324,13 +324,6 @@ export default function EditEvent() {
               </div>
             </div>
           )}
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Plus-Ones</p>
-              <p className="text-xs text-muted-foreground">Allow guests to bring +1</p>
-            </div>
-            <Switch checked={form.plus_one_allowed} onCheckedChange={(v) => updateForm("plus_one_allowed", v)} />
-          </div>
         </div>
 
         {/* Paid Ticketing */}
