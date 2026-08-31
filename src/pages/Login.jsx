@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { api } from "@/api/data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,30 @@ function takeLoginNext() {
   return next;
 }
 
+// After an OAuth round-trip, a failure comes back in the redirect URL — in the
+// hash for the implicit flow, the query string for PKCE. Turn it into a
+// friendly message. Google sign-up is blocked at the database trigger, which
+// GoTrue reports generically as "Database error saving new user"; treat that as
+// "no account yet — sign up with email first". Also strips the error from the
+// URL so a refresh doesn't resurface it.
+function readOAuthError() {
+  try {
+    const hash = (window.location.hash || "").replace(/^#/, "");
+    const raw = hash.includes("error") ? hash : window.location.search;
+    const params = new URLSearchParams(raw);
+    if (!params.get("error")) return "";
+    const desc = (params.get("error_description") || "").replace(/\+/g, " ");
+    // Drop the error params (hash or query) so a refresh doesn't resurface it.
+    window.history.replaceState(null, "", window.location.pathname);
+    if (/database error saving new user/i.test(desc)) {
+      return "There's no DoorMan account for that Google address yet. Create an account with email first — Google can only sign you in to an account you already have.";
+    }
+    return desc || "Sign-in failed. Please try again.";
+  } catch {
+    return "";
+  }
+}
+
 // Sign-in screen, rendered by the app shell whenever there is no session.
 // Not a route — views are local state: root (Google + manual entry point),
 // signin, signup, check-email (confirmation pending), forgot, forgot-sent.
@@ -39,6 +63,13 @@ export default function Login() {
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [instagram, setInstagram] = useState("");
+
+  // Surface an OAuth failure carried back in the redirect URL (e.g. a new
+  // Google user rejected by the sign-up block) on the entry screen.
+  useEffect(() => {
+    const msg = readOAuthError();
+    if (msg) setError(msg);
+  }, []);
 
   async function withBusy(fn) {
     setBusy(true);
