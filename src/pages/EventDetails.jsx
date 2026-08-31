@@ -448,16 +448,14 @@ export default function EventDetails() {
                 <h3 className="font-heading font-semibold text-sm mb-3">Tickets</h3>
                 <div className="space-y-2">
                   {tiers.map((t) => {
-                    const left = Math.max(0, Number(t.quantity || 0) - Number(t.sold || 0));
+                    const soldOut = Math.max(0, Number(t.quantity || 0) - Number(t.sold || 0)) <= 0;
                     return (
-                      <div key={t.id} className="flex justify-between items-center text-sm">
+                      <div key={t.id} className={`flex justify-between items-center text-sm ${soldOut ? "opacity-60" : ""}`}>
                         <div>
-                          <p className="font-medium">{t.name}</p>
-                          {(left <= 0 || !t.hide_remaining) && (
-                            <p className="text-xs text-muted-foreground">{left <= 0 ? "Sold out" : `${left} left`}</p>
-                          )}
+                          <p className={`font-medium ${soldOut ? "line-through" : ""}`}>{t.name}</p>
+                          {soldOut && <p className="text-xs text-muted-foreground">Sold out</p>}
                         </div>
-                        <p className="font-bold">{sym}{buyerPrice(t.price, event.fee_mode).toFixed(2)}</p>
+                        <p className={`font-bold ${soldOut ? "line-through" : ""}`}>{sym}{buyerPrice(t.price, event.fee_mode).toFixed(2)}</p>
                       </div>
                     );
                   })}
