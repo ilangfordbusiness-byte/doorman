@@ -4,7 +4,6 @@ import { api } from "@/api/data";
 import { Ticket, Tag, Plus, Trash2, Loader2, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
 import { buyerPrice } from "@/lib/fees";
 
@@ -19,7 +18,7 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
   const [tiers, setTiers] = useState([]);
   const [promos, setPromos] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [newTier, setNewTier] = useState({ name: "", price: "", quantity: "", hide_remaining: false });
+  const [newTier, setNewTier] = useState({ name: "", price: "", quantity: "" });
   const [newPromo, setNewPromo] = useState({ code: "", discount_percent: "", max_uses: "" });
 
   useEffect(() => { load(); }, [eventId]);
@@ -54,10 +53,9 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
         price: Number(newTier.price),
         quantity: Number(newTier.quantity),
         sort_order: tiers.length,
-        hide_remaining: newTier.hide_remaining,
       });
       if (res.data?.error) throw new Error(res.data.error);
-      setNewTier({ name: "", price: "", quantity: "", hide_remaining: false });
+      setNewTier({ name: "", price: "", quantity: "" });
       await load();
       toast({ title: "Tier added" });
     } catch (e) {
@@ -78,25 +76,6 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
     } catch (e) {
       console.error("TicketTier delete failed:", e);
       toast({ title: "Couldn't delete tier", description: e?.message || "Only the event host can delete tiers.", variant: "destructive" });
-    }
-  }
-
-  async function toggleHideRemaining(t) {
-    // Optimistic flip — reload reconciles with the server on error.
-    setTiers((cur) => cur.map((x) => (x.id === t.id ? { ...x, hide_remaining: !x.hide_remaining } : x)));
-    try {
-      const res = await api.functions.invoke("manageTicketCatalog", {
-        action: "update_tier",
-        event_id: eventId,
-        id: t.id,
-        hide_remaining: !t.hide_remaining,
-      });
-      if (res.data?.error) throw new Error(res.data.error);
-      await load();
-    } catch (e) {
-      console.error("TicketTier update failed:", e);
-      toast({ title: "Couldn't update tier", description: e?.message || "Only the event host can edit tiers.", variant: "destructive" });
-      await load();
     }
   }
 
@@ -167,10 +146,6 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
                 {t.sales_status === "sold_out" && <span className="text-destructive"> · Sold out</span>}
               </p>
             </div>
-            <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer whitespace-nowrap" title="Hide the number of tickets left from guests (Sold out is still shown)">
-              Hide left
-              <Switch checked={!!t.hide_remaining} onCheckedChange={() => toggleHideRemaining(t)} />
-            </label>
             <button onClick={() => removeTier(t.id)} className="text-muted-foreground hover:text-destructive transition-colors">
               <Trash2 className="w-4 h-4" />
             </button>
@@ -191,13 +166,6 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
             <Input type="number" placeholder="Price" value={newTier.price} onChange={(e) => setNewTier((s) => ({ ...s, price: e.target.value }))} className="h-10" />
             <Input type="number" placeholder="Qty" value={newTier.quantity} onChange={(e) => setNewTier((s) => ({ ...s, quantity: e.target.value }))} className="h-10" />
           </div>
-          <label className="flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/40 px-3 py-2.5 cursor-pointer">
-            <div>
-              <p className="text-sm font-medium">Hide tickets left</p>
-              <p className="text-[11px] text-muted-foreground">Guests won't see how many are left for this tier — "Sold out" still shows.</p>
-            </div>
-            <Switch checked={newTier.hide_remaining} onCheckedChange={(v) => setNewTier((s) => ({ ...s, hide_remaining: v }))} />
-          </label>
           <Button className="w-full h-10 rounded-xl" onClick={addTier} disabled={!newTier.name || newTier.price === "" || newTier.quantity === ""}>
             <Plus className="w-4 h-4" /> Add Tier
           </Button>

@@ -190,10 +190,8 @@ export default function TicketCheckout() {
             >
               <div className="flex justify-between items-center">
                 <div>
-                  <p className="text-sm font-semibold">{t.name}</p>
-                  {(soldOut || !t.hide_remaining) && (
-                    <p className="text-xs text-muted-foreground">{soldOut ? "Sold out" : `${left} left`}</p>
-                  )}
+                  <p className={`text-sm font-semibold ${soldOut ? "line-through" : ""}`}>{t.name}</p>
+                  {soldOut && <p className="text-xs text-muted-foreground">Sold out</p>}
                 </div>
                 <div className="text-right">
                   {discActive ? (
