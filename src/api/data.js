@@ -312,6 +312,7 @@ const ENTITIES = {
       sold: r.sold,
       sales_status: r.sales_status,
       sort_order: r.sort_order,
+      hide_remaining: r.hide_remaining,
     }),
     // Writes must go through the manageTicketCatalog edge function (RLS blocks
     // direct client writes to tiers).
@@ -323,6 +324,15 @@ const ENTITIES = {
         price: obj.price,
         quantity: obj.quantity,
         sort_order: obj.sort_order ?? 0,
+        hide_remaining: obj.hide_remaining ?? false,
+      });
+      return ENTITIES.TicketTier.toApp(data.tier);
+    },
+    async update(id, obj) {
+      const { data } = await invokeEdge("manageTicketCatalog", {
+        action: "update_tier",
+        id,
+        hide_remaining: obj.hide_remaining,
       });
       return ENTITIES.TicketTier.toApp(data.tier);
     },

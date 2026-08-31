@@ -453,7 +453,9 @@ export default function EventDetails() {
                       <div key={t.id} className="flex justify-between items-center text-sm">
                         <div>
                           <p className="font-medium">{t.name}</p>
-                          <p className="text-xs text-muted-foreground">{left <= 0 ? "Sold out" : `${left} left`}</p>
+                          {(left <= 0 || !t.hide_remaining) && (
+                            <p className="text-xs text-muted-foreground">{left <= 0 ? "Sold out" : `${left} left`}</p>
+                          )}
                         </div>
                         <p className="font-bold">{sym}{buyerPrice(t.price, event.fee_mode).toFixed(2)}</p>
                       </div>

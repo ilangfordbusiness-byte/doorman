@@ -15,8 +15,8 @@ Deno.serve(async (req) => {
     const { action } = body;
 
     let eventId: string | undefined = body.event_id;
-    if ((action === 'delete_tier' || action === 'delete_promo') && !eventId && body.id) {
-      const table = action === 'delete_tier' ? 'ticket_tiers' : 'promo_codes';
+    if ((action === 'delete_tier' || action === 'update_tier' || action === 'delete_promo') && !eventId && body.id) {
+      const table = action === 'delete_promo' ? 'promo_codes' : 'ticket_tiers';
       const { data: rec } = await svc.from(table).select('event_id').eq('id', body.id).single();
       eventId = rec?.event_id;
     }
@@ -44,7 +44,19 @@ Deno.serve(async (req) => {
         price_minor: Math.round(Number(price) * 100),
         quantity: Math.round(Number(quantity)),
         sort_order: body.sort_order ?? 0,
+        hide_remaining: !!body.hide_remaining,
       }).select('*').single();
+      if (error) return json({ error: error.message }, 400);
+      return json({ tier });
+    }
+
+    if (action === 'update_tier') {
+      // Currently the only editable field is the display flag for remaining stock.
+      if (!body.id) return json({ error: 'Missing tier id' }, 400);
+      const { data: tier, error } = await svc.from('ticket_tiers')
+        .update({ hide_remaining: !!body.hide_remaining })
+        .eq('id', body.id).eq('event_id', eventId)
+        .select('*').single();
       if (error) return json({ error: error.message }, 400);
       return json({ tier });
     }
