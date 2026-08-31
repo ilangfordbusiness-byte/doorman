@@ -260,9 +260,12 @@ export default function Login() {
           <>
             <Mail className="w-10 h-10 mx-auto mb-4 text-primary" />
             <h1 className="text-xl font-extrabold mb-1">Check your email</h1>
-            <p className="text-sm text-muted-foreground mb-6">
+            <p className="text-sm text-muted-foreground mb-2">
               We sent a confirmation link to <span className="font-semibold text-foreground">{email}</span>.
               Open it to finish creating your account.
+            </p>
+            <p className="text-sm text-muted-foreground mb-6">
+              Can't find it? Check your junk or spam folder.
             </p>
             <Button
               variant="outline"
