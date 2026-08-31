@@ -79,6 +79,23 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
     }
   }
 
+  async function setTierStatus(t, status) {
+    try {
+      const res = await api.functions.invoke("manageTicketCatalog", {
+        action: "update_tier",
+        event_id: eventId,
+        id: t.id,
+        sales_status: status,
+      });
+      if (res.data?.error) throw new Error(res.data.error);
+      await load();
+      toast({ title: status === "open" ? "Tier reopened" : "Tier marked sold out" });
+    } catch (e) {
+      console.error("TicketTier status update failed:", e);
+      toast({ title: "Couldn't update tier", description: e?.message || "Only the event host can edit tiers.", variant: "destructive" });
+    }
+  }
+
   async function addPromo() {
     if (!newPromo.code || !newPromo.discount_percent || !newPromo.max_uses) {
       toast({ title: "Fill in all promo fields" });
@@ -135,7 +152,10 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
       </div>
 
       <div className="space-y-2">
-        {tiers.map((t) => (
+        {tiers.map((t) => {
+          const manuallyClosed = t.sales_status === "closed";
+          const naturallyOut = Number(t.sold || 0) >= Number(t.quantity || 0);
+          return (
           <div key={t.id} className="bg-secondary/40 rounded-xl p-3 border border-border/50 flex items-center gap-3">
             <div className="flex-1">
               <p className="text-sm font-medium">{t.name}</p>
@@ -143,14 +163,24 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
                 {sym}{Number(t.price).toFixed(2)}
                 {feeMode === "pass_on" && Number(t.price) > 0 && ` (buyers pay ${sym}${buyerPrice(t.price, feeMode).toFixed(2)})`}
                 {" · "}{Math.max(0, Number(t.quantity || 0) - Number(t.sold || 0))} left
-                {t.sales_status === "sold_out" && <span className="text-destructive"> · Sold out</span>}
+                {t.sales_status !== "open" && <span className="text-destructive"> · Sold out</span>}
               </p>
             </div>
+            {manuallyClosed ? (
+              <Button variant="outline" size="sm" className="rounded-lg text-xs h-8" onClick={() => setTierStatus(t, "open")}>
+                Reopen
+              </Button>
+            ) : !naturallyOut ? (
+              <Button variant="outline" size="sm" className="rounded-lg text-xs h-8" onClick={() => setTierStatus(t, "closed")}>
+                End sales
+              </Button>
+            ) : null}
             <button onClick={() => removeTier(t.id)} className="text-muted-foreground hover:text-destructive transition-colors">
               <Trash2 className="w-4 h-4" />
             </button>
           </div>
-        ))}
+          );
+        })}
         {tiers.length === 0 && <p className="text-xs text-muted-foreground">No tiers yet — add one below. Leave blank to keep the event free.</p>}
       </div>
       {stripeActive === false ? (

@@ -180,7 +180,7 @@ export default function TicketCheckout() {
       <div className="space-y-2 mb-5">
         {tiers.map((t) => {
           const left = remaining(t);
-          const soldOut = left <= 0;
+          const soldOut = left <= 0 || t.sales_status !== "open";
           return (
             <button
               key={t.id}
