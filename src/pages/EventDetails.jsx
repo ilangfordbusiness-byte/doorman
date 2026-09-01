@@ -448,7 +448,7 @@ export default function EventDetails() {
                 <h3 className="font-heading font-semibold text-sm mb-3">Tickets</h3>
                 <div className="space-y-2">
                   {tiers.map((t) => {
-                    const soldOut = Math.max(0, Number(t.quantity || 0) - Number(t.sold || 0)) <= 0;
+                    const soldOut = t.sales_status !== "open" || Math.max(0, Number(t.quantity || 0) - Number(t.sold || 0)) <= 0;
                     return (
                       <div key={t.id} className={`flex justify-between items-center text-sm ${soldOut ? "opacity-60" : ""}`}>
                         <div>

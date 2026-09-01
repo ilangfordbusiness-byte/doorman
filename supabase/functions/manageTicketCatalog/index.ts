@@ -51,10 +51,22 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'update_tier') {
-      // Currently the only editable field is the display flag for remaining stock.
       if (!body.id) return json({ error: 'Missing tier id' }, 400);
+      // Editable fields: the remaining-count display flag, and sales_status —
+      // a host can manually end a tier ('closed') or reopen it ('open')
+      // regardless of how many tickets are left. 'closed' (not 'sold_out') is
+      // used for manual ends so a later refund doesn't auto-reopen it.
+      const patch: Record<string, unknown> = {};
+      if ('hide_remaining' in body) patch.hide_remaining = !!body.hide_remaining;
+      if ('sales_status' in body) {
+        if (!['open', 'closed', 'sold_out'].includes(body.sales_status)) {
+          return json({ error: 'Invalid sales_status' }, 400);
+        }
+        patch.sales_status = body.sales_status;
+      }
+      if (Object.keys(patch).length === 0) return json({ error: 'Nothing to update' }, 400);
       const { data: tier, error } = await svc.from('ticket_tiers')
-        .update({ hide_remaining: !!body.hide_remaining })
+        .update(patch)
         .eq('id', body.id).eq('event_id', eventId)
         .select('*').single();
       if (error) return json({ error: error.message }, 400);
