@@ -867,7 +867,11 @@ const functions = {
       case "getNotifications":
         return rpc("get_notifications");
       case "getEventAttendees":
-        return rpc("get_event_attendees", { p_event_id: body.event_id });
+        return rpc("get_event_attendees", {
+          p_event_id: body.event_id,
+          p_offset: body.offset ?? 0,
+          p_limit: body.limit ?? 50,
+        });
       case "getFriendSuggestions":
         return rpc("get_friend_suggestions", {
           p_offset: body.offset ?? 0,
