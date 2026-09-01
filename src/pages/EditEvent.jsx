@@ -352,7 +352,7 @@ export default function EditEvent() {
                 <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Booking Fee (45p + 4% per ticket)</Label>
                 <div className="space-y-2">
                   {[
-                    { v: "pass_on", l: "Added at checkout", d: "Buyers see your set price while browsing; the booking fee is added at checkout. You receive full face value." },
+                    { v: "pass_on", l: "Added to the ticket price", d: "Buyers pay it — prices are always shown fee-inclusive. You receive full face value." },
                     { v: "absorb", l: "Absorbed in your payout", d: "Buyers pay exactly the price you set; the fee comes out of your share." },
                   ].map((o) => (
                     <label key={o.v} className={`flex items-start gap-2 rounded-xl p-2.5 border cursor-pointer ${form.fee_mode === o.v ? "border-primary bg-primary/10" : "border-border bg-secondary/40"}`}>
