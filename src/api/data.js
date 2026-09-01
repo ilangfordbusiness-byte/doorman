@@ -736,6 +736,22 @@ const auth = {
     throwOn(error);
     return data ? profileToUser(data) : null;
   },
+  // Search every account by name or Instagram handle. profiles is readable by
+  // any signed-in user (profiles_select policy), so this finds anyone with an
+  // account — not just people who've appeared on a guestlist.
+  async searchProfiles(query, limit = 20) {
+    const raw = String(query || "").trim();
+    if (raw.length < 2) return [];
+    // Strip characters that would break the PostgREST .or() filter string.
+    const q = raw.replace(/[,()*]/g, " ").trim();
+    if (!q) return [];
+    const { data, error } = await supabase
+      .from("profiles").select(PROFILE_COLS)
+      .or(`full_name.ilike.%${q}%,instagram.ilike.%${q}%`)
+      .limit(limit);
+    throwOn(error);
+    return (data ?? []).map(profileToUser);
+  },
   async updateMe(fields) {
     const id = await uid();
     if (!id) throw new Error("Not authenticated");
