@@ -151,10 +151,10 @@ export default function TicketCheckout() {
   if (total < MIN_PAID) total = MIN_PAID;
   if (total > unit) total = unit;
   const discExhausted = !discActive && promoter && promoter.discount_type && promoter.discount_type !== "none" && Number(promoter.discount_value || 0) > 0;
-  // Tickets are shown at the host's set (face) price while browsing; under
-  // pass_on the booking fee is added as its own line in the summary below (the
-  // server recomputes it on the discounted face value).
+  // Under pass_on the booking fee rides on the buyer's price; every displayed
+  // price is fee-inclusive (the server recomputes on the discounted face value).
   const passOn = event.fee_mode === "pass_on";
+  const disp = (p) => (passOn ? p + bookingFee(p) : p);
   const fee = passOn ? bookingFee(total) : 0;
   const totalDue = total + fee;
 
@@ -196,11 +196,11 @@ export default function TicketCheckout() {
                 <div className="text-right">
                   {discActive ? (
                     <>
-                      <p className="text-xs text-muted-foreground line-through">{sym}{Number(t.price).toFixed(2)}</p>
-                      <p className="text-sm font-bold text-emerald-400">{sym}{computePromoterDiscount(Number(t.price), promoter).paid.toFixed(2)}</p>
+                      <p className="text-xs text-muted-foreground line-through">{sym}{disp(Number(t.price)).toFixed(2)}</p>
+                      <p className="text-sm font-bold text-emerald-400">{sym}{disp(computePromoterDiscount(Number(t.price), promoter).paid).toFixed(2)}</p>
                     </>
                   ) : (
-                    <p className="text-sm font-bold">{sym}{Number(t.price).toFixed(2)}</p>
+                    <p className="text-sm font-bold">{sym}{disp(Number(t.price)).toFixed(2)}</p>
                   )}
                 </div>
               </div>
