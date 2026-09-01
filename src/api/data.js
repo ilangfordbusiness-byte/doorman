@@ -866,6 +866,8 @@ const functions = {
         return rpc("get_guest_dashboard");
       case "getNotifications":
         return rpc("get_notifications");
+      case "getEventAttendees":
+        return rpc("get_event_attendees", { p_event_id: body.event_id });
       case "getFriendSuggestions":
         return rpc("get_friend_suggestions", {
           p_offset: body.offset ?? 0,
