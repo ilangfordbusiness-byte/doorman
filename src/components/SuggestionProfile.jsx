@@ -84,7 +84,7 @@ export default function SuggestionProfile({ user, myEmail, myFriends, sent, onSe
           <div className="px-5 py-5 space-y-5">
             {/* Identity */}
             <div className="flex items-center gap-4">
-              <Avatar src={user.profile_picture} name={user.full_name} size="w-20 h-20" rounded="rounded-2xl" textClass="text-3xl" className="flex-shrink-0" />
+              <Avatar src={user.profile_picture} name={user.full_name} size="w-20 h-20" rounded="rounded-2xl" textClass="text-3xl" className="flex-shrink-0" enlargeable />
               <div className="flex-1 min-w-0">
                 <h3 className="font-heading font-bold text-xl leading-tight">{user.full_name}</h3>
                 {instagram && (
