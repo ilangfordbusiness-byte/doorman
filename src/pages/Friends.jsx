@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/data";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { ArrowLeft, UserPlus, Users, Check, X, UserCheck, Loader2 } from "lucide-react";
+import { ArrowLeft, UserPlus, Users, Check, X, UserCheck, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import HomeButton from "@/components/HomeButton";
 import { useToast } from "@/components/ui/use-toast";
@@ -13,7 +13,7 @@ import FriendProfile from "../components/FriendProfile";
 import SuggestionProfile from "../components/SuggestionProfile";
 import FriendsSearch from "../components/FriendsSearch";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 50;
 
 async function loadFriendsData(me) {
   const [sent, received] = await Promise.all([
@@ -48,47 +48,32 @@ export default function Friends() {
   const [viewingSuggestion, setViewingSuggestion] = useState(null);
   const [viewingRequest, setViewingRequest] = useState(null);
 
-  // Paginated suggestions state
+  // Suggestions: discrete pages of PAGE_SIZE you flick between (Prev/Next).
   const [suggestions, setSuggestions] = useState([]);
   const [sugLoading, setSugLoading] = useState(false);
-  const [sugHasMore, setSugHasMore] = useState(false);
   const [sugTotal, setSugTotal] = useState(0);
-  const sentinelRef = useRef(null);
+  const [sugPage, setSugPage] = useState(0); // 0-based
 
   useEffect(() => {
-    loadSuggestions(true);
+    loadPage(0);
   }, []);
 
-  async function loadSuggestions(reset) {
-    if (sugLoading) return;
+  async function loadPage(page) {
+    if (sugLoading || page < 0) return;
     setSugLoading(true);
     try {
-      const offset = reset ? 0 : suggestions.length;
-      const res = await api.functions.invoke("getFriendSuggestions", { offset, limit: PAGE_SIZE });
+      const res = await api.functions.invoke("getFriendSuggestions", { offset: page * PAGE_SIZE, limit: PAGE_SIZE });
       const data = res.data;
       if (data?.error) throw new Error(data.error);
-      const items = data.items || [];
-      setSuggestions(reset ? items : [...suggestions, ...items]);
-      setSugHasMore(!!data.hasMore);
+      setSuggestions(data.items || []);
       setSugTotal(data.total || 0);
+      setSugPage(page);
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch {
-      if (reset) setSuggestions([]);
+      setSuggestions([]);
     }
     setSugLoading(false);
   }
-
-  // Infinite scroll: when the sentinel is visible, load the next page.
-  useEffect(() => {
-    if (tab !== "suggestions" || !sugHasMore || sugLoading) return;
-    const el = sentinelRef.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      (entries) => { if (entries[0].isIntersecting) loadSuggestions(false); },
-      { rootMargin: "300px" }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [tab, sugHasMore, sugLoading, suggestions.length]);
 
   async function sendRequest(target) {
     await api.entities.FriendRequest.create({
@@ -198,7 +183,9 @@ export default function Friends() {
             />
           )}
 
-          {tab === "suggestions" && (
+          {tab === "suggestions" && (() => {
+            const totalPages = Math.max(1, Math.ceil(sugTotal / PAGE_SIZE));
+            return (
             <div className="space-y-2">
               {suggestions.length === 0 && !sugLoading && (
                 <Empty message="No suggestions right now" />
@@ -218,19 +205,29 @@ export default function Friends() {
                   </UserRow>
                 );
               })}
-              {sugHasMore && <div ref={sentinelRef} className="h-10" />}
               {sugLoading && (
                 <div className="flex justify-center py-4">
                   <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
                 </div>
               )}
-              {!sugHasMore && suggestions.length > 0 && !sugLoading && (
-                <p className="text-center text-xs text-muted-foreground py-4">
-                  {sugTotal > 0 ? `That's everyone (${sugTotal})` : ""}
-                </p>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between gap-3 pt-3">
+                  <Button variant="outline" size="sm" className="rounded-xl gap-1"
+                    disabled={sugLoading || sugPage === 0} onClick={() => loadPage(sugPage - 1)}>
+                    <ChevronLeft className="w-4 h-4" /> Prev
+                  </Button>
+                  <span className="text-xs text-muted-foreground font-medium">
+                    Page {sugPage + 1} of {totalPages} · {sugTotal} people
+                  </span>
+                  <Button variant="outline" size="sm" className="rounded-xl gap-1"
+                    disabled={sugLoading || sugPage >= totalPages - 1} onClick={() => loadPage(sugPage + 1)}>
+                    Next <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
               )}
             </div>
-          )}
+            );
+          })()}
 
           {tab === "requests" && (
             <div className="space-y-2">
