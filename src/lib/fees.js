@@ -1,7 +1,8 @@
 // Client mirror of the platform fee (supabase/functions/_shared/tickets.ts):
 // 45p + 4% per ticket, computed on the post-discount price in minor units.
-// Used to display all-in prices when an event passes the fee to buyers
-// (events.fee_mode === 'pass_on') — the server recomputes independently.
+// Used to show the booking fee that is added at checkout when an event passes
+// the fee to buyers (events.fee_mode === 'pass_on') — the server recomputes
+// independently. Tickets are shown at the host's face price while browsing.
 export const FEE_FIXED_MINOR = 45;
 export const FEE_PERCENT = 0.04;
 
