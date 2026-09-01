@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/api/data";
-import { Ticket, Tag, Plus, Trash2, Loader2, BarChart3 } from "lucide-react";
+import { Ticket, Tag, Plus, Trash2, Loader2, BarChart3, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
@@ -20,6 +20,8 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
   const [loading, setLoading] = useState(true);
   const [newTier, setNewTier] = useState({ name: "", price: "", quantity: "" });
   const [newPromo, setNewPromo] = useState({ code: "", discount_percent: "", max_uses: "" });
+  const [renaming, setRenaming] = useState(null); // tier id being renamed
+  const [renameValue, setRenameValue] = useState("");
 
   useEffect(() => { load(); }, [eventId]);
 
@@ -96,6 +98,26 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
     }
   }
 
+  async function saveRename(t) {
+    const name = renameValue.trim();
+    setRenaming(null);
+    if (!name || name === t.name) return;
+    try {
+      const res = await api.functions.invoke("manageTicketCatalog", {
+        action: "update_tier",
+        event_id: eventId,
+        id: t.id,
+        name,
+      });
+      if (res.data?.error) throw new Error(res.data.error);
+      await load();
+      toast({ title: "Tier renamed" });
+    } catch (e) {
+      console.error("TicketTier rename failed:", e);
+      toast({ title: "Couldn't rename tier", description: e?.message || "Only the event host can edit tiers.", variant: "destructive" });
+    }
+  }
+
   async function addPromo() {
     if (!newPromo.code || !newPromo.discount_percent || !newPromo.max_uses) {
       toast({ title: "Fill in all promo fields" });
@@ -157,8 +179,24 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
           const naturallyOut = Number(t.sold || 0) >= Number(t.quantity || 0);
           return (
           <div key={t.id} className="bg-secondary/40 rounded-xl p-3 border border-border/50 flex items-center gap-3">
-            <div className="flex-1">
-              <p className="text-sm font-medium">{t.name}</p>
+            <div className="flex-1 min-w-0">
+              {renaming === t.id ? (
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Input autoFocus value={renameValue} onChange={(e) => setRenameValue(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") saveRename(t); if (e.key === "Escape") setRenaming(null); }}
+                    className="h-8 text-sm" />
+                  <button onClick={() => saveRename(t)} className="text-emerald-400 hover:text-emerald-300 shrink-0"><Check className="w-4 h-4" /></button>
+                  <button onClick={() => setRenaming(null)} className="text-muted-foreground hover:text-foreground shrink-0"><X className="w-4 h-4" /></button>
+                </div>
+              ) : (
+                <p className="text-sm font-medium flex items-center gap-1.5">
+                  <span className="truncate">{t.name}</span>
+                  <button onClick={() => { setRenaming(t.id); setRenameValue(t.name); }}
+                    className="text-muted-foreground hover:text-foreground shrink-0" aria-label="Rename tier">
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                </p>
+              )}
               <p className="text-xs text-muted-foreground">
                 {sym}{Number(t.price).toFixed(2)}
                 {feeMode === "pass_on" && Number(t.price) > 0 && ` (+ ${sym}${bookingFee(t.price).toFixed(2)} booking fee at checkout)`}

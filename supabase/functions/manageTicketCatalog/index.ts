@@ -57,6 +57,12 @@ Deno.serve(async (req) => {
       // regardless of how many tickets are left. 'closed' (not 'sold_out') is
       // used for manual ends so a later refund doesn't auto-reopen it.
       const patch: Record<string, unknown> = {};
+      if ('name' in body) {
+        // A tier can be renamed at any time, even after tickets have sold.
+        const nm = String(body.name ?? '').trim();
+        if (!nm) return json({ error: 'Tier name required' }, 400);
+        patch.name = nm;
+      }
       if ('hide_remaining' in body) patch.hide_remaining = !!body.hide_remaining;
       if ('sales_status' in body) {
         if (!['open', 'closed', 'sold_out'].includes(body.sales_status)) {
