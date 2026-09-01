@@ -105,7 +105,7 @@ export default function FriendProfile({ friend, myEmail, myFriends, onClose }) {
           <div className="px-5 py-5 space-y-5">
             {/* Identity */}
             <div className="flex items-center gap-4">
-              <UserAvatar email={friend.email} fallbackSrc={profile?.profile_picture || friend.picture} name={profile?.full_name || friend.name} size="w-20 h-20" rounded="rounded-2xl" textClass="text-3xl" className="flex-shrink-0" />
+              <UserAvatar email={friend.email} fallbackSrc={profile?.profile_picture || friend.picture} name={profile?.full_name || friend.name} size="w-20 h-20" rounded="rounded-2xl" textClass="text-3xl" className="flex-shrink-0" enlargeable />
               <div className="flex-1 min-w-0">
                 <h3 className="font-heading font-bold text-xl leading-tight">{profile?.full_name || friend.name}</h3>
                 {profile?.instagram && (

@@ -50,9 +50,9 @@ export default function HostProfileModal({ host, me, onClose, isBusiness = false
           <X className="w-4 h-4" />
         </button>
         {isBusiness ? (
-          <Avatar src={host.picture} name={host.name} size="w-20 h-20" textClass="text-2xl" className="mx-auto mb-3" />
+          <Avatar src={host.picture} name={host.name} size="w-20 h-20" textClass="text-2xl" className="mx-auto mb-3" enlargeable />
         ) : (
-          <UserAvatar email={host.email} fallbackSrc={host.picture} name={host.name} size="w-20 h-20" textClass="text-2xl" className="mx-auto mb-3" />
+          <UserAvatar email={host.email} fallbackSrc={host.picture} name={host.name} size="w-20 h-20" textClass="text-2xl" className="mx-auto mb-3" enlargeable />
         )}
         <h2 className="font-heading font-bold text-lg">{host.name || "Host"}</h2>
         {!isBusiness && <p className="text-sm text-muted-foreground mb-2 truncate">{host.email}</p>}
