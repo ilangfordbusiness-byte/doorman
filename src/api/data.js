@@ -736,6 +736,29 @@ const auth = {
     throwOn(error);
     return data ? profileToUser(data) : null;
   },
+  // Search every account by name or Instagram handle. profiles is readable by
+  // any signed-in user (profiles_select policy), so this finds anyone with an
+  // account — not just people who've appeared on a guestlist.
+  async searchProfiles(query, limit = 20) {
+    // Split into whitespace tokens so a multi-word / out-of-order name query
+    // still matches (e.g. "jess john" -> "Jessica Johnson"). Each token is
+    // sanitized for the PostgREST .or() filter string and must be >= 2 chars;
+    // chaining an .or() per token ANDs them, so every token must appear in the
+    // name or the instagram handle.
+    const tokens = String(query || "")
+      .trim()
+      .split(/\s+/)
+      .map((t) => t.replace(/[,()*%]/g, "").trim())
+      .filter((t) => t.length >= 2);
+    if (tokens.length === 0) return [];
+    let q = supabase.from("profiles").select(PROFILE_COLS);
+    for (const tok of tokens) {
+      q = q.or(`full_name.ilike.%${tok}%,instagram.ilike.%${tok}%`);
+    }
+    const { data, error } = await q.limit(limit);
+    throwOn(error);
+    return (data ?? []).map(profileToUser);
+  },
   async updateMe(fields) {
     const id = await uid();
     if (!id) throw new Error("Not authenticated");
