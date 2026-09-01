@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { COVERS } from "../components/CoverPicker";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { normalizePhone, formatPhoneDisplay } from "@/lib/phone";
-import { buyerPrice } from "@/lib/fees";
 
 function getCoverStyle(cover_image) {
   if (cover_image?.startsWith("__cover__")) {
@@ -455,7 +454,7 @@ export default function EventDetails() {
                           <p className={`font-medium ${soldOut ? "line-through" : ""}`}>{t.name}</p>
                           {soldOut && <p className="text-xs text-muted-foreground">Sold out</p>}
                         </div>
-                        <p className={`font-bold ${soldOut ? "line-through" : ""}`}>{sym}{buyerPrice(t.price, event.fee_mode).toFixed(2)}</p>
+                        <p className={`font-bold ${soldOut ? "line-through" : ""}`}>{sym}{Number(t.price).toFixed(2)}</p>
                       </div>
                     );
                   })}
