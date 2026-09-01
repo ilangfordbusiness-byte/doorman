@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { api } from "@/api/data";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { ArrowLeft, Shield, Ban, Search, Trash2, EyeOff, XCircle, Pencil } from "lucide-react";
+import { ArrowLeft, Shield, Ban, Search, Trash2, EyeOff, XCircle, Pencil, Eye } from "lucide-react";
+import { startImpersonation } from "@/lib/impersonation";
 import { Button } from "@/components/ui/button";
 import HomeButton from "@/components/HomeButton";
 import { Input } from "@/components/ui/input";
@@ -54,7 +55,7 @@ export default function Admin() {
       </div>
 
       {tab === "dashboard" && <Dashboard />}
-      {tab === "users" && <Users myId={me.id} />}
+      {tab === "users" && <Users myId={me.id} isSuperAdmin={me.email === "ilangfordbusiness@gmail.com"} />}
       {tab === "events" && <Events />}
       {tab === "audit" && <Audit />}
     </div>
@@ -112,7 +113,7 @@ function Dashboard() {
 
 // --- Users ----------------------------------------------------------------
 
-function Users({ myId }) {
+function Users({ myId, isSuperAdmin }) {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [users, setUsers] = useState([]);
@@ -196,6 +197,15 @@ function Users({ myId }) {
                     }}>
                     <Ban className="w-3.5 h-3.5" /> {banned ? "Unban" : "Ban"}
                   </Button>
+                  {isSuperAdmin && !isAdmin && (
+                    <Button size="sm" variant="secondary" className="rounded-lg h-8" disabled={busy === u.id}
+                      onClick={() => {
+                        if (!window.confirm(`Act as ${u.email}? You'll use the app as them until you tap Exit. This is logged.`)) return;
+                        act(u.id, () => startImpersonation(u), "Switching…");
+                      }}>
+                      <Eye className="w-3.5 h-3.5" /> Act as
+                    </Button>
+                  )}
                 </div>
               )}
             </div>

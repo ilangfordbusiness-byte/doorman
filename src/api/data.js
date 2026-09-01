@@ -987,6 +987,12 @@ const admin = {
   unbanUser(userId) {
     return invokeEdge("adminUsers", { action: "unban", user_id: userId });
   },
+  // Super-admin only. Returns { email, token_hash } to mint a session as the
+  // target user (see src/lib/impersonation.js).
+  async impersonate(userId) {
+    const { data } = await invokeEdge("adminUsers", { action: "impersonate", user_id: userId });
+    return data;
+  },
   async listEvents({ search } = {}) {
     let q = supabase
       .from("events")
