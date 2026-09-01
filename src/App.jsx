@@ -8,6 +8,7 @@ import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import Layout from './components/Layout';
+import ImpersonationBanner from './components/ImpersonationBanner';
 import Login from './pages/Login';
 import Privacy from './pages/Privacy';
 import { stashRefFromUrl } from '@/lib/promoterRef';
@@ -84,6 +85,7 @@ const AuthenticatedApp = () => {
   // Render the main app
   return (
     <Suspense fallback={<PageLoader />}>
+    <ImpersonationBanner />
     <Routes>
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />

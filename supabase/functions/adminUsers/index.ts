@@ -6,6 +6,9 @@ import { requireAdmin, auditAdmin, json, preflight, serviceClient } from '../_sh
 // ~100 years — effectively permanent until an admin unbans.
 const BAN_DURATION = '876000h';
 
+// "Act as user" is restricted to the bootstrap super-admin only.
+const SUPER_ADMIN_EMAIL = 'ilangfordbusiness@gmail.com';
+
 Deno.serve(async (req) => {
   const pre = preflight(req);
   if (pre) return pre;
@@ -42,6 +45,26 @@ Deno.serve(async (req) => {
       if (error) return json({ error: error.message }, 400);
       await auditAdmin(svc, admin, 'update_profile', 'profile', user_id, patch);
       return json({ ok: true });
+    }
+
+    if (action === 'impersonate') {
+      // Super-admin only. Mints a login for the target user so the admin can
+      // act as them for support/debugging; the whole session is audit-logged.
+      if (admin.email !== SUPER_ADMIN_EMAIL) return json({ error: 'Forbidden' }, 403);
+      if (user_id === admin.id) return json({ error: 'You cannot impersonate yourself.' }, 400);
+      const { data: target } = await svc.from('profiles')
+        .select('id, email, role').eq('id', user_id).maybeSingle();
+      if (!target) return json({ error: 'User not found' }, 404);
+      if (target.role === 'admin') return json({ error: 'You cannot impersonate an admin.' }, 400);
+
+      const { data, error } = await svc.auth.admin.generateLink({
+        type: 'magiclink', email: target.email,
+      });
+      if (error || !data?.properties?.hashed_token) {
+        return json({ error: error?.message || 'Could not start impersonation' }, 400);
+      }
+      await auditAdmin(svc, admin, 'impersonate', 'profile', user_id, { target_email: target.email });
+      return json({ email: target.email, token_hash: data.properties.hashed_token });
     }
 
     if (action === 'ban' || action === 'unban') {
