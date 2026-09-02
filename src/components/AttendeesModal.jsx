@@ -1,28 +1,34 @@
 import { useState, useEffect } from "react";
 import { api } from "@/api/data";
-import { X, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { X, Loader2 } from "lucide-react";
 import AttendeeList from "./AttendeeList";
 
-const PAGE_SIZE = 50;
+const BATCH = 100; // the RPC clamps limit to <= 100, so page through in 100s
 
-// Full attendee list, paged in batches of 50 with Prev/Next. Each row opens the
-// person's profile (via AttendeeList → SuggestionProfile).
+// Full attendee list — one long scrollable list of everyone (no pages). Each
+// row opens the person's profile (via AttendeeList → SuggestionProfile).
 export default function AttendeesModal({ eventId, myEmail, friends, sentSet, onSend, goingCount, onClose }) {
-  const [page, setPage] = useState(0); // 0-based
   const [attendees, setAttendees] = useState([]);
   const [loading, setLoading] = useState(true);
-  const totalPages = Math.max(1, Math.ceil((goingCount || 0) / PAGE_SIZE));
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    api.functions.invoke("getEventAttendees", { event_id: eventId, offset: page * PAGE_SIZE, limit: PAGE_SIZE })
-      .then((res) => { if (!cancelled) setAttendees(res.data?.attendees || []); })
-      .catch(() => { if (!cancelled) setAttendees([]); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+    (async () => {
+      setLoading(true);
+      const all = [];
+      try {
+        for (let offset = 0; ; offset += BATCH) {
+          const res = await api.functions.invoke("getEventAttendees", { event_id: eventId, offset, limit: BATCH });
+          const batch = res.data?.attendees || [];
+          all.push(...batch);
+          if (batch.length < BATCH) break;              // last page reached
+          if (all.length >= (goingCount || 0)) break;   // safety bound
+        }
+      } catch { /* keep whatever loaded */ }
+      if (!cancelled) { setAttendees(all); setLoading(false); }
+    })();
     return () => { cancelled = true; };
-  }, [eventId, page]);
+  }, [eventId, goingCount]);
 
   return (
     <div className="fixed inset-x-0 top-0 h-[100dvh] bg-black/80 backdrop-blur-sm z-[60] flex items-end md:items-center justify-center px-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:pb-0">
@@ -41,20 +47,6 @@ export default function AttendeesModal({ eventId, myEmail, friends, sentSet, onS
             <AttendeeList attendees={attendees} myEmail={myEmail} friends={friends} sentSet={sentSet} onSend={onSend} />
           )}
         </div>
-
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between gap-3 px-5 py-3 border-t border-border/50">
-            <Button variant="outline" size="sm" className="rounded-xl gap-1"
-              disabled={loading || page === 0} onClick={() => setPage((p) => p - 1)}>
-              <ChevronLeft className="w-4 h-4" /> Prev
-            </Button>
-            <span className="text-xs text-muted-foreground font-medium">Page {page + 1} of {totalPages}</span>
-            <Button variant="outline" size="sm" className="rounded-xl gap-1"
-              disabled={loading || page >= totalPages - 1} onClick={() => setPage((p) => p + 1)}>
-              Next <ChevronRight className="w-4 h-4" />
-            </Button>
-          </div>
-        )}
       </div>
     </div>
   );
