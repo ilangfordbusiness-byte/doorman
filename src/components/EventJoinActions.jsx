@@ -11,7 +11,7 @@ import { useToast } from "@/components/ui/use-toast";
 //  - free + private    → "Request to Join" (or a disabled state if declined)
 // Active entries (approved/invited/checked_in/requested) render nothing here;
 // the parent shows the status / pass in that case.
-export default function EventJoinActions({ event, me, myEntry, onChanged }) {
+export default function EventJoinActions({ event, me, myEntry, soldOut = false, onChanged }) {
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
 
@@ -70,6 +70,13 @@ export default function EventJoinActions({ event, me, myEntry, onChanged }) {
 
   if (isPaid) {
     if (active) return null;
+    if (soldOut) {
+      return (
+        <Button disabled className="w-full h-14 rounded-xl font-bold text-base gap-2 opacity-60">
+          <Ticket className="w-5 h-5" /> Sold Out
+        </Button>
+      );
+    }
     return (
       <Link to={`/event/${event.id}/checkout`} className="block">
         <Button className="w-full h-14 rounded-xl font-bold text-base gap-2 bg-primary hover:bg-primary/90">
