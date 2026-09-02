@@ -90,6 +90,11 @@ export default function EventDetails() {
   const stats = data?.stats ?? { invited: 0, approved: 0, checked_in: 0, total: 0 };
   const staff = data?.staff ?? [];
   const tiers = data?.tiers ?? [];
+  // Every tier unavailable (manually closed or none left) → show a "Sold Out"
+  // CTA instead of "Buy Tickets". Reverts automatically when a tier reopens.
+  const allSoldOut = !!event?.is_paid && tiers.length > 0 &&
+    tiers.every((t) => t.sales_status !== "open" ||
+      Math.max(0, Number(t.quantity || 0) - Number(t.sold || 0)) <= 0);
   const loadError = data?.notFound
     ? "This event is no longer available or the link is invalid."
     : isError
@@ -462,7 +467,7 @@ export default function EventDetails() {
                 </div>
               </div>
             )}
-            <EventJoinActions event={event} me={user} myEntry={myEntry} onChanged={() => queryClient.invalidateQueries(["event", id])} />
+            <EventJoinActions event={event} me={user} myEntry={myEntry} soldOut={allSoldOut} onChanged={() => queryClient.invalidateQueries(["event", id])} />
             {event.visibility !== "none" && (myEntry || event.is_paid) && (
               <WhoIsGoing
                 eventId={id}
