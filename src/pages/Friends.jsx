@@ -178,6 +178,7 @@ export default function Friends() {
             <FriendsSearch
               me={me}
               friendEmails={new Set(friends.map((f) => f.email))}
+              friends={friends}
               sentSet={sentSet}
               onSend={sendRequest}
             />

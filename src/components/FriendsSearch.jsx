@@ -3,15 +3,18 @@ import { api } from "@/api/data";
 import { Search, UserPlus, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Avatar from "./Avatar";
+import SuggestionProfile from "./SuggestionProfile";
 
 // Search every user with an account (by name or Instagram handle), see
-// mutual-friend counts, and send friend requests directly.
-export default function FriendsSearch({ me, friendEmails, sentSet, onSend }) {
+// mutual-friend counts, tap a result to open their profile, and send friend
+// requests directly.
+export default function FriendsSearch({ me, friendEmails, sentSet, onSend, friends = [] }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [mutuals, setMutuals] = useState({});
   const [sendingTo, setSendingTo] = useState(null);
+  const [viewing, setViewing] = useState(null);
   const mutualCache = useRef({});
 
   const q = query.trim();
@@ -106,7 +109,11 @@ export default function FriendsSearch({ me, friendEmails, sentSet, onSend }) {
         const sent = sentSet.has(u.email);
         const mc = mutuals[u.email];
         return (
-          <div key={u.email} className="flex items-center gap-3 bg-secondary/40 rounded-xl px-4 py-3 border border-border/50">
+          <div
+            key={u.email}
+            onClick={() => setViewing(u)}
+            className="flex items-center gap-3 bg-secondary/40 rounded-xl px-4 py-3 border border-border/50 cursor-pointer hover:border-primary/30 transition-colors active:scale-[0.99]"
+          >
             <Avatar src={u.profile_picture} name={u.full_name || u.email} size="w-10 h-10" textClass="text-sm" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold truncate">{u.full_name}</p>
@@ -119,13 +126,24 @@ export default function FriendsSearch({ me, friendEmails, sentSet, onSend }) {
             ) : sent ? (
               <span className="text-xs text-muted-foreground font-medium">Sent</span>
             ) : (
-              <Button size="sm" className="rounded-full h-8 gap-1 text-xs" onClick={() => handleSend(u)} disabled={sendingTo === u.email}>
+              <Button size="sm" className="rounded-full h-8 gap-1 text-xs" onClick={(e) => { e.stopPropagation(); handleSend(u); }} disabled={sendingTo === u.email}>
                 <UserPlus className="w-3.5 h-3.5" /> Add
               </Button>
             )}
           </div>
         );
       })}
+
+      {viewing && (
+        <SuggestionProfile
+          user={viewing}
+          myEmail={me?.email}
+          myFriends={friends}
+          sent={sentSet.has(viewing.email) || friendEmails.has(viewing.email)}
+          onSend={() => { handleSend(viewing); setViewing(null); }}
+          onClose={() => setViewing(null)}
+        />
+      )}
     </div>
   );
 }
