@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "@/api/data";
-import { X, Instagram, PartyPopper } from "lucide-react";
+import { X, Instagram, Ghost, PartyPopper } from "lucide-react";
 import { Link } from "react-router-dom";
 import LoadingSpinner from "./LoadingSpinner";
 import UserAvatar from "./UserAvatar";
@@ -22,7 +22,7 @@ export default function FriendProfile({ friend, myEmail, myFriends, onClose }) {
 
     // Seed identity from the passed-in friend data; instagram is backfilled from
     // the person's profile row below (profiles is readable by any signed-in user).
-    const profileData = { email: friend.email, full_name: friend.name, profile_picture: friend.picture, instagram: friend.instagram };
+    const profileData = { email: friend.email, full_name: friend.name, profile_picture: friend.picture, instagram: friend.instagram, snapchat: friend.snapchat };
     setProfile(profileData);
 
     try {
@@ -35,8 +35,12 @@ export default function FriendProfile({ friend, myEmail, myFriends, onClose }) {
         api.auth.getProfile(friend.email),
       ]);
 
-      if (friendProfile?.instagram) {
-        setProfile((p) => ({ ...p, instagram: friendProfile.instagram }));
+      if (friendProfile?.instagram || friendProfile?.snapchat) {
+        setProfile((p) => ({
+          ...p,
+          instagram: friendProfile.instagram ?? p.instagram,
+          snapchat: friendProfile.snapchat ?? p.snapchat,
+        }));
       }
 
       setStats({
@@ -108,17 +112,30 @@ export default function FriendProfile({ friend, myEmail, myFriends, onClose }) {
               <UserAvatar email={friend.email} fallbackSrc={profile?.profile_picture || friend.picture} name={profile?.full_name || friend.name} size="w-20 h-20" rounded="rounded-2xl" textClass="text-3xl" className="flex-shrink-0" enlargeable />
               <div className="flex-1 min-w-0">
                 <h3 className="font-heading font-bold text-xl leading-tight">{profile?.full_name || friend.name}</h3>
-                {profile?.instagram && (
-                  <a
-                    href={`https://instagram.com/${profile.instagram}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 mt-1 text-sm text-pink-400 hover:text-pink-300 transition-colors"
-                  >
-                    <Instagram className="w-3.5 h-3.5" />
-                    @{profile.instagram}
-                  </a>
-                )}
+                <div className="flex flex-col gap-1 mt-1">
+                  {profile?.instagram && (
+                    <a
+                      href={`https://instagram.com/${profile.instagram}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-sm text-pink-400 hover:text-pink-300 transition-colors"
+                    >
+                      <Instagram className="w-3.5 h-3.5" />
+                      @{profile.instagram}
+                    </a>
+                  )}
+                  {profile?.snapchat && (
+                    <a
+                      href={`https://www.snapchat.com/add/${profile.snapchat}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-sm text-yellow-400 hover:text-yellow-300 transition-colors"
+                    >
+                      <Ghost className="w-3.5 h-3.5" />
+                      @{profile.snapchat}
+                    </a>
+                  )}
+                </div>
               </div>
             </div>
 

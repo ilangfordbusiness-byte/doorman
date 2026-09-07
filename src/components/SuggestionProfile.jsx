@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "@/api/data";
-import { X, Instagram, UserPlus, PartyPopper } from "lucide-react";
+import { X, Instagram, Ghost, UserPlus, PartyPopper } from "lucide-react";
 import { Link } from "react-router-dom";
 import LoadingSpinner from "./LoadingSpinner";
 import Avatar from "./Avatar";
@@ -16,17 +16,21 @@ export default function SuggestionProfile({ user, myEmail, myFriends, sent, onSe
   const [sharedEvents, setSharedEvents] = useState([]);
   const [mutualFriends, setMutualFriends] = useState([]);
   const [instagram, setInstagram] = useState(user.instagram || null);
+  const [snapchat, setSnapchat] = useState(user.snapchat || null);
 
   useEffect(() => { load(); }, [user.email]);
 
   async function load() {
     setLoading(true);
     try {
-      // Backfill the instagram handle when the caller didn't supply one (a
-      // friend request row has no instagram, unlike a suggestion).
-      if (!user.instagram) {
+      // Backfill instagram / snapchat when the caller didn't supply them (a
+      // friend request row has no socials, unlike a suggestion).
+      if (!user.instagram || !user.snapchat) {
         api.auth.getProfile(user.email)
-          .then((p) => { if (p?.instagram) setInstagram(p.instagram); })
+          .then((p) => {
+            if (p?.instagram) setInstagram((v) => v || p.instagram);
+            if (p?.snapchat) setSnapchat((v) => v || p.snapchat);
+          })
           .catch(() => {});
       }
       const [friendEntries, myEntries] = await Promise.all([
@@ -87,16 +91,28 @@ export default function SuggestionProfile({ user, myEmail, myFriends, sent, onSe
               <Avatar src={user.profile_picture} name={user.full_name} size="w-20 h-20" rounded="rounded-2xl" textClass="text-3xl" className="flex-shrink-0" enlargeable />
               <div className="flex-1 min-w-0">
                 <h3 className="font-heading font-bold text-xl leading-tight">{user.full_name}</h3>
-                {instagram && (
-                  <a
-                    href={`https://instagram.com/${instagram}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 mt-1 text-sm text-pink-400 hover:text-pink-300 transition-colors"
-                  >
-                    <Instagram className="w-3.5 h-3.5" />@{instagram}
-                  </a>
-                )}
+                <div className="flex flex-col gap-1 mt-1">
+                  {instagram && (
+                    <a
+                      href={`https://instagram.com/${instagram}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-sm text-pink-400 hover:text-pink-300 transition-colors"
+                    >
+                      <Instagram className="w-3.5 h-3.5" />@{instagram}
+                    </a>
+                  )}
+                  {snapchat && (
+                    <a
+                      href={`https://www.snapchat.com/add/${snapchat}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-sm text-yellow-400 hover:text-yellow-300 transition-colors"
+                    >
+                      <Ghost className="w-3.5 h-3.5" />@{snapchat}
+                    </a>
+                  )}
+                </div>
               </div>
             </div>
 
