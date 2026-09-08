@@ -1,5 +1,6 @@
 // Stripe webhook: on checkout.session.completed, marks the order paid, issues
 // the guestlist entry (the ticket), updates counters atomically, emails the QR.
+// On checkout.session.expired, cancels the pending order and frees its seats.
 // verify_jwt=false — authentication is the Stripe signature.
 import { json, serviceClient } from '../_shared/db.ts';
 import { sendTicketConfirmationEmail } from '../_shared/tickets.ts';
@@ -50,13 +51,19 @@ Deno.serve(async (req) => {
     if (!ok) return json({ error: 'Invalid signature' }, 400);
 
     const stripeEvent = JSON.parse(rawBody);
-    if (stripeEvent.type !== 'checkout.session.completed') return json({ received: true });
-
-    const session = stripeEvent.data.object;
+    const session = stripeEvent.data?.object ?? {};
     const orderId = session.metadata?.order_id;
     if (!orderId) return json({ received: true });
 
     const svc = serviceClient();
+
+    // The buyer never paid: free the seats the checkout was holding.
+    if (stripeEvent.type === 'checkout.session.expired') {
+      const { error } = await svc.rpc('cancel_pending_ticket_order', { p_order: orderId });
+      if (error) console.log('cancel_pending_ticket_order error', error.message);
+      return json({ received: true });
+    }
+    if (stripeEvent.type !== 'checkout.session.completed') return json({ received: true });
 
     // Atomically claim the order: only the delivery that flips pending -> paid
     // proceeds. Stripe delivers duplicates and retries, so the previous

@@ -366,6 +366,57 @@ begin
   perform public.admin_dashboard_metrics();
   perform pg_temp.ok('admin can read the audit log and run metrics');
 
+  -- ---- ticket reservations (service-role RPCs, run as postgres) ----
+  execute 'reset role';
+  insert into public.ticket_tiers (event_id, name, price_minor, quantity)
+    values (v_event, 'Scarce', 500, 2) returning id into v_id;
+
+  begin
+    perform pg_temp.impersonate(bob, 'bob@test.dev');
+    perform public.reserve_tier_seats(v_id, 1);
+    raise exception 'FAIL: client called reserve_tier_seats' using errcode = 'assert_failure';
+  exception when insufficient_privilege then
+    execute 'reset role';
+    perform pg_temp.ok('reserve_tier_seats is service-role only');
+  end;
+
+  if not public.reserve_tier_seats(v_id, 1) then raise exception 'FAIL: first reservation refused'; end if;
+  if not public.reserve_tier_seats(v_id, 1) then raise exception 'FAIL: second reservation refused'; end if;
+  if public.reserve_tier_seats(v_id, 1) then raise exception 'FAIL: reserved past capacity'; end if;
+  if (select reserved from public.ticket_tiers where id = v_id) <> 2 then
+    raise exception 'FAIL: reserved counter wrong';
+  end if;
+  perform pg_temp.ok('reservations stop exactly at capacity');
+
+  -- one hold turns into a sale, the other is released: 1 sold, 1 free
+  perform public.record_tier_sale(v_id, 1);
+  perform public.release_tier_seats(v_id, 1);
+  if (select sold from public.ticket_tiers where id = v_id) <> 1
+     or (select reserved from public.ticket_tiers where id = v_id) <> 0 then
+    raise exception 'FAIL: sale/release did not update counters';
+  end if;
+  if not public.reserve_tier_seats(v_id, 1) then raise exception 'FAIL: freed seat not reservable'; end if;
+  perform pg_temp.ok('a sale consumes its hold and a release frees the seat');
+
+  -- the sweep cancels a pending order past its deadline and frees its seat
+  insert into public.ticket_orders (event_id, tier_id, guest_user_id, guest_email, quantity,
+                                    unit_price_minor, paid_minor, status, expires_at)
+    values (v_event, v_id, bob, 'bob@test.dev', 1, 500, 500, 'pending', now() - interval '10 minutes');
+  if public.expire_stale_ticket_orders() <> 1 then raise exception 'FAIL: sweep did not cancel the stale order'; end if;
+  if (select count(*) from public.ticket_orders where tier_id = v_id and status = 'cancelled') <> 1
+     or (select reserved from public.ticket_tiers where id = v_id) <> 0 then
+    raise exception 'FAIL: sweep did not release the seat';
+  end if;
+  if public.expire_stale_ticket_orders() <> 0 then raise exception 'FAIL: sweep is not idempotent'; end if;
+  perform pg_temp.ok('stale pending orders are cancelled once and their seats freed');
+
+  begin
+    update public.ticket_tiers set sold = 3 where id = v_id;
+    raise exception 'FAIL: sold + reserved exceeded quantity' using errcode = 'assert_failure';
+  exception when check_violation then
+    perform pg_temp.ok('sold + reserved <= quantity is enforced by the database');
+  end;
+
   execute 'reset role';
   raise notice '';
   raise notice 'ALL % CHECKS PASSED', currval('pg_temp.t_pass');

@@ -13,6 +13,7 @@ function getCoverStyle(cover_image) {
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { api } from "@/api/data";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { tierSoldOut } from "@/lib/tiers";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   ArrowLeft, Calendar, Clock, MapPin, Shirt, Users, Share2,
@@ -92,9 +93,7 @@ export default function EventDetails() {
   const tiers = data?.tiers ?? [];
   // Every tier unavailable (manually closed or none left) → show a "Sold Out"
   // CTA instead of "Buy Tickets". Reverts automatically when a tier reopens.
-  const allSoldOut = !!event?.is_paid && tiers.length > 0 &&
-    tiers.every((t) => t.sales_status !== "open" ||
-      Math.max(0, Number(t.quantity || 0) - Number(t.sold || 0)) <= 0);
+  const allSoldOut = !!event?.is_paid && tiers.length > 0 && tiers.every(tierSoldOut);
   const loadError = data?.notFound
     ? "This event is no longer available or the link is invalid."
     : isError
@@ -452,7 +451,7 @@ export default function EventDetails() {
                 <h3 className="font-heading font-semibold text-sm mb-3">Tickets</h3>
                 <div className="space-y-2">
                   {tiers.map((t) => {
-                    const soldOut = t.sales_status !== "open" || Math.max(0, Number(t.quantity || 0) - Number(t.sold || 0)) <= 0;
+                    const soldOut = tierSoldOut(t);
                     return (
                       <div key={t.id} className={`flex justify-between items-center text-sm ${soldOut ? "opacity-60" : ""}`}>
                         <div>

@@ -310,6 +310,7 @@ const ENTITIES = {
       price: minorToMajor(r.price_minor),
       quantity: r.quantity,
       sold: r.sold,
+      reserved: r.reserved,
       sales_status: r.sales_status,
       sort_order: r.sort_order,
       hide_remaining: r.hide_remaining,
