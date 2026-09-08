@@ -30,7 +30,7 @@ export default function AttendeeList({ attendees, myEmail, friends = [], sentSet
 
       {viewing && (
         <SuggestionProfile
-          user={{ email: viewing.email, full_name: viewing.name, profile_picture: viewing.avatar_url, instagram: viewing.instagram }}
+          user={{ email: viewing.email, full_name: viewing.name, profile_picture: viewing.avatar_url, instagram: viewing.instagram, snapchat: viewing.snapchat }}
           myEmail={myEmail}
           myFriends={friends}
           sent={sentSet.has(viewing.email) || friends.some((f) => f.email === viewing.email)}

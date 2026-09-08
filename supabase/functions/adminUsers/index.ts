@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
 
     if (action === 'update_profile') {
       const patch: Record<string, unknown> = {};
-      for (const k of ['full_name', 'phone', 'instagram']) {
+      for (const k of ['full_name', 'phone', 'instagram', 'snapchat']) {
         if (k in body) patch[k] = body[k];
       }
       if (!Object.keys(patch).length) return json({ error: 'No fields to update' }, 400);
