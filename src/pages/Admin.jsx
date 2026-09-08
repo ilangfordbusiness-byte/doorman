@@ -12,6 +12,10 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import UserAvatar from "@/components/UserAvatar";
 import moment from "moment";
 
+// Super-admins may "Act as" another user. UI gate only — the adminUsers edge
+// function holds the authoritative copy of this list.
+const SUPER_ADMIN_EMAILS = ["ilangfordbusiness@gmail.com", "akshay.irudayaraj@gmail.com"];
+
 const TABS = [
   { id: "dashboard", label: "Dashboard" },
   { id: "users", label: "Users" },
@@ -55,7 +59,7 @@ export default function Admin() {
       </div>
 
       {tab === "dashboard" && <Dashboard />}
-      {tab === "users" && <Users myId={me.id} isSuperAdmin={me.email === "ilangfordbusiness@gmail.com"} />}
+      {tab === "users" && <Users myId={me.id} isSuperAdmin={SUPER_ADMIN_EMAILS.includes(String(me.email || "").toLowerCase())} />}
       {tab === "events" && <Events />}
       {tab === "audit" && <Audit />}
     </div>

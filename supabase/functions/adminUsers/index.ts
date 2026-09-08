@@ -6,8 +6,12 @@ import { requireAdmin, auditAdmin, json, preflight, serviceClient } from '../_sh
 // ~100 years — effectively permanent until an admin unbans.
 const BAN_DURATION = '876000h';
 
-// "Act as user" is restricted to the bootstrap super-admin only.
-const SUPER_ADMIN_EMAIL = 'ilangfordbusiness@gmail.com';
+// "Act as user" is restricted to the bootstrap super-admins only. Keep in
+// sync with src/pages/Admin.jsx (UI) and the signup trigger migration.
+const SUPER_ADMIN_EMAILS = new Set([
+  'ilangfordbusiness@gmail.com',
+  'akshay.irudayaraj@gmail.com',
+]);
 
 Deno.serve(async (req) => {
   const pre = preflight(req);
@@ -50,7 +54,7 @@ Deno.serve(async (req) => {
     if (action === 'impersonate') {
       // Super-admin only. Mints a login for the target user so the admin can
       // act as them for support/debugging; the whole session is audit-logged.
-      if (admin.email !== SUPER_ADMIN_EMAIL) return json({ error: 'Forbidden' }, 403);
+      if (!SUPER_ADMIN_EMAILS.has(String(admin.email).toLowerCase())) return json({ error: 'Forbidden' }, 403);
       if (user_id === admin.id) return json({ error: 'You cannot impersonate yourself.' }, 400);
       const { data: target } = await svc.from('profiles')
         .select('id, email, role').eq('id', user_id).maybeSingle();
