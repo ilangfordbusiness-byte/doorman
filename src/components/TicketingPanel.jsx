@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { tierRemaining } from "@/lib/tiers";
 import { Link } from "react-router-dom";
 import { api } from "@/api/data";
 import { Ticket, Tag, Plus, Trash2, Loader2, BarChart3, Pencil, Check, X } from "lucide-react";
@@ -200,7 +201,7 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
               <p className="text-xs text-muted-foreground">
                 {sym}{Number(t.price).toFixed(2)}
                 {feeMode === "pass_on" && Number(t.price) > 0 && ` (+ ${sym}${bookingFee(t.price).toFixed(2)} booking fee at checkout)`}
-                {" · "}{Math.max(0, Number(t.quantity || 0) - Number(t.sold || 0))} left
+                {" · "}{tierRemaining(t)} left{Number(t.reserved || 0) > 0 ? ` · ${t.reserved} in checkout` : ""}
                 {t.sales_status !== "open" && <span className="text-destructive"> · Sold out</span>}
               </p>
             </div>

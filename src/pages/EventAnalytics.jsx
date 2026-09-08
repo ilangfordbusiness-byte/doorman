@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { tierRemaining } from "@/lib/tiers";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { api } from "@/api/data";
 import { ArrowLeft, TrendingUp, Ticket, Tag, Percent, Wallet, Megaphone } from "lucide-react";
@@ -63,7 +64,7 @@ export default function EventAnalytics() {
       ...t,
       sold: tierOrders.length,
       revenue: tierOrders.reduce((s, o) => s + Number(o.paid_amount || 0), 0),
-      remaining: Math.max(0, Number(t.quantity || 0) - Number(t.sold || 0)),
+      remaining: tierRemaining(t),
     };
   });
 

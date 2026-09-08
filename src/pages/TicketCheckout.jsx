@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { tierRemaining } from "@/lib/tiers";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/api/data";
 import { ArrowLeft, CreditCard, Tag, Loader2, AlertCircle } from "lucide-react";
@@ -52,6 +53,11 @@ export default function TicketCheckout() {
   // duplicate click being counted after the Stripe redirect).
   useEffect(() => {
     if (ref && payment !== "success") captureRef(id, ref).catch(() => {});
+    // Backed out of Stripe: free the seats this checkout was holding.
+    const cancelledOrder = params.get("order");
+    if (payment === "cancelled" && cancelledOrder) {
+      api.functions.invoke("cancelTicketCheckout", { order_id: cancelledOrder }).catch(() => {});
+    }
   }, [id]);
 
   useEffect(() => {
@@ -79,9 +85,7 @@ export default function TicketCheckout() {
     setLoading(false);
   }
 
-  function remaining(t) {
-    return Math.max(0, Number(t.quantity || 0) - Number(t.sold || 0));
-  }
+  const remaining = tierRemaining;
 
   async function applyPromo() {
     if (!selected || !promoInput.trim()) return;

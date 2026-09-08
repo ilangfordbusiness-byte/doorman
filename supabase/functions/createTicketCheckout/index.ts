@@ -30,9 +30,7 @@ Deno.serve(async (req) => {
 
     const { data: tier } = await svc.from('ticket_tiers').select('*').eq('id', tier_id).single();
     if (!tier) return json({ error: 'Ticket tier not found' }, 404);
-    if (tier.sales_status !== 'open' || tier.sold >= tier.quantity) {
-      return json({ error: 'This tier is sold out' }, 400);
-    }
+    if (tier.sales_status !== 'open') return json({ error: 'This tier is sold out' }, 400);
 
     const { data: event } = await svc.from('events').select('*').eq('id', tier.event_id).single();
     if (!event) return json({ error: 'Event not found' }, 404);
@@ -115,6 +113,24 @@ Deno.serve(async (req) => {
       hostNetMinor -= commissionMinor;
     }
 
+    // Everything is validated; hold the seats, atomically (sold + reserved <= quantity is enforced
+    // by the database), so two buyers can't both be sold the last ticket. The
+    // hold converts to a sale in ticketWebhook, and is released if the buyer
+    // cancels, the Stripe session expires, or the order passes its deadline.
+    const { data: held, error: holdErr } = await svc.rpc('reserve_tier_seats', { p_tier: tier.id, p_qty: qty });
+    if (holdErr) throw new Error(holdErr.message);
+    if (!held) {
+      const left = Math.max(0, Number(tier.quantity) - Number(tier.sold) - Number(tier.reserved || 0));
+      return json({
+        error: left > 0
+          ? `Only ${left} ticket${left === 1 ? '' : 's'} left in this tier right now`
+          : 'This tier is sold out',
+      }, 400);
+    }
+    // Stripe requires at least 30 minutes; the sweep frees seats two minutes
+    // after this if the order is still pending.
+    const expiresAt = new Date(Date.now() + 31 * 60 * 1000);
+
     const { data: order, error: orderErr } = await svc.from('ticket_orders').insert({
       event_id: tier.event_id,
       tier_id: tier.id,
@@ -134,11 +150,17 @@ Deno.serve(async (req) => {
       currency,
       status: 'pending',
       payout_destination: payout.accountId,
+      expires_at: expiresAt.toISOString(),
     }).select('*').single();
-    if (orderErr || !order) throw new Error(orderErr?.message || 'Failed to create order');
+    if (orderErr || !order) {
+      await svc.rpc('release_tier_seats', { p_tier: tier.id, p_qty: qty });
+      throw new Error(orderErr?.message || 'Failed to create order');
+    }
+    // From here on a failure cancels the order, which releases the hold.
+    const abandon = () => svc.rpc('cancel_pending_ticket_order', { p_order: order.id });
 
     const stripeKey = Deno.env.get('STRIPE_TEST_SECRET_KEY') || Deno.env.get('STRIPE_SECRET_KEY');
-    if (!stripeKey) return json({ error: 'Stripe is not configured' }, 500);
+    if (!stripeKey) { await abandon(); return json({ error: 'Stripe is not configured' }, 500); }
 
     // Redirects restricted to known origins (open-redirect guard).
     const origins = allowedOrigins(req);
@@ -152,7 +174,9 @@ Deno.serve(async (req) => {
     };
     const base = origins[0];
     const successUrl = safeRedirect(success_url, `${base}/event/${tier.event_id}?payment=success`);
-    const cancelUrl = safeRedirect(cancel_url, `${base}/event/${tier.event_id}?payment=cancelled`);
+    // The cancel page frees the held seats straight away via cancelTicketCheckout.
+    const cancelBase = safeRedirect(cancel_url, `${base}/event/${tier.event_id}?payment=cancelled`);
+    const cancelUrl = `${cancelBase}${cancelBase.includes('?') ? '&' : '?'}order=${order.id}`;
 
     const params = new URLSearchParams();
     // Opt out of Managed Payments (on by default for new Stripe accounts): it
@@ -180,6 +204,7 @@ Deno.serve(async (req) => {
     }
     params.append('success_url', successUrl);
     params.append('cancel_url', cancelUrl);
+    params.append('expires_at', String(Math.floor(expiresAt.getTime() / 1000)));
     params.append('metadata[order_id]', order.id);
     params.append('metadata[tier_id]', tier.id);
     params.append('metadata[event_id]', tier.event_id);
@@ -197,6 +222,7 @@ Deno.serve(async (req) => {
     const session = await sessionRes.json();
     if (!session.url) {
       console.log('Stripe checkout error', JSON.stringify(session));
+      await abandon();
       return json({ error: session.error?.message || 'Failed to create checkout session' }, 500);
     }
 
