@@ -313,7 +313,18 @@ begin
   if (select role from public.profiles where email = 'ilangfordbusiness@gmail.com') <> 'admin' then
     raise exception 'FAIL: bootstrap email was not promoted to admin';
   end if;
-  perform pg_temp.ok('signup trigger promotes the bootstrap email to admin');
+  -- ...and the second bootstrap email (20260910120000_second_super_admin.sql)
+  insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
+                          email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
+                          created_at, updated_at)
+  values ('00000000-0000-0000-0000-000000000000',
+          '77777777-7777-7777-7777-777777777777', 'authenticated', 'authenticated',
+          'akshay.irudayaraj@gmail.com', '', now(), '{}',
+          json_build_object('full_name', 'Second Admin')::jsonb, now(), now());
+  if (select role from public.profiles where email = 'akshay.irudayaraj@gmail.com') <> 'admin' then
+    raise exception 'FAIL: second bootstrap email was not promoted to admin';
+  end if;
+  perform pg_temp.ok('signup trigger promotes both bootstrap emails to admin');
 
   -- a normal user can never self-grant the role or banned_at columns
   -- (this is what keeps the in-app PIN unlock inert)
