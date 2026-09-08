@@ -176,9 +176,9 @@ begin
   begin
     insert into public.event_messages (event_id, sender_id, text)
       values (v_event, bob, 'first!');
-    raise exception 'FAIL: guest chatted without can_chat' using errcode = 'assert_failure';
+    raise exception 'FAIL: guest posted in chat' using errcode = 'assert_failure';
   exception when insufficient_privilege then
-    perform pg_temp.ok('guest without can_chat cannot post in chat');
+    perform pg_temp.ok('guest cannot post in chat');
   end;
 
   insert into public.friend_requests (sender_id, receiver_id, status)
@@ -231,9 +231,9 @@ begin
     where id = v_entry;
   perform pg_temp.ok('staff can check a guest in');
 
-  -- ---- alice: chat permission + client-side money writes blocked ----
+  -- ---- alice: host chat + client-side money writes blocked ----
   perform pg_temp.impersonate(alice, 'alice@test.dev');
-  update public.guestlist_entries set can_chat = true where id = v_entry;
+  update public.guestlist_entries set can_chat = true where id = v_entry;  -- legacy flag, grants nothing
   begin
     insert into public.ticket_tiers (event_id, name, price_minor, quantity)
       values (v_event, 'GA', 2000, 100);
@@ -245,14 +245,18 @@ begin
     values (v_event, alice, 'Doors 10pm - bring ID');
   perform pg_temp.ok('host can post in chat');
 
-  -- ---- bob can chat now; dave (approved via invite) reads chat ----
+  -- ---- chat is host-only: can_chat no longer lets bob post; dave reads ----
   perform pg_temp.impersonate(bob, 'bob@test.dev');
-  insert into public.event_messages (event_id, sender_id, text) values (v_event, bob, 'see you there');
-  perform pg_temp.ok('guest with can_chat can post');
+  begin
+    insert into public.event_messages (event_id, sender_id, text) values (v_event, bob, 'see you there');
+    raise exception 'FAIL: guest posted in chat via can_chat' using errcode = 'assert_failure';
+  exception when insufficient_privilege then
+    perform pg_temp.ok('can_chat no longer lets a guest post (chat is host-only)');
+  end;
 
   perform pg_temp.impersonate(dave, 'dave@test.dev');
   select count(*) into v_count from public.event_messages where event_id = v_event;
-  if v_count <> 2 then raise exception 'FAIL: attendee should see 2 messages, saw %', v_count; end if;
+  if v_count <> 1 then raise exception 'FAIL: attendee should see 1 message, saw %', v_count; end if;
   perform pg_temp.ok('attendee can read event chat');
 
   -- ---- anon sees only published events ----
