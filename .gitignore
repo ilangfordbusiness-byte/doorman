@@ -32,3 +32,6 @@ dist-ssr
 
 # local-only deployment runbook
 DEPLOYMENT.md
+
+# load-test fixtures and results (contain session tokens)
+loadtest/out/
