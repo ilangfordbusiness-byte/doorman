@@ -4,8 +4,10 @@ import { Send, MessageCircle } from "lucide-react";
 import UserAvatar from "./UserAvatar";
 import Avatar from "./Avatar";
 
-export default function EventChat({ eventId, user, isHost, canChat, hostIsBusiness = false, businessName = "", businessPicture = "" }) {
-  const canSend = isHost || canChat === true;
+// One-way channel: the host and accepted co-hosts post, everyone on the
+// guestlist reads. RLS enforces it; `canPost` only decides what to render.
+export default function EventChat({ eventId, user, canPost = false, hostIsBusiness = false, businessName = "", businessPicture = "" }) {
+  const canSend = canPost;
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -36,7 +38,6 @@ export default function EventChat({ eventId, user, isHost, canChat, hostIsBusine
       sender_name: user.full_name,
       sender_picture: user.profile_picture || "",
       text: text.trim(),
-      is_host: isHost,
     });
     setText("");
     setSending(false);
@@ -48,7 +49,7 @@ export default function EventChat({ eventId, user, isHost, canChat, hostIsBusine
         <MessageCircle className="w-4 h-4 text-primary" />
         <h3 className="font-heading font-semibold text-sm">Event Chat</h3>
         <span className="text-xs text-muted-foreground">
-          {isHost ? "(host)" : canSend ? "(chat access granted)" : "(host-only · read only)"}
+          {canPost ? "(host)" : "(host-only · read only)"}
         </span>
       </div>
 
@@ -103,7 +104,7 @@ export default function EventChat({ eventId, user, isHost, canChat, hostIsBusine
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-                placeholder={isHost ? "Message guests..." : "Message..."}
+                placeholder="Message guests..."
                 className="flex-1 h-9 px-3 text-sm bg-secondary/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
               <button
@@ -116,7 +117,7 @@ export default function EventChat({ eventId, user, isHost, canChat, hostIsBusine
             </>
           ) : (
             <p className="text-xs text-muted-foreground text-center py-2 flex-1">
-              Only the host can send messages. Ask the host for chat access.
+              Only the host can send messages here.
             </p>
           )}
         </div>
