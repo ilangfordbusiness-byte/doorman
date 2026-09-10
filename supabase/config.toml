@@ -251,6 +251,21 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
+# Branded auth emails. Every link goes to {{ .SiteURL }}/auth/confirm on the
+# app's own domain (the SPA verifies the token hash), never to *.supabase.co:
+# a sender/link domain mismatch is the main reason the stock confirmation
+# email lands in junk. Push the same files to production with
+# `node scripts/push-auth-templates.mjs --ref <project-ref>`.
+[auth.email.template.confirmation]
+subject = "Confirm your DoorMan email"
+content_path = "./supabase/templates/confirmation.html"
+[auth.email.template.recovery]
+subject = "Reset your DoorMan password"
+content_path = "./supabase/templates/recovery.html"
+[auth.email.template.email_change]
+subject = "Confirm your new DoorMan email"
+content_path = "./supabase/templates/email_change.html"
+
 # Uncomment to customize email template
 # [auth.email.template.invite]
 # subject = "You have been invited"

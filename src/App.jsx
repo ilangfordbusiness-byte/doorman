@@ -11,6 +11,7 @@ import Layout from './components/Layout';
 import ImpersonationBanner from './components/ImpersonationBanner';
 import Login from './pages/Login';
 import Privacy from './pages/Privacy';
+import AuthConfirm from './pages/AuthConfirm';
 import { stashRefFromUrl } from '@/lib/promoterRef';
 
 // Capture a promoter ?ref= before the auth gate decides what to render, so
@@ -62,6 +63,10 @@ const AuthenticatedApp = () => {
   // Public pages, reachable with no session (Google's consent screen links here).
   if (window.location.pathname === '/privacy') {
     return <Privacy />;
+  }
+  // Auth email links land here with a token hash; there is no session yet.
+  if (window.location.pathname === '/auth/confirm') {
+    return <AuthConfirm />;
   }
 
   // Show loading spinner while checking app public settings or auth

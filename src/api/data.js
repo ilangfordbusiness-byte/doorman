@@ -829,6 +829,14 @@ const auth = {
     );
     throwOn(error);
   },
+  // Completes an email link (sign-up confirmation, password reset, email
+  // change). Auth emails link to /auth/confirm on our own domain carrying the
+  // token hash; verifying it here signs the user in, so no email ever has to
+  // link to the Supabase domain.
+  async verifyEmailToken(tokenHash, type) {
+    const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
+    throwOn(error);
+  },
   async updatePassword(newPassword) {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     throwOn(error);
