@@ -66,7 +66,11 @@ supabase/
                      email.ts (Resend), tickets.ts (pricing, QR, ticket email),
                      connect.ts (payout-account resolution)
   tests/             SQL test suites: rls_test, dashboard_test, storage_test
+  templates/         Branded auth emails (confirmation, recovery, email change);
+                     links go to /auth/confirm on our domain, never *.supabase.co
   config.toml        Local stack config; verify_jwt=false list for machine-invoked functions
+
+scripts/push-auth-templates.mjs   Push supabase/templates to a hosted project
 
 docs/STANDARDS.md    Coding standards (required reading)
 README.md            Quick start
@@ -92,7 +96,7 @@ dev.sh               One-command local stack
 | `/scanner` | DoormanScanner | host, co-host, staff |
 | `/business/*` | Business account pages | business owners |
 | `/admin` | Admin | super-admin |
-| `/privacy`, `/reset-password` | public pages | no session needed |
+| `/privacy`, `/reset-password`, `/auth/confirm` | public pages (auth email links land on `/auth/confirm`) | no session needed |
 
 ### Edge functions
 

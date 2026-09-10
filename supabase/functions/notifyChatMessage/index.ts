@@ -54,6 +54,7 @@ Deno.serve(async (req) => {
     }
     const results = await Promise.allSettled(targets.map((guest) =>
       sendEmail({
+        bulk: true,
         to: guest.guest_email,
         subject: `New message from ${senderName} – ${event.title}`,
         html: brandedEmail({

@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#0a0a12;font-family:Inter,Segoe UI,Arial,sans-serif;">
+  <div style="max-width:480px;margin:0 auto;background:#0a0a12;color:#e8e8f0;padding:32px 24px;">
+    <p style="margin:0 0 24px;font-size:11px;letter-spacing:0.25em;text-transform:uppercase;color:#7a7a9a;text-align:center;">DoorMan · Confirm your email</p>
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#ffffff;text-align:center;">Welcome to DoorMan</h1>
+    <p style="margin:0 0 24px;text-align:center;color:#b0b0c8;">You just created a DoorMan account with {{ .Email }}. Confirm it to finish signing up.</p>
+    <div style="background:#15151f;border:1px solid #2a2a3a;border-radius:16px;padding:20px;margin-top:16px;font-size:14px;color:#e8e8f0;line-height:1.7;">
+      <p style="margin:0;">Once confirmed you can request guestlist spots, buy tickets, hold your QR pass and see who else is going.</p>
+    </div>
+    <div style="text-align:center;margin:24px 0 20px;">
+      <a href="{{ .SiteURL }}/auth/confirm?type=signup&amp;token_hash={{ .TokenHash }}&amp;next={{ .RedirectTo }}" style="display:inline-block;background:#7c3aed;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:14px 28px;border-radius:12px;">Confirm my email</a>
+    </div>
+    <p style="margin:0;text-align:center;font-size:11px;color:#7a7a9a;line-height:1.6;">This link works once and expires in an hour. If the button does not open, copy this address into your browser:<br>{{ .SiteURL }}/auth/confirm?type=signup&amp;token_hash={{ .TokenHash }}</p>
+    <p style="margin:16px 0 0;text-align:center;font-size:11px;color:#7a7a9a;line-height:1.6;">Didn't sign up for DoorMan? You can ignore this email and no account will be created.</p>
+    <p style="margin:24px 0 0;text-align:center;font-size:10px;color:#3a3a4a;">DoorMan · guestlists, tickets and door check-in for events · <a href="{{ .SiteURL }}" style="color:#3a3a4a;">thedoorman.app</a></p>
+  </div>
+</body>
+</html>

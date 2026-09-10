@@ -1,8 +1,17 @@
 // Email via Resend (replaces the original app Core.SendEmail). Never throws — returns
 // { sent, error } so callers log failures without blocking the main flow.
 // With no RESEND_API_KEY set (local dev), logs and no-ops.
+//
+// Deliverability: every email carries a plain-text alternative (HTML-only
+// mail scores worse with Gmail/Outlook filters), and `bulk` sends — the
+// notifications that go to a whole guestlist — add a List-Unsubscribe header,
+// which mailbox providers expect from anything sent to many recipients at
+// once. Until a per-user notification preference exists it is a mailto to the
+// sending address, which is what the RFC allows and what providers honour.
 export async function sendEmail(
-  { to, subject, html }: { to: string; subject: string; html: string },
+  { to, subject, html, text, bulk = false }: {
+    to: string; subject: string; html: string; text?: string; bulk?: boolean;
+  },
 ): Promise<{ sent: boolean; error?: string }> {
   const key = Deno.env.get('RESEND_API_KEY');
   const from = Deno.env.get('EMAIL_FROM') || 'DoorMan <tickets@thedoorman.app>';
@@ -10,11 +19,20 @@ export async function sendEmail(
     console.log(`[email noop — RESEND_API_KEY unset] to=${to} subject=${subject}`);
     return { sent: false, error: 'RESEND_API_KEY not set' };
   }
+  const headers: Record<string, string> = {};
+  if (bulk) {
+    const addr = fromAddress(from);
+    headers['List-Unsubscribe'] = `<mailto:${addr}?subject=${encodeURIComponent(`unsubscribe ${to}`)}>`;
+  }
   try {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from, to, subject, html }),
+      body: JSON.stringify({
+        from, to, subject, html,
+        text: text || htmlToText(html),
+        ...(Object.keys(headers).length ? { headers } : {}),
+      }),
     });
     if (!res.ok) {
       const err = await res.text();
@@ -27,6 +45,34 @@ export async function sendEmail(
     console.log('sendEmail error', msg);
     return { sent: false, error: msg };
   }
+}
+
+// "DoorMan <tickets@x>" -> "tickets@x"
+export function fromAddress(from: string): string {
+  const m = from.match(/<([^>]+)>/);
+  return (m ? m[1] : from).trim();
+}
+
+// Plain-text rendering of our email HTML: links become "label: url", images
+// their alt text, block elements line breaks. Good enough for a text/plain
+// alternative; not a general HTML converter.
+export function htmlToText(html: string): string {
+  let t = html
+    .replace(/<head[\s\S]*?<\/head>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<a\b[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, (_m, href, label) => {
+      const l = label.replace(/<[^>]+>/g, '').trim();
+      return l && l !== href ? `${l}: ${href}` : href;
+    })
+    .replace(/<img\b[^>]*alt="([^"]*)"[^>]*>/gi, '[$1]\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|h[1-6]|li|tr)>/gi, '\n')
+    .replace(/<[^>]+>/g, '');
+  t = t
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+  return t.split('\n').map((l) => l.replace(/[ \t]+/g, ' ').trim())
+    .join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
 export function escapeHtml(str: unknown): string {
