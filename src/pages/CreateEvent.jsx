@@ -16,11 +16,9 @@ import { useToast } from "@/components/ui/use-toast";
 import { useStripeStatus } from "@/hooks/useStripeStatus";
 import { useBusinessStripeStatus } from "@/hooks/useBusinessStripeStatus";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { defaultCurrencyForUser } from "@/lib/money";
+import { currencySymbol, defaultCurrencyForUser, feeLabel } from "@/lib/money";
 import TimeZoneSelect from "@/components/TimeZoneSelect";
 import { browserZone } from "@/lib/eventTime";
-
-const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
 
 export default function CreateEvent({ business = null }) {
   const navigate = useNavigate();
@@ -484,7 +482,7 @@ export default function CreateEvent({ business = null }) {
                       <div key={i} className="flex items-center gap-2 bg-secondary/40 rounded-lg px-3 py-2 border border-border/50">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{t.name}</p>
-                          <p className="text-[11px] text-muted-foreground">{SYMBOL[form.currency] || ""}{Number(t.price).toFixed(2)} · {t.quantity} tickets</p>
+                          <p className="text-[11px] text-muted-foreground">{currencySymbol(form.currency)}{Number(t.price).toFixed(2)} · {t.quantity} tickets</p>
                         </div>
                         <button onClick={() => removeTier(i)} className="text-muted-foreground hover:text-destructive p-1 flex-shrink-0">
                           <Trash2 className="w-4 h-4" />
@@ -513,7 +511,7 @@ export default function CreateEvent({ business = null }) {
                           <Info className="w-3.5 h-3.5" />
                         </button>
                       </TooltipTrigger>
-                      <TooltipContent side="top">45p + 4% per ticket</TooltipContent>
+                      <TooltipContent side="top">{feeLabel(form.currency)}</TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 </div>
@@ -551,7 +549,7 @@ export default function CreateEvent({ business = null }) {
                           <p className="text-sm font-medium truncate">{p.name}</p>
                           <p className="text-[11px] text-muted-foreground">
                             {p.commission_type === "flat"
-                              ? `${SYMBOL[form.currency] || ""}${Number(p.commission_value).toFixed(2)} / ticket`
+                              ? `${currencySymbol(form.currency)}${Number(p.commission_value).toFixed(2)} / ticket`
                               : `${p.commission_value}% per ticket`}
                             {p.email ? ` · ${p.email}` : ""}
                           </p>
@@ -577,7 +575,7 @@ export default function CreateEvent({ business = null }) {
                     </select>
                     <Input
                       type="number"
-                      placeholder={pType === "percent" ? "e.g. 10" : `e.g. 2.00 (${SYMBOL[form.currency] || ""})`}
+                      placeholder={pType === "percent" ? "e.g. 10" : `e.g. 2.00 (${currencySymbol(form.currency)})`}
                       value={pValue}
                       onChange={(e) => setPValue(e.target.value)}
                       className="h-10 flex-1 bg-secondary/50"

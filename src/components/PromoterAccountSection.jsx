@@ -1,11 +1,10 @@
+import { currencySymbol } from "@/lib/money";
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/api/data";
 import { Megaphone, Copy, Check, ExternalLink, Ticket, MousePointerClick, Wallet } from "lucide-react";
 import { getLinkDomain } from "@/lib/promoterRef";
 import { useToast } from "@/components/ui/use-toast";
-
-const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
 
 // Promoter-facing summary shown in the Account tab. Matches promoter records
 // to the logged-in user by the email the host entered when adding them.
@@ -64,7 +63,7 @@ export default function PromoterAccountSection({ email }) {
         {promoters.map((p) => {
           const event = events[p.event_id];
           const cur = String(event?.currency || "gbp").toLowerCase();
-          const sym = SYMBOL[cur] || "";
+          const sym = currencySymbol(cur);
           const link = `${getLinkDomain()}/event/${p.event_id}?ref=${p.tracking_code}`;
           return (
             <div key={p.id} className="bg-secondary/40 rounded-xl border border-border/50 p-3">

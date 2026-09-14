@@ -1,3 +1,4 @@
+import { feeLabel } from "@/lib/money";
 import TimeZoneSelect from "@/components/TimeZoneSelect";
 import { DEFAULT_TZ } from "@/lib/eventTime";
 import { useState, useEffect } from "react";
@@ -354,7 +355,7 @@ export default function EditEvent() {
                 </select>
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Booking Fee (45p + 4% per ticket)</Label>
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Booking Fee ({feeLabel(form.currency)})</Label>
                 <div className="space-y-2">
                   {[
                     { v: "pass_on", l: "Added at checkout", d: "Buyers see your set price while browsing; the booking fee is added at checkout. You receive full face value." },

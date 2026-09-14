@@ -1,3 +1,4 @@
+import { currencySymbol } from "@/lib/money";
 import { timeSuffix } from "@/lib/eventTime";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -13,8 +14,6 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import moment from "moment";
-
-const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
 
 export default function GuestPass() {
   const { id } = useParams();
@@ -173,7 +172,7 @@ export default function GuestPass() {
     try {
       const res = await api.functions.invoke("refundTicket", { guestlist_entry_id: entry.id });
       if (res.data?.error) throw new Error(res.data.error);
-      const sym = SYMBOL[String(event.currency || "gbp").toLowerCase()] || "";
+      const sym = currencySymbol(String(event.currency || "gbp").toLowerCase());
       const amount = (Number(res.data?.refunded_minor || 0) / 100).toFixed(2);
       toast({ title: "Ticket cancelled", description: `${sym}${amount} is on its way back to your payment method.` });
       setShowCancel(false);

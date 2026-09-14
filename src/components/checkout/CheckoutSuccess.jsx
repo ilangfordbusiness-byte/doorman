@@ -1,11 +1,10 @@
+import { currencySymbol } from "@/lib/money";
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/api/data";
 import { Ticket, QrCode, CheckCircle2, Megaphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import LoadingSpinner from "@/components/LoadingSpinner";
-
-const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
 
 // Confirmation screen shown after a successful Stripe Checkout redirect.
 // Polls for the paid order (webhook may still be processing) then shows the
@@ -51,7 +50,7 @@ export default function CheckoutSuccess({ eventId }) {
   }, [eventId]);
 
   const cur = String(event?.currency || "gbp").toLowerCase();
-  const sym = SYMBOL[cur] || "";
+  const sym = currencySymbol(cur);
 
   if (polling && !order) {
     return (

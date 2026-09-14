@@ -381,6 +381,10 @@ begin
   if v_count < 1 then raise exception 'FAIL: admin cannot read the audit log'; end if;
   perform public.admin_dashboard_metrics();
   perform pg_temp.ok('admin can read the audit log and run metrics');
+  if jsonb_typeof(public.admin_dashboard_metrics() -> 'by_currency') <> 'array' then
+    raise exception 'FAIL: metrics lack per-currency totals' using errcode = 'assert_failure';
+  end if;
+  perform pg_temp.ok('admin metrics report money per currency');
 
   -- ---- ticket reservations (service-role RPCs, run as postgres) ----
   execute 'reset role';

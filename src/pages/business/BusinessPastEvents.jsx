@@ -1,11 +1,10 @@
+import { currencySymbol } from "@/lib/money";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api/data";
 import { useActiveAccount } from "@/hooks/useActiveAccount";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { Ticket, TrendingUp, Percent, Megaphone, History, Calendar } from "lucide-react";
 import moment from "moment";
-
-const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
 
 export default function BusinessPastEvents() {
   const { data: business } = useActiveAccount();
@@ -78,7 +77,7 @@ export default function BusinessPastEvents() {
       <h1 className="font-heading font-bold text-xl mb-4">Past Events</h1>
 
       {Object.entries(totals).map(([cur, t]) => {
-        const sym = SYMBOL[cur] || "";
+        const sym = currencySymbol(cur);
         return (
           <div key={cur} className="bg-card rounded-2xl border border-border p-4 mb-5">
             <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-mono mb-3">All Past Events · {cur.toUpperCase()}</p>
@@ -95,7 +94,7 @@ export default function BusinessPastEvents() {
       <div className="space-y-3">
         {list.map((r) => {
           const cur = String(r.event.currency || "gbp").toLowerCase();
-          const sym = SYMBOL[cur] || "";
+          const sym = currencySymbol(cur);
           return (
             <div key={r.event.id} className="bg-card rounded-2xl border border-border p-4">
               <div className="flex items-center gap-2 mb-3">

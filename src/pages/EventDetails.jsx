@@ -1,3 +1,4 @@
+import { currencySymbol } from "@/lib/money";
 import { timeSuffix } from "@/lib/eventTime";
 import { useState, useEffect } from "react";
 import { COVERS } from "../components/CoverPicker";
@@ -199,7 +200,7 @@ export default function EventDetails() {
   if (!event) return null;
 
   const eventDate = moment(event.date);
-  const sym = ({ gbp: "£", eur: "€", usd: "$" })[String(event.currency || "gbp").toLowerCase()] || "";
+  const sym = currencySymbol(event.currency);
 
   return (
     <div className="max-w-lg mx-auto">
@@ -271,7 +272,7 @@ export default function EventDetails() {
           <div className={`rounded-xl p-3 border text-xs ${refStatus.valid ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-300" : "bg-amber-500/10 border-amber-500/20 text-amber-300"}`}>
             {refStatus.valid
               ? (() => {
-                  const sym = ({ gbp: "£", eur: "€", usd: "$" })[String(event.currency || "gbp").toLowerCase()] || "";
+                  const sym = currencySymbol(event.currency);
                   const label = discountLabel(refStatus.promoter, sym);
                   const active = promoterDiscountActive(refStatus.promoter);
                   const exhausted = refStatus.promoter && refStatus.promoter.discount_type && refStatus.promoter.discount_type !== "none" && Number(refStatus.promoter.discount_value || 0) > 0 && !active;

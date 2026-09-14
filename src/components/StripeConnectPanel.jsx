@@ -1,3 +1,4 @@
+import { currencySymbol } from "@/lib/money";
 import { useState, useEffect } from "react";
 import { api } from "@/api/data";
 import { CreditCard, Wallet, ExternalLink, CheckCircle2, AlertCircle, Loader2, UserPlus } from "lucide-react";
@@ -5,8 +6,6 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { COUNTRIES, DEFAULT_COUNTRY, countryFromValue } from "@/lib/phone";
-
-const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
 
 function inIframe() {
   try { return window.self !== window.top; } catch { return true; }
@@ -160,7 +159,7 @@ export default function StripeConnectPanel() {
           )}
 
           {balances.map((b) => {
-            const sym = SYMBOL[b.currency] || "";
+            const sym = currencySymbol(b.currency);
             return (
               <div key={b.key} className="bg-secondary/40 rounded-xl border border-border/50 p-3">
                 <div className="flex items-center justify-between mb-2">
