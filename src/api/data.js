@@ -494,13 +494,15 @@ const ENTITIES = {
       business_email: r.business_email,
       business_name: r.business_name,
       business_picture: r.business_picture_url,
+      description: r.description,
+      instagram: r.instagram,
       stripe_mode: r.stripe_mode,
       stripe_account_id: r.stripe_account_id,
       stripe_onboarding_status: r.stripe_onboarding_status,
     }),
     async fromApp(obj, isCreate) {
       const out = {};
-      for (const k of ["business_email", "business_name", "stripe_mode"]) {
+      for (const k of ["business_email", "business_name", "stripe_mode", "description", "instagram"]) {
         if (k in obj) out[k] = obj[k];
       }
       if ("business_picture" in obj) out.business_picture_url = obj.business_picture;
@@ -764,6 +766,26 @@ const auth = {
     const { data, error } = await q.limit(limit);
     throwOn(error);
     return (data ?? []).map(profileToUser);
+  },
+  // Search business accounts by name (via the anon-readable business_public
+  // view). Tagged is_business so search UIs can render them distinctly.
+  async searchBusinesses(query, limit = 10) {
+    const tokens = String(query || "")
+      .trim()
+      .split(/\s+/)
+      .map((t) => t.replace(/[,()*%]/g, "").trim())
+      .filter((t) => t.length >= 2);
+    if (tokens.length === 0) return [];
+    let q = supabase.from("business_public").select("id, business_name, business_picture_url");
+    for (const tok of tokens) q = q.or(`business_name.ilike.%${tok}%`);
+    const { data, error } = await q.limit(limit);
+    throwOn(error);
+    return (data ?? []).map((b) => ({
+      id: b.id,
+      business_name: b.business_name,
+      business_picture: b.business_picture_url,
+      is_business: true,
+    }));
   },
   async updateMe(fields) {
     const id = await uid();
@@ -1067,4 +1089,79 @@ const admin = {
   },
 };
 
-export const api = { entities, auth, functions, integrations, admin };
+// ---------------------------------------------------------------------------
+// Business accounts: public profile read + co-manager membership.
+// ---------------------------------------------------------------------------
+const businesses = {
+  // Public display fields (name, picture, description, instagram) — readable by
+  // anyone via the business_public view (the base table is manager-only).
+  async getPublic(id) {
+    if (!id) return null;
+    const { data, error } = await supabase
+      .from("business_public")
+      .select("id, business_name, business_picture_url, description, instagram")
+      .eq("id", id).maybeSingle();
+    throwOn(error);
+    return data ? {
+      id: data.id,
+      business_name: data.business_name,
+      business_picture: data.business_picture_url,
+      description: data.description,
+      instagram: data.instagram,
+    } : null;
+  },
+  // Businesses the current user owns OR is an accepted member of. Owned come via
+  // owner_email; member businesses via accepted business_members rows (now
+  // readable through the manager SELECT policy). De-duped by id.
+  async mine(email) {
+    const me = await uid();
+    if (!me) return [];
+    const owned = email
+      ? await entities.BusinessAccount.filter({ owner_email: email })
+      : [];
+    const { data: rows, error } = await supabase
+      .from("business_members")
+      .select("business_id")
+      .eq("user_id", me).eq("status", "accepted");
+    throwOn(error);
+    const memberIds = (rows ?? []).map((r) => r.business_id)
+      .filter((id) => !owned.some((b) => b.id === id));
+    const memberBiz = memberIds.length
+      ? await entities.BusinessAccount.filter({ id: { $in: memberIds } })
+      : [];
+    return [...owned, ...memberBiz];
+  },
+  async listMembers(businessId) {
+    const { data, error } = await supabase
+      .from("business_members")
+      .select("id, email, user_id, status, created_at")
+      .eq("business_id", businessId)
+      .order("created_at", { ascending: true });
+    throwOn(error);
+    return data ?? [];
+  },
+  async inviteMember(businessId, email) {
+    const clean = String(email || "").trim().toLowerCase();
+    if (!clean) throw new Error("Enter an email address.");
+    const userId = await resolveUserId(clean);
+    if (!userId) throw new Error("No DoorMan account found for that email. They need to sign up first.");
+    const { error } = await supabase.from("business_members").insert({
+      business_id: businessId, email: clean, user_id: userId, status: "pending",
+    });
+    if (error) {
+      if (error.code === "23505") throw new Error("That person is already invited.");
+      throw new Error(error.message);
+    }
+    return { ok: true };
+  },
+  async removeMember(id) {
+    const { error } = await supabase.from("business_members").delete().eq("id", id);
+    throwOn(error);
+    return { ok: true };
+  },
+  async acceptInvite(businessId, action) {
+    return invokeEdge("acceptBusinessMember", { business_id: businessId, action });
+  },
+};
+
+export const api = { entities, auth, functions, integrations, admin, businesses };
