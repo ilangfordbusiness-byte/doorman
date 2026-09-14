@@ -699,7 +699,7 @@ const entities = Object.fromEntries(
 // Auth (old surface: me / updateMe / logout / redirectToLogin)
 // ---------------------------------------------------------------------------
 const PROFILE_COLS =
-  "id, email, full_name, phone, instagram, snapchat, avatar_url, role, stripe_onboarding_status, active_business_id, created_at";
+  "id, email, full_name, phone, instagram, snapchat, avatar_url, avatar_prompt_dismissed_at, role, stripe_onboarding_status, active_business_id, created_at";
 
 function profileToUser(p) {
   return {
@@ -710,6 +710,7 @@ function profileToUser(p) {
     instagram: p.instagram,
     snapchat: p.snapchat,
     profile_picture: p.avatar_url,
+    avatar_prompt_dismissed_at: p.avatar_prompt_dismissed_at,
     role: p.role,
     stripe_onboarding_status: p.stripe_onboarding_status,
     active_business_id: p.active_business_id,
@@ -765,7 +766,7 @@ const auth = {
     const id = await uid();
     if (!id) throw new Error("Not authenticated");
     const patch = {};
-    for (const k of ["full_name", "phone", "instagram", "snapchat", "active_business_id"]) {
+    for (const k of ["full_name", "phone", "instagram", "snapchat", "active_business_id", "avatar_prompt_dismissed_at"]) {
       if (k in fields) patch[k] = fields[k];
     }
     if (patch.active_business_id === "") patch.active_business_id = null;

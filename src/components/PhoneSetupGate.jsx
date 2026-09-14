@@ -7,11 +7,14 @@ import PhoneInput from "@/components/PhoneInput";
 import ProfilePictureEditor from "@/components/ProfilePictureEditor";
 import { normalizePhone } from "@/lib/phone";
 
-// Mandatory onboarding gate. Every signed-in user must have a full name, phone,
-// instagram, and profile picture before using the app. Email sign-ups supply
-// name/phone/instagram at signup (so they only see the avatar step); Google
-// sign-ins are walked through whichever fields they're missing. The avatar
-// lives here (not on the signup form) because uploading it needs a session.
+// Mandatory onboarding gate. Every signed-in user must have a full name, phone
+// and instagram before using the app, and is asked for a profile picture. Email
+// sign-ups supply name/phone/instagram at signup (so they only see the avatar
+// step); Google sign-ins are walked through whichever fields they're missing.
+// The avatar lives here (not on the signup form) because uploading it needs a
+// session. The picture step alone can be skipped with "Later", which stamps
+// profiles.avatar_prompt_dismissed_at so it never shows again on any device;
+// a picture can still be added from /profile.
 const ORDER = ["name", "phone", "instagram", "avatar"];
 
 // A profile picture is required for accounts created on/after this date; older
@@ -20,6 +23,7 @@ const ORDER = ["name", "phone", "instagram", "avatar"];
 const AVATAR_REQUIRED_FROM = new Date("2026-08-31T00:00:00Z");
 function avatarRequired(me) {
   if (!me || me.profile_picture) return false;              // already has a picture
+  if (me.avatar_prompt_dismissed_at) return false;          // tapped "Later" before
   return !!me.created_date && new Date(me.created_date) >= AVATAR_REQUIRED_FROM;
 }
 
@@ -90,6 +94,19 @@ export default function PhoneSetupGate({ children }) {
   const saveAvatar = async (fileUrl) => {
     setPhotoFile(null);
     await advance({ profile_picture: fileUrl });
+  };
+  // "Later": persist the dismissal on the profile and release the gate. Not via
+  // advance(), since firstMissing() would still report the (empty) avatar step;
+  // avatar is last in ORDER so nothing else can be pending here.
+  const dismissAvatar = async () => {
+    setSaving(true);
+    try {
+      await api.auth.updateMe({ avatar_prompt_dismissed_at: new Date().toISOString() });
+      setIncludeAvatar(false);
+      setStep(null);
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (checking) {
@@ -191,6 +208,10 @@ export default function PhoneSetupGate({ children }) {
       <Button className="w-full h-12 rounded-xl font-semibold text-base gap-2" onClick={() => fileRef.current?.click()}
         disabled={saving}>
         {saving ? "Saving..." : "Choose a photo"} {!saving && <ChevronRight className="w-4 h-4" />}
+      </Button>
+      <Button variant="ghost" className="w-full h-12 rounded-xl font-semibold text-base mt-2 text-muted-foreground"
+        onClick={dismissAvatar} disabled={saving}>
+        Later
       </Button>
       {photoFile && (
         <ProfilePictureEditor file={photoFile} onSave={saveAvatar} onClose={() => setPhotoFile(null)} />
