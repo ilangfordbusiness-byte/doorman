@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import CoverPicker from "../components/CoverPicker";
 import CoverPhotoUpload from "../components/CoverPhotoUpload";
 import { useNavigate } from "react-router-dom";
@@ -15,6 +15,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { useStripeStatus } from "@/hooks/useStripeStatus";
 import { useBusinessStripeStatus } from "@/hooks/useBusinessStripeStatus";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { defaultCurrencyForUser } from "@/lib/money";
 
 const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
 
@@ -23,6 +25,7 @@ export default function CreateEvent({ business = null }) {
   const { toast } = useToast();
   const { connected: personalConnected, active: personalActive } = useStripeStatus();
   const { connected: businessConnected, active: businessActive } = useBusinessStripeStatus(business?.id);
+  const me = /** @type {{ phone?: string, stripe_default_currency?: string } | undefined} */ (useCurrentUser().data);
   const stripeConnected = business ? businessConnected : personalConnected;
   // Selling tickets requires payouts-enabled onboarding, not just a connected
   // account — the server enforces the same rule at tier creation and checkout.
@@ -47,7 +50,7 @@ export default function CreateEvent({ business = null }) {
     plus_one_allowed: false,
     capacity: "",
     is_paid: false,
-    currency: "gbp",
+    currency: "gbp", // re-seeded from the host's Stripe/phone country below
     fee_mode: "pass_on",
     visibility: "show_names",
     instagram: "",
@@ -58,7 +61,20 @@ export default function CreateEvent({ business = null }) {
   const [pType, setPType] = useState("percent");
   const [pValue, setPValue] = useState("");
 
+  // Preselect the currency the host actually settles in (Stripe account
+  // currency, else phone country). Runs once the profile/business is known and
+  // only until the host touches the field.
+  const [currencyTouched, setCurrencyTouched] = useState(false);
+  const seedSource = business
+    ? { stripe_default_currency: business.stripe_default_currency, phone: me?.phone }
+    : me;
+  const seedCurrency = seedSource ? defaultCurrencyForUser(seedSource) : null;
+  useEffect(() => {
+    if (seedCurrency && !currencyTouched) setForm((f) => ({ ...f, currency: seedCurrency }));
+  }, [seedCurrency, currencyTouched]);
+
   function updateForm(field, value) {
+    if (field === "currency") setCurrencyTouched(true);
     setForm((prev) => ({ ...prev, [field]: value }));
     if (error) setError("");
   }

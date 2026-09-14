@@ -699,7 +699,7 @@ const entities = Object.fromEntries(
 // Auth (old surface: me / updateMe / logout / redirectToLogin)
 // ---------------------------------------------------------------------------
 const PROFILE_COLS =
-  "id, email, full_name, phone, instagram, snapchat, avatar_url, avatar_prompt_dismissed_at, role, stripe_onboarding_status, active_business_id, created_at";
+  "id, email, full_name, phone, instagram, snapchat, avatar_url, avatar_prompt_dismissed_at, role, stripe_onboarding_status, stripe_account_country, stripe_default_currency, active_business_id, created_at";
 
 function profileToUser(p) {
   return {
@@ -713,6 +713,8 @@ function profileToUser(p) {
     avatar_prompt_dismissed_at: p.avatar_prompt_dismissed_at,
     role: p.role,
     stripe_onboarding_status: p.stripe_onboarding_status,
+    stripe_account_country: p.stripe_account_country,
+    stripe_default_currency: p.stripe_default_currency,
     active_business_id: p.active_business_id,
     created_date: p.created_at,
   };

@@ -33,6 +33,43 @@ function formEncode(obj: Record<string, string | undefined | null>): string {
     .join('&');
 }
 
+// Country for a new connected account. Stripe fixes an account's country at
+// creation (it can never change), and without one it inherits the platform's
+// — which stranded non-UK hosts on a GB account they could not onboard. The
+// client asks the host; if the body carries no usable code we infer one from
+// the dial code of their stored E.164 phone, then fall back to GB.
+const DIAL_TO_COUNTRY: [string, string][] = [
+  ['+1', 'US'], ['+44', 'GB'], ['+353', 'IE'], ['+33', 'FR'], ['+49', 'DE'],
+  ['+34', 'ES'], ['+39', 'IT'], ['+351', 'PT'], ['+31', 'NL'], ['+32', 'BE'],
+  ['+43', 'AT'], ['+41', 'CH'], ['+45', 'DK'], ['+46', 'SE'], ['+47', 'NO'],
+  ['+358', 'FI'], ['+48', 'PL'], ['+420', 'CZ'], ['+30', 'GR'], ['+40', 'RO'],
+  ['+36', 'HU'], ['+971', 'AE'], ['+61', 'AU'], ['+64', 'NZ'], ['+91', 'IN'],
+  ['+234', 'NG'], ['+27', 'ZA'], ['+55', 'BR'],
+];
+function countryFromPhone(phone: unknown): string | null {
+  const p = String(phone ?? '').trim();
+  if (!p.startsWith('+')) return null;
+  let best: [string, string] | null = null;
+  for (const entry of DIAL_TO_COUNTRY) {
+    if (p.startsWith(entry[0]) && (!best || entry[0].length > best[0].length)) best = entry;
+  }
+  return best ? best[1] : null;
+}
+function resolveCountry(requested: unknown, phone: unknown): string {
+  const code = String(requested ?? '').trim().toUpperCase();
+  if (/^[A-Z]{2}$/.test(code)) return code;
+  return countryFromPhone(phone) ?? 'GB';
+}
+
+// The two account facts we persist beside stripe_account_id.
+// deno-lint-ignore no-explicit-any
+function accountFacts(acct: any): { stripe_account_country: string; stripe_default_currency: string } {
+  return {
+    stripe_account_country: String(acct.country || 'GB').toUpperCase(),
+    stripe_default_currency: String(acct.default_currency || 'gbp').toLowerCase(),
+  };
+}
+
 Deno.serve(async (req) => {
   const pre = preflight(req);
   if (pre) return pre;
@@ -104,7 +141,7 @@ Deno.serve(async (req) => {
     // Find-or-create an express account for an email, reusing existing accounts
     // (Stripe blocks NEW account creation until the platform profile review is
     // done, but existing accounts remain usable).
-    async function findOrCreateAccount(email: string, metadata: Record<string, string>) {
+    async function findOrCreateAccount(email: string, metadata: Record<string, string>, country: string) {
       let acct = null;
       try {
         const list = await stripeApi('/accounts?limit=100');
@@ -120,6 +157,7 @@ Deno.serve(async (req) => {
             body: formEncode({
               type: 'express',
               email,
+              country,
               // Both capabilities: Stripe auto-approves this pair, while
               // transfers-only platforms need manual approval from support.
               'capabilities[card_payments][requested]': 'true',
@@ -177,10 +215,13 @@ Deno.serve(async (req) => {
     if (action === 'onboard') {
       if (!accountId) {
         try {
-          const acct = await findOrCreateAccount(user.email, { user_id: user.id });
+          const acct = await findOrCreateAccount(user.email, { user_id: user.id },
+            resolveCountry(body.country, user.phone));
           accountId = acct.id;
           const status = acct.charges_enabled && acct.payouts_enabled ? 'active' : 'pending';
-          await setProfileStripe({ stripe_account_id: accountId!, stripe_onboarding_status: status });
+          await setProfileStripe({
+            stripe_account_id: accountId!, stripe_onboarding_status: status, ...accountFacts(acct),
+          });
         } catch (e) {
           // deno-lint-ignore no-explicit-any
           const err = e as any;
@@ -207,12 +248,16 @@ Deno.serve(async (req) => {
             payouts_enabled: acct.payouts_enabled,
             details_submitted: acct.details_submitted,
             requirements: acct.requirements?.currently_due || [],
+            ...accountFacts(acct),
           };
           const status = acct.charges_enabled && acct.payouts_enabled
             ? 'active'
             : (acct.details_submitted ? 'restricted' : 'pending');
-          if (user.stripe_onboarding_status !== status) {
-            await setProfileStripe({ stripe_onboarding_status: status });
+          const facts = accountFacts(acct);
+          if (user.stripe_onboarding_status !== status ||
+              user.stripe_account_country !== facts.stripe_account_country ||
+              user.stripe_default_currency !== facts.stripe_default_currency) {
+            await setProfileStripe({ stripe_onboarding_status: status, ...facts });
           }
         } catch (e) {
           account = { error: e instanceof Error ? e.message : String(e) };
@@ -239,6 +284,7 @@ Deno.serve(async (req) => {
           charges_enabled: acct.charges_enabled,
           payouts_enabled: acct.payouts_enabled,
           details_submitted: acct.details_submitted,
+          ...accountFacts(acct),
         };
       } catch (e) {
         return { error: e instanceof Error ? e.message : String(e) };
@@ -288,9 +334,20 @@ Deno.serve(async (req) => {
       if (account && !('error' in account)) {
         const status = account.charges_enabled && account.payouts_enabled
           ? 'active' : (account.details_submitted ? 'restricted' : 'pending');
-        if (mode === 'business' && business.stripe_onboarding_status !== status) {
-          await svc.from('business_accounts')
-            .update({ stripe_onboarding_status: status }).eq('id', business.id);
+        const facts = {
+          stripe_account_country: account.stripe_account_country,
+          stripe_default_currency: account.stripe_default_currency,
+        };
+        const row = mode === 'business' ? business : user;
+        if (row.stripe_onboarding_status !== status ||
+            row.stripe_account_country !== facts.stripe_account_country ||
+            row.stripe_default_currency !== facts.stripe_default_currency) {
+          if (mode === 'business') {
+            await svc.from('business_accounts')
+              .update({ stripe_onboarding_status: status, ...facts }).eq('id', business.id);
+          } else {
+            await setProfileStripe({ stripe_onboarding_status: status, ...facts });
+          }
         }
       }
       return json({ mode, account, balances: await computeBusinessBalances(business.id) });
@@ -304,20 +361,24 @@ Deno.serve(async (req) => {
         if (mode === 'personal') {
           let personalId = user.stripe_account_id;
           if (!personalId) {
-            const acct = await findOrCreateAccount(user.email, { user_id: user.id });
+            const acct = await findOrCreateAccount(user.email, { user_id: user.id },
+              resolveCountry(body.country, user.phone));
             personalId = acct.id;
             const status = acct.charges_enabled && acct.payouts_enabled ? 'active' : 'pending';
-            await setProfileStripe({ stripe_account_id: personalId, stripe_onboarding_status: status });
+            await setProfileStripe({
+              stripe_account_id: personalId, stripe_onboarding_status: status, ...accountFacts(acct),
+            });
           }
           return json({ url: await accountLink(personalId, '/business/create-event') });
         }
         let bizId = business.stripe_account_id;
         if (!bizId) {
-          const acct = await findOrCreateAccount(business.business_email, { business_id: business.id });
+          const acct = await findOrCreateAccount(business.business_email, { business_id: business.id },
+            resolveCountry(body.country, user.phone));
           bizId = acct.id;
           const status = acct.charges_enabled && acct.payouts_enabled ? 'active' : 'pending';
           await svc.from('business_accounts')
-            .update({ stripe_account_id: bizId, stripe_onboarding_status: status })
+            .update({ stripe_account_id: bizId, stripe_onboarding_status: status, ...accountFacts(acct) })
             .eq('id', business.id);
         }
         return json({ url: await accountLink(bizId, '/business/create-event') });

@@ -3,11 +3,37 @@ import { api } from "@/api/data";
 import { CreditCard, Wallet, ExternalLink, CheckCircle2, AlertCircle, Loader2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { COUNTRIES, DEFAULT_COUNTRY, countryFromValue } from "@/lib/phone";
 
 const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
 
 function inIframe() {
   try { return window.self !== window.top; } catch { return true; }
+}
+
+// Country of the Stripe account about to be created. Shared with the business
+// panel; exported so both stay identical.
+export function CountryPicker({ value, onChange, disabled }) {
+  return (
+    <div className="flex items-center justify-between gap-3 bg-secondary/40 rounded-xl border border-border/50 px-3 py-2">
+      <div className="min-w-0">
+        <p className="text-xs font-semibold">Account country</p>
+        <p className="text-[10px] text-muted-foreground leading-snug">Where your bank is. Stripe can't change this later.</p>
+      </div>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        aria-label="Stripe account country"
+        className="h-9 shrink-0 max-w-[11rem] rounded-md border border-input bg-transparent px-2 text-sm"
+      >
+        {COUNTRIES.map((c) => (
+          <option key={c.code} value={c.code}>{c.flag} {c.name}</option>
+        ))}
+      </select>
+    </div>
+  );
 }
 
 export default function StripeConnectPanel() {
@@ -17,6 +43,12 @@ export default function StripeConnectPanel() {
   const [account, setAccount] = useState(null);
   const [balances, setBalances] = useState([]);
   const [connectError, setConnectError] = useState("");
+  // Stripe fixes an account's country forever at creation, so the host picks
+  // it (defaulting from their phone) rather than inheriting the platform's GB.
+  const { data: me } = useCurrentUser();
+  const myPhone = /** @type {{ phone?: string } | undefined} */ (me)?.phone;
+  const [country, setCountry] = useState(null);
+  const accountCountry = country ?? countryFromValue(myPhone) ?? DEFAULT_COUNTRY;
 
   async function load() {
     setLoading(true);
@@ -39,7 +71,7 @@ export default function StripeConnectPanel() {
     }
     setBusy(true);
     try {
-      const res = await api.functions.invoke("stripeConnect", { action: "onboard" });
+      const res = await api.functions.invoke("stripeConnect", { action: "onboard", country: accountCountry });
       if (res.data?.url) {
         window.location.href = res.data.url;
       } else if (res.data?.error) {
@@ -99,6 +131,7 @@ export default function StripeConnectPanel() {
             </div>
           )}
           <div className="space-y-2">
+            <CountryPicker value={accountCountry} onChange={setCountry} disabled={busy} />
             <Button className="w-full rounded-xl" disabled={busy} onClick={handleConnect}>
               {busy ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CreditCard className="w-4 h-4 mr-2" />}
               Connect existing account

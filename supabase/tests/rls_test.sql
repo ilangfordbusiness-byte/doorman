@@ -204,6 +204,15 @@ begin
   update public.profiles set avatar_prompt_dismissed_at = now() where id = bob;
   perform pg_temp.ok('user can dismiss own avatar prompt');
 
+  -- stripe_account_country / stripe_default_currency are facts copied from
+  -- Stripe by the service role; a client must never be able to set them.
+  begin
+    update public.profiles set stripe_account_country = 'US' where id = bob;
+    raise exception 'FAIL: user set own stripe_account_country' using errcode = 'assert_failure';
+  exception when insufficient_privilege then
+    perform pg_temp.ok('stripe account facts are server-only (column grant)');
+  end;
+
   -- ---- dave accepts bob's friend request; joins via invite link ----
   perform pg_temp.impersonate(dave, 'dave@test.dev');
   update public.friend_requests set status = 'accepted'

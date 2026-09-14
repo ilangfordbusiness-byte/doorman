@@ -188,6 +188,12 @@ Deno.serve(async (req) => {
     // Destination charge: Stripe transfers the host's share to their connected
     // account on payment; the application fee (platform cut + any promoter
     // commission, paid out manually) stays on the platform balance.
+    // Cross-border hosts (payout.country != the platform's): the transfer is
+    // made from the platform balance in the charge currency, so the platform
+    // account needs a settlement bank account in that currency (e.g. a USD
+    // account for USD events) — otherwise Stripe converts to GBP here and back
+    // to the host's currency at payout, costing two FX fees. That is a Stripe
+    // dashboard setting, not a code path; see DEPLOYMENT.md.
     params.append('payment_intent_data[transfer_data][destination]', String(payout.accountId));
     params.append('payment_intent_data[application_fee_amount]', String(feeMinor + commissionMinor));
     params.append('line_items[0][quantity]', String(qty));
