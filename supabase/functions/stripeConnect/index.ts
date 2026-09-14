@@ -268,15 +268,16 @@ Deno.serve(async (req) => {
       }));
     }
 
-    const businessMode = (b: { stripe_mode: string }) =>
-      b.stripe_mode === 'personal' ? 'personal' : 'business';
+    // Separate business Stripe accounts were removed — business payouts always
+    // use the owner's personal Stripe account.
+    const businessMode = (_b: { stripe_mode: string }) => 'personal';
 
     if (action === 'business_set_mode') {
+      // Mode is fixed to personal; keep the action as a no-op for old clients.
       const business = await loadOwnedBusiness(body.business_id);
       if (!business) return json({ error: 'Business account not found' }, 403);
-      const mode = body.mode === 'personal' ? 'personal' : 'business';
-      await svc.from('business_accounts').update({ stripe_mode: mode }).eq('id', business.id);
-      return json({ ok: true, mode });
+      await svc.from('business_accounts').update({ stripe_mode: 'personal' }).eq('id', business.id);
+      return json({ ok: true, mode: 'personal' });
     }
 
     if (action === 'business_status') {

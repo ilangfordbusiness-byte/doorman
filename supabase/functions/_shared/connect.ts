@@ -12,31 +12,23 @@ export interface PayoutAccount {
 }
 
 export async function resolvePayoutAccount(svc: any, event: any): Promise<PayoutAccount> {
+  // Separate business Stripe accounts were removed: a business event always pays
+  // out to the business owner's personal Stripe account (the stored stripe_mode
+  // is ignored). A personal event pays out to its host. This guarantees payouts
+  // never depend on a never-onboarded business account.
+  let ownerId = event.host_id;
   if (event.business_id) {
     const { data: business } = await svc.from('business_accounts')
-      .select('owner_id, stripe_mode, stripe_account_id, stripe_onboarding_status')
-      .eq('id', event.business_id).maybeSingle();
+      .select('owner_id').eq('id', event.business_id).maybeSingle();
     if (!business) return { accountId: null, active: false };
-    if (business.stripe_mode !== 'personal') {
-      return {
-        accountId: business.stripe_account_id ?? null,
-        active: business.stripe_onboarding_status === 'active' && !!business.stripe_account_id,
-      };
-    }
-    const { data: owner } = await svc.from('profiles')
-      .select('stripe_account_id, stripe_onboarding_status')
-      .eq('id', business.owner_id).maybeSingle();
-    return {
-      accountId: owner?.stripe_account_id ?? null,
-      active: owner?.stripe_onboarding_status === 'active' && !!owner?.stripe_account_id,
-    };
+    ownerId = business.owner_id;
   }
-  const { data: host } = await svc.from('profiles')
+  const { data: owner } = await svc.from('profiles')
     .select('stripe_account_id, stripe_onboarding_status')
-    .eq('id', event.host_id).maybeSingle();
+    .eq('id', ownerId).maybeSingle();
   return {
-    accountId: host?.stripe_account_id ?? null,
-    active: host?.stripe_onboarding_status === 'active' && !!host?.stripe_account_id,
+    accountId: owner?.stripe_account_id ?? null,
+    active: owner?.stripe_onboarding_status === 'active' && !!owner?.stripe_account_id,
   };
 }
 

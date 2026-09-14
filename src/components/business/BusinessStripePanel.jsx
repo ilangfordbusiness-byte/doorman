@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "@/api/data";
-import { CreditCard, Wallet, ExternalLink, CheckCircle2, AlertCircle, Loader2, UserPlus, User, Building2 } from "lucide-react";
+import { CreditCard, Wallet, ExternalLink, CheckCircle2, AlertCircle, Loader2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -14,7 +14,6 @@ export default function BusinessStripePanel({ business }) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [mode, setMode] = useState(null);
   const [account, setAccount] = useState(null);
   const [balances, setBalances] = useState([]);
 
@@ -23,7 +22,6 @@ export default function BusinessStripePanel({ business }) {
     setLoading(true);
     try {
       const res = await api.functions.invoke("stripeConnect", { action: "business_status", business_id: business.id });
-      setMode(res.data?.mode || "business");
       setAccount(res.data?.account || null);
       setBalances(res.data?.balances || []);
     } catch (e) {
@@ -33,19 +31,6 @@ export default function BusinessStripePanel({ business }) {
   }
 
   useEffect(() => { load(); }, [business?.id]);
-
-  async function switchMode(m) {
-    setBusy(true);
-    try {
-      await api.functions.invoke("stripeConnect", { action: "business_set_mode", business_id: business.id, mode: m });
-      setMode(m);
-      await load();
-      toast({ title: m === "personal" ? "Using your personal Stripe account" : "Using a separate business account" });
-    } catch (e) {
-      toast({ title: "Couldn't switch", description: e?.message, variant: "destructive" });
-    }
-    setBusy(false);
-  }
 
   async function handleConnect() {
     if (inIframe()) {
@@ -95,44 +80,12 @@ export default function BusinessStripePanel({ business }) {
       <h3 className="font-heading font-semibold text-sm flex items-center gap-2 mb-1">
         <CreditCard className="w-4 h-4" /> Business Payouts
       </h3>
-      <p className="text-xs text-muted-foreground mb-3">Choose where this business's ticket payouts go.</p>
-
-      {/* Mode selector */}
-      <div className="grid grid-cols-2 gap-2 mb-4">
-        <button
-          onClick={() => mode !== "personal" && switchMode("personal")}
-          disabled={busy}
-          className={`flex items-center gap-2 rounded-xl p-3 border text-left transition-colors ${mode === "personal" ? "border-primary bg-primary/10" : "border-border bg-secondary/40"}`}
-        >
-          <User className="w-4 h-4 text-primary" />
-          <div>
-            <p className="text-xs font-semibold">Personal account</p>
-            <p className="text-[10px] text-muted-foreground">Use your own Stripe</p>
-          </div>
-        </button>
-        <button
-          onClick={() => mode !== "business" && switchMode("business")}
-          disabled={busy}
-          className={`flex items-center gap-2 rounded-xl p-3 border text-left transition-colors ${mode === "business" ? "border-primary bg-primary/10" : "border-border bg-secondary/40"}`}
-        >
-          <Building2 className="w-4 h-4 text-primary" />
-          <div>
-            <p className="text-xs font-semibold">Business account</p>
-            <p className="text-[10px] text-muted-foreground">Separate Stripe</p>
-          </div>
-        </button>
-      </div>
-
-      <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-mono mb-3">
-        {mode === "personal" ? "Payouts to your personal Stripe" : "Payouts to a separate business Stripe"}
-      </p>
+      <p className="text-xs text-muted-foreground mb-3">This business's ticket payouts go to your personal Stripe account.</p>
 
       {!connected ? (
         <div>
           <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
-            {mode === "personal"
-              ? "Connect your personal Stripe account to receive this business's payouts to your own bank."
-              : "Connect a Stripe account for the business to receive payouts to the business bank account."}
+            Connect your personal Stripe account to receive this business's payouts to your own bank.
           </p>
           <div className="space-y-2">
             <Button className="w-full rounded-xl" disabled={busy} onClick={handleConnect}>
