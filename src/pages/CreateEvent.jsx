@@ -17,6 +17,8 @@ import { useStripeStatus } from "@/hooks/useStripeStatus";
 import { useBusinessStripeStatus } from "@/hooks/useBusinessStripeStatus";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { defaultCurrencyForUser } from "@/lib/money";
+import TimeZoneSelect from "@/components/TimeZoneSelect";
+import { browserZone } from "@/lib/eventTime";
 
 const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
 
@@ -39,6 +41,7 @@ export default function CreateEvent({ business = null }) {
     date: "",
     start_time: "",
     end_time: "",
+    timezone: browserZone(),
     venue_name: "",
     address: "",
     dress_code: "",
@@ -269,6 +272,7 @@ export default function CreateEvent({ business = null }) {
             />
           </div>
         </div>
+        <TimeZoneSelect value={form.timezone} onChange={(tz) => updateForm("timezone", tz)} />
 
         {/* Venue */}
         <div>

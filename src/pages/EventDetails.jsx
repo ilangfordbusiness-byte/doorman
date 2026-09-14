@@ -1,3 +1,4 @@
+import { timeSuffix } from "@/lib/eventTime";
 import { useState, useEffect } from "react";
 import { COVERS } from "../components/CoverPicker";
 import LoadingSpinner from "../components/LoadingSpinner";
@@ -285,7 +286,7 @@ export default function EventDetails() {
         {/* Details Grid */}
         <div className="grid grid-cols-2 gap-3">
           <DetailChip icon={<Calendar className="w-4 h-4" />} label="Date" value={eventDate.format("ddd, MMM D")} />
-          <DetailChip icon={<Clock className="w-4 h-4" />} label="Time" value={`${event.start_time}${event.end_time ? ` - ${event.end_time}` : ""}`} />
+          <DetailChip icon={<Clock className="w-4 h-4" />} label="Time" value={`${event.start_time}${event.end_time ? ` - ${event.end_time}` : ""}${timeSuffix(event)}`} />
           {event.venue_name && <DetailChip icon={<MapPin className="w-4 h-4" />} label="Venue" value={event.venue_name} />}
           {event.dress_code && <DetailChip icon={<Shirt className="w-4 h-4" />} label="Dress Code" value={event.dress_code} />}
         </div>

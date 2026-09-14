@@ -2,6 +2,7 @@
 // checks the guest in. Only the host, accepted co-hosts, or registered staff
 // of that event may scan. QR wire format is unchanged from the original app.
 import { getCaller, json, preflight, serviceClient } from '../_shared/db.ts';
+import { eventZone } from '../_shared/eventTime.ts';
 
 Deno.serve(async (req) => {
   const pre = preflight(req);
@@ -56,7 +57,7 @@ Deno.serve(async (req) => {
     // Single-use: already-scanned tickets can't be reused.
     if (entry.status === 'checked_in') {
       const scannedAt = entry.checked_in_at
-        ? new Date(entry.checked_in_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
+        ? new Date(entry.checked_in_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: eventZone(event) })
         : 'previously';
       return json({
         valid: false,

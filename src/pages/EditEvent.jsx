@@ -1,3 +1,5 @@
+import TimeZoneSelect from "@/components/TimeZoneSelect";
+import { DEFAULT_TZ } from "@/lib/eventTime";
 import { useState, useEffect } from "react";
 import CoverPicker from "../components/CoverPicker";
 import CoverPhotoUpload from "../components/CoverPhotoUpload";
@@ -40,6 +42,7 @@ export default function EditEvent() {
     date: "",
     start_time: "",
     end_time: "",
+    timezone: DEFAULT_TZ,
     venue_name: "",
     address: "",
     dress_code: "",
@@ -84,6 +87,7 @@ export default function EditEvent() {
         date: evt.date || "",
         start_time: evt.start_time || "",
         end_time: evt.end_time || "",
+        timezone: evt.timezone || DEFAULT_TZ,
         venue_name: evt.venue_name || "",
         address: evt.address || "",
         dress_code: evt.dress_code || "",
@@ -208,6 +212,7 @@ export default function EditEvent() {
             <Input type="time" value={form.end_time} onChange={(e) => updateForm("end_time", e.target.value)} className="bg-secondary/50 border-border h-12 rounded-xl" />
           </div>
         </div>
+        <TimeZoneSelect value={form.timezone} onChange={(tz) => updateForm("timezone", tz)} />
 
         <div>
           <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Venue</Label>

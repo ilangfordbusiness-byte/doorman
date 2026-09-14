@@ -4,24 +4,7 @@
 import { getCaller, json, preflight, serviceClient } from '../_shared/db.ts';
 import { brandedEmail, detailRows, emailCard, sendEmail } from '../_shared/email.ts';
 import { formatMoney } from '../_shared/tickets.ts';
-
-// Has the event's start (Europe/London wall clock) already passed?
-// deno-lint-ignore no-explicit-any
-function eventStarted(event: any): boolean {
-  try {
-    const parts = Object.fromEntries(
-      new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Europe/London', year: 'numeric', month: '2-digit',
-        day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
-      }).formatToParts(new Date()).map((p) => [p.type, p.value]),
-    );
-    const nowKey = `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
-    const startKey = `${event.date}T${String(event.start_time || '00:00').slice(0, 5)}`;
-    return nowKey >= startKey;
-  } catch {
-    return false;
-  }
-}
+import { eventStarted } from '../_shared/eventTime.ts';
 
 Deno.serve(async (req) => {
   const pre = preflight(req);

@@ -1,3 +1,4 @@
+import { timeSuffix } from "@/lib/eventTime";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/api/data";
@@ -348,7 +349,7 @@ export default function GuestPass() {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Time</span>
-              <span className="text-sm text-foreground">{event.start_time}</span>
+              <span className="text-sm text-foreground">{event.start_time}{timeSuffix(event)}</span>
             </div>
             {event.venue_name && (
               <div className="flex items-center justify-between">
