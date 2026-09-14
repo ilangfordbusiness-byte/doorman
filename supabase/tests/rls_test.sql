@@ -201,6 +201,9 @@ begin
   update public.profiles set instagram = 'bob.goes.out' where id = bob;
   perform pg_temp.ok('user can edit own profile safe columns');
 
+  update public.profiles set avatar_prompt_dismissed_at = now() where id = bob;
+  perform pg_temp.ok('user can dismiss own avatar prompt');
+
   -- ---- dave accepts bob's friend request; joins via invite link ----
   perform pg_temp.impersonate(dave, 'dave@test.dev');
   update public.friend_requests set status = 'accepted'
