@@ -1,3 +1,4 @@
+import { currencySymbol } from "@/lib/money";
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { api } from "@/api/data";
@@ -8,8 +9,6 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { getLinkDomain, setLinkDomain as persistLinkDomain, discountLabel, usesRemaining } from "@/lib/promoterRef";
-
-const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
 
 export default function PromoterPanel() {
   const { id } = useParams();
@@ -146,7 +145,7 @@ export default function PromoterPanel() {
   );
 
   const cur = String(event.currency || "gbp").toLowerCase();
-  const sym = SYMBOL[cur] || "";
+  const sym = currencySymbol(cur);
   const totalTickets = promoters.reduce((s, p) => s + Number(p.tickets_sold || 0), 0);
   const totalOwed = promoters.reduce((s, p) => s + Number(p.commission_owed || 0), 0);
 

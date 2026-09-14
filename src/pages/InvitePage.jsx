@@ -1,3 +1,4 @@
+import { timeSuffix } from "@/lib/eventTime";
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/api/data";
@@ -122,7 +123,7 @@ export default function InvitePage() {
             <Clock className="w-4 h-4" />
             <span className="text-[10px] uppercase tracking-wider">Time</span>
           </div>
-          <p className="text-sm font-medium text-foreground">{event.start_time}</p>
+          <p className="text-sm font-medium text-foreground">{event.start_time}{timeSuffix(event)}</p>
         </div>
         {event.venue_name && (
           <div className="bg-secondary/50 rounded-xl p-3 border border-border/50">

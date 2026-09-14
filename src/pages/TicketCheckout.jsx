@@ -1,3 +1,4 @@
+import { currencySymbol } from "@/lib/money";
 import { useState, useEffect } from "react";
 import { tierRemaining } from "@/lib/tiers";
 import { useParams, useNavigate } from "react-router-dom";
@@ -12,8 +13,6 @@ import { getStoredRef, captureRef, getLinkDomain, getPromoterByCode, computeProm
 import { bookingFee } from "@/lib/fees";
 import CheckoutSuccess from "@/components/checkout/CheckoutSuccess";
 import CheckoutCancelled from "@/components/checkout/CheckoutCancelled";
-
-const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
 
 // Standalone checkout page at /event/:id/checkout (and /checkout/:id).
 // Guests must be logged into a DoorMan account before buying — if not, they're
@@ -145,7 +144,7 @@ export default function TicketCheckout() {
   if (!event) return <LoadingSpinner fullScreen />;
 
   const cur = String(event.currency || "gbp").toLowerCase();
-  const sym = SYMBOL[cur] || "";
+  const sym = currencySymbol(cur);
   const tier = tiers.find((t) => t.id === selected);
   const unit = tier ? Number(tier.price) : 0;
   const discActive = promoterDiscountActive(promoter);

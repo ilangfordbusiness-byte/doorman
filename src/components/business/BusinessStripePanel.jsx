@@ -1,10 +1,12 @@
+import { currencySymbol } from "@/lib/money";
 import { useState, useEffect } from "react";
 import { api } from "@/api/data";
 import { CreditCard, Wallet, ExternalLink, CheckCircle2, AlertCircle, Loader2, UserPlus, User, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-
-const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { DEFAULT_COUNTRY, countryFromValue } from "@/lib/phone";
+import { CountryPicker } from "@/components/StripeConnectPanel";
 
 function inIframe() {
   try { return window.self !== window.top; } catch { return true; }
@@ -17,6 +19,11 @@ export default function BusinessStripePanel({ business }) {
   const [mode, setMode] = useState(null);
   const [account, setAccount] = useState(null);
   const [balances, setBalances] = useState([]);
+  // See StripeConnectPanel: the account's country is fixed at creation.
+  const { data: me } = useCurrentUser();
+  const myPhone = /** @type {{ phone?: string } | undefined} */ (me)?.phone;
+  const [country, setCountry] = useState(null);
+  const accountCountry = country ?? countryFromValue(myPhone) ?? DEFAULT_COUNTRY;
 
   async function load() {
     if (!business?.id) return;
@@ -54,7 +61,7 @@ export default function BusinessStripePanel({ business }) {
     }
     setBusy(true);
     try {
-      const res = await api.functions.invoke("stripeConnect", { action: "business_onboard", business_id: business.id });
+      const res = await api.functions.invoke("stripeConnect", { action: "business_onboard", business_id: business.id, country: accountCountry });
       if (res.data?.url) window.location.href = res.data.url;
       else if (res.data?.error) throw new Error(res.data.error);
     } catch (e) {
@@ -135,6 +142,7 @@ export default function BusinessStripePanel({ business }) {
               : "Connect a Stripe account for the business to receive payouts to the business bank account."}
           </p>
           <div className="space-y-2">
+            <CountryPicker value={accountCountry} onChange={setCountry} disabled={busy} />
             <Button className="w-full rounded-xl" disabled={busy} onClick={handleConnect}>
               {busy ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CreditCard className="w-4 h-4 mr-2" />}
               Connect existing account
@@ -154,7 +162,7 @@ export default function BusinessStripePanel({ business }) {
           {balances.length === 0 && <p className="text-xs text-muted-foreground">No earnings recorded yet. Earnings appear here once tickets are sold.</p>}
 
           {balances.map((b) => {
-            const sym = SYMBOL[b.currency] || "";
+            const sym = currencySymbol(b.currency);
             return (
               <div key={b.key} className="bg-secondary/40 rounded-xl border border-border/50 p-3">
                 <div className="flex items-center justify-between mb-2">

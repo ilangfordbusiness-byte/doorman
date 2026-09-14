@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import CoverPicker from "../components/CoverPicker";
 import CoverPhotoUpload from "../components/CoverPhotoUpload";
 import { useNavigate } from "react-router-dom";
@@ -15,14 +15,17 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { useStripeStatus } from "@/hooks/useStripeStatus";
 import { useBusinessStripeStatus } from "@/hooks/useBusinessStripeStatus";
-
-const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { currencySymbol, defaultCurrencyForUser, feeLabel } from "@/lib/money";
+import TimeZoneSelect from "@/components/TimeZoneSelect";
+import { browserZone } from "@/lib/eventTime";
 
 export default function CreateEvent({ business = null }) {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { connected: personalConnected, active: personalActive } = useStripeStatus();
   const { connected: businessConnected, active: businessActive } = useBusinessStripeStatus(business?.id);
+  const me = /** @type {{ phone?: string, stripe_default_currency?: string } | undefined} */ (useCurrentUser().data);
   const stripeConnected = business ? businessConnected : personalConnected;
   // Selling tickets requires payouts-enabled onboarding, not just a connected
   // account — the server enforces the same rule at tier creation and checkout.
@@ -36,6 +39,7 @@ export default function CreateEvent({ business = null }) {
     date: "",
     start_time: "",
     end_time: "",
+    timezone: browserZone(),
     venue_name: "",
     address: "",
     dress_code: "",
@@ -47,7 +51,7 @@ export default function CreateEvent({ business = null }) {
     plus_one_allowed: false,
     capacity: "",
     is_paid: false,
-    currency: "gbp",
+    currency: "gbp", // re-seeded from the host's Stripe/phone country below
     fee_mode: "pass_on",
     visibility: "show_names",
     instagram: "",
@@ -58,7 +62,20 @@ export default function CreateEvent({ business = null }) {
   const [pType, setPType] = useState("percent");
   const [pValue, setPValue] = useState("");
 
+  // Preselect the currency the host actually settles in (Stripe account
+  // currency, else phone country). Runs once the profile/business is known and
+  // only until the host touches the field.
+  const [currencyTouched, setCurrencyTouched] = useState(false);
+  const seedSource = business
+    ? { stripe_default_currency: business.stripe_default_currency, phone: me?.phone }
+    : me;
+  const seedCurrency = seedSource ? defaultCurrencyForUser(seedSource) : null;
+  useEffect(() => {
+    if (seedCurrency && !currencyTouched) setForm((f) => ({ ...f, currency: seedCurrency }));
+  }, [seedCurrency, currencyTouched]);
+
   function updateForm(field, value) {
+    if (field === "currency") setCurrencyTouched(true);
     setForm((prev) => ({ ...prev, [field]: value }));
     if (error) setError("");
   }
@@ -253,6 +270,7 @@ export default function CreateEvent({ business = null }) {
             />
           </div>
         </div>
+        <TimeZoneSelect value={form.timezone} onChange={(tz) => updateForm("timezone", tz)} />
 
         {/* Venue */}
         <div>
@@ -464,7 +482,7 @@ export default function CreateEvent({ business = null }) {
                       <div key={i} className="flex items-center gap-2 bg-secondary/40 rounded-lg px-3 py-2 border border-border/50">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{t.name}</p>
-                          <p className="text-[11px] text-muted-foreground">{SYMBOL[form.currency] || ""}{Number(t.price).toFixed(2)} · {t.quantity} tickets</p>
+                          <p className="text-[11px] text-muted-foreground">{currencySymbol(form.currency)}{Number(t.price).toFixed(2)} · {t.quantity} tickets</p>
                         </div>
                         <button onClick={() => removeTier(i)} className="text-muted-foreground hover:text-destructive p-1 flex-shrink-0">
                           <Trash2 className="w-4 h-4" />
@@ -493,7 +511,7 @@ export default function CreateEvent({ business = null }) {
                           <Info className="w-3.5 h-3.5" />
                         </button>
                       </TooltipTrigger>
-                      <TooltipContent side="top">45p + 4% per ticket</TooltipContent>
+                      <TooltipContent side="top">{feeLabel(form.currency)}</TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 </div>
@@ -531,7 +549,7 @@ export default function CreateEvent({ business = null }) {
                           <p className="text-sm font-medium truncate">{p.name}</p>
                           <p className="text-[11px] text-muted-foreground">
                             {p.commission_type === "flat"
-                              ? `${SYMBOL[form.currency] || ""}${Number(p.commission_value).toFixed(2)} / ticket`
+                              ? `${currencySymbol(form.currency)}${Number(p.commission_value).toFixed(2)} / ticket`
                               : `${p.commission_value}% per ticket`}
                             {p.email ? ` · ${p.email}` : ""}
                           </p>
@@ -557,7 +575,7 @@ export default function CreateEvent({ business = null }) {
                     </select>
                     <Input
                       type="number"
-                      placeholder={pType === "percent" ? "e.g. 10" : `e.g. 2.00 (${SYMBOL[form.currency] || ""})`}
+                      placeholder={pType === "percent" ? "e.g. 10" : `e.g. 2.00 (${currencySymbol(form.currency)})`}
                       value={pValue}
                       onChange={(e) => setPValue(e.target.value)}
                       className="h-10 flex-1 bg-secondary/50"

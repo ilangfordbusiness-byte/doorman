@@ -1,3 +1,4 @@
+import { timeZoneSuffix } from './eventTime.ts';
 // Email via Resend (replaces the original app Core.SendEmail). Never throws — returns
 // { sent, error } so callers log failures without blocking the main flow.
 // With no RESEND_API_KEY set (local dev), logs and no-ops.
@@ -100,27 +101,14 @@ export function formatEventDateLong(dateStr: string): string {
   }
 }
 
-// Timezone label for the event's date. Events are UK-hosted, so times are
-// Europe/London wall-clock: "BST" in summer, "GMT" in winter.
-export function ukTimeSuffix(dateStr?: string | null): string {
-  try {
-    const d = dateStr ? new Date(`${dateStr}T12:00:00Z`) : new Date();
-    const tz = new Intl.DateTimeFormat('en-GB', {
-      timeZone: 'Europe/London', timeZoneName: 'short',
-    }).formatToParts(d).find((p) => p.type === 'timeZoneName')?.value;
-    return tz ? ` ${tz}` : '';
-  } catch {
-    return '';
-  }
-}
-
-// "21:00 – 03:00 BST" from an event row; '' when there is no start time.
+// "21:00 – 03:00 BST" / "20:00 – 23:00 EDT" from an event row, labelled with
+// the event's own zone (events.timezone); '' when there is no start time.
 // deno-lint-ignore no-explicit-any
 export function formatTimeRange(event: any): string {
   const start = typeof event.start_time === 'string' ? event.start_time.slice(0, 5) : '';
   if (!start) return '';
   const end = typeof event.end_time === 'string' ? event.end_time.slice(0, 5) : '';
-  return `${start}${end ? ` – ${end}` : ''}${ukTimeSuffix(event.date)}`;
+  return `${start}${end ? ` – ${end}` : ''}${timeZoneSuffix(event)}`;
 }
 
 export function emailCard(label: string | null, innerHtml: string): string {

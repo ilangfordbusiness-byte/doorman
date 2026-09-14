@@ -1,3 +1,4 @@
+import { currencySymbol } from "@/lib/money";
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { api } from "@/api/data";
@@ -7,8 +8,6 @@ import HomeButton from "@/components/HomeButton";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useStripeStatus } from "@/hooks/useStripeStatus";
 import { discountLabel, usesRemaining } from "@/lib/promoterRef";
-
-const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
 
 // Promoter-facing dashboard. Reachable by anyone with the tracking code,
 // updated in real time via TicketOrder subscriptions.
@@ -70,7 +69,7 @@ export default function PromoterDashboard() {
   );
 
   const cur = String(event?.currency || "gbp").toLowerCase();
-  const sym = SYMBOL[cur] || "";
+  const sym = currencySymbol(cur);
   const ticketsSold = orders.length;
   const totalSales = orders.reduce((s, o) => s + Number(o.paid_amount || 0), 0);
   const commissionEarned = orders.reduce((s, o) => s + Number(o.commission_amount || 0), 0);

@@ -4,31 +4,32 @@ import { hasAutomationSecret, json, serviceClient } from '../_shared/db.ts';
 import {
   appOrigin, brandedEmail, detailRows, emailCard, formatEventDateLong, formatTimeRange, sendEmail,
 } from '../_shared/email.ts';
+import { daysUntil, eventZone, localDate } from '../_shared/eventTime.ts';
+
+const LABELS: Record<number, string> = { 0: 'today', 1: 'tomorrow', 7: 'in 7 days' };
 
 Deno.serve(async (req) => {
   try {
     if (!hasAutomationSecret(req)) return json({ error: 'Unauthorized' }, 401);
     const svc = serviceClient();
 
-    const dayStr = (offset: number) => {
-      const d = new Date();
-      d.setDate(d.getDate() + offset);
-      return d.toISOString().split('T')[0];
-    };
-    const todayStr = dayStr(0);
-    const tomorrowStr = dayStr(1);
-    const in7Str = dayStr(7);
-
-    const { data: events } = await svc.from('events').select('*')
+    // "Today" is the event's own calendar day, so fetch a loose UTC window and
+    // pick the 0 / 1 / 7-day matches per event zone.
+    const now = new Date();
+    const utcDay = (offset: number) =>
+      new Date(now.getTime() + offset * 86_400_000).toISOString().split('T')[0];
+    const { data: candidates } = await svc.from('events').select('*')
       .eq('status', 'published')
-      .in('date', [todayStr, tomorrowStr, in7Str]);
-    if (!events?.length) return json({ ok: true, skipped: 'no upcoming events' });
+      .gte('date', utcDay(-1))
+      .lte('date', utcDay(8));
+    const events = (candidates ?? [])
+      .map((event) => ({ event, offset: daysUntil(event.date, localDate(eventZone(event), now)) }))
+      .filter(({ offset }) => offset in LABELS);
+    if (!events.length) return json({ ok: true, skipped: 'no upcoming events' });
 
     let totalNotified = 0;
-    for (const event of events) {
-      const isToday = event.date === todayStr;
-      const isTomorrow = event.date === tomorrowStr;
-      const label = isToday ? 'today' : isTomorrow ? 'tomorrow' : 'in 7 days';
+    for (const { event, offset } of events) {
+      const label = LABELS[offset];
 
       const { data: guests } = await svc.from('guestlist_entries')
         .select('guest_email, guest_name')

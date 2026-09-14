@@ -1,3 +1,4 @@
+import { currencySymbol } from "@/lib/money";
 import { useState, useEffect } from "react";
 import { tierRemaining } from "@/lib/tiers";
 import { useParams, useNavigate, Link } from "react-router-dom";
@@ -6,8 +7,6 @@ import { ArrowLeft, TrendingUp, Ticket, Tag, Percent, Wallet, Megaphone } from "
 import { Button } from "@/components/ui/button";
 import HomeButton from "@/components/HomeButton";
 import LoadingSpinner from "@/components/LoadingSpinner";
-
-const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
 
 export default function EventAnalytics() {
   const { id } = useParams();
@@ -51,7 +50,7 @@ export default function EventAnalytics() {
   );
 
   const cur = String(event.currency || "gbp").toLowerCase();
-  const sym = SYMBOL[cur] || "";
+  const sym = currencySymbol(cur);
   const totalSold = orders.length;
   const totalRevenue = orders.reduce((s, o) => s + Number(o.paid_amount || 0), 0);
   const totalFees = orders.reduce((s, o) => s + Number(o.platform_fee || 0), 0);

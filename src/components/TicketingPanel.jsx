@@ -1,3 +1,4 @@
+import { currencySymbol } from "@/lib/money";
 import { useState, useEffect } from "react";
 import { tierRemaining } from "@/lib/tiers";
 import { Link } from "react-router-dom";
@@ -7,8 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { bookingFee } from "@/lib/fees";
-
-const SYMBOL = { gbp: "£", eur: "€", usd: "$" };
 
 // stripeActive: null while loading, then whether the payout account is ready —
 // tier creation is server-gated on the same rule, this is the friendly path.
@@ -161,7 +160,7 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
   if (loading) {
     return <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>;
   }
-  const sym = SYMBOL[currency] || "";
+  const sym = currencySymbol(currency);
 
   return (
     <div className="space-y-6">

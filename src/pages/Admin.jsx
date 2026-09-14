@@ -1,3 +1,4 @@
+import { formatMoney } from "@/lib/money";
 import { useState, useEffect } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { api } from "@/api/data";
@@ -90,7 +91,19 @@ function Dashboard() {
   if (loading) return <div className="py-16"><LoadingSpinner /></div>;
   if (!metrics) return <p className="text-sm text-muted-foreground">Couldn't load metrics.</p>;
 
-  const money = (minor) => `£${(Number(minor || 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  // Money is summed per currency server-side; one tile per currency, never a
+  // pound sign over a mixed total.
+  const byCurrency = metrics.by_currency || [];
+  const moneyTiles = byCurrency.length
+    ? byCurrency.flatMap((c) => {
+        const code = String(c.currency || "").toUpperCase();
+        return [
+          { label: `GMV · ${code}`, value: formatMoney(c.gmv_minor, c.currency) },
+          { label: `Platform fees · ${code}`, value: formatMoney(c.fees_minor, c.currency) },
+          { label: `Refunded · ${code}`, value: `${c.refunded_orders} · ${formatMoney(c.refunded_minor, c.currency)}` },
+        ];
+      })
+    : [{ label: "GMV", value: "—" }];
   const tiles = [
     { label: "Users", value: metrics.users },
     { label: "Admins", value: metrics.admins },
@@ -98,9 +111,7 @@ function Dashboard() {
     { label: "Events", value: metrics.events },
     { label: "Published", value: metrics.published_events },
     { label: "Paid orders", value: metrics.paid_orders },
-    { label: "GMV", value: money(metrics.gmv_minor) },
-    { label: "Platform fees", value: money(metrics.fees_minor) },
-    { label: "Refunded", value: `${metrics.refunded_orders} · ${money(metrics.refunded_minor)}` },
+    ...moneyTiles,
   ];
 
   return (

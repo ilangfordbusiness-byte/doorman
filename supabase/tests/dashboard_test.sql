@@ -39,6 +39,7 @@ declare
   v_bob_entry uuid;
   v_promoter uuid;
   v_tomorrow date := (now() at time zone 'Europe/London')::date + 1;
+  v_far uuid;
   r jsonb;
   v_count int;
 begin
@@ -105,6 +106,27 @@ begin
   r := public.get_home_dashboard();
   if not (r ->> 'isHosting')::boolean then raise exception 'FAIL: alice should be hosting'; end if;
   perform pg_temp.ok('home: host sees isHosting=true');
+
+  -- ---- per-event time zone ----
+  -- An event dated "today" in a zone 12h behind UTC is upcoming on its own
+  -- calendar even once London has moved to the next day; it must be alice's
+  -- next event (its date is never later than Rooftop Social's tomorrow).
+  insert into public.events (host_id, title, date, start_time, timezone, status)
+    values (alice, 'Late Zone', (now() at time zone 'Etc/GMT+12')::date, '20:00', 'Etc/GMT+12', 'published')
+    returning id into v_far;
+  r := public.get_home_dashboard();
+  if r -> 'event' ->> 'id' <> v_far::text or r -> 'event' ->> 'timezone' <> 'Etc/GMT+12' then
+    raise exception 'FAIL: zone-aware upcoming wrong: %', r -> 'event';
+  end if;
+  perform pg_temp.ok('home: upcoming is judged in the event''s own time zone');
+
+  begin
+    insert into public.events (host_id, title, date, start_time, timezone, status)
+      values (alice, 'Bad Zone', v_tomorrow, '20:00', 'Mars/Olympus_Mons', 'draft');
+    raise exception 'FAIL: invalid time zone accepted' using errcode = 'assert_failure';
+  exception when check_violation then
+    perform pg_temp.ok('events.timezone must be a real IANA zone');
+  end;
 
   -- ---- guest dashboard ----
   perform pg_temp.impersonate(bob, 'bob@dash.dev');

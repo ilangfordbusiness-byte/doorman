@@ -8,32 +8,9 @@
 // smaller balances roll over. The platform absorbs the transfer fees.
 // Promoters without a payout-ready Stripe account simply keep accruing.
 import { hasAutomationSecret, json, serviceClient } from '../_shared/db.ts';
+import { eventEnded } from '../_shared/eventTime.ts';
 
-const THRESHOLD_MINOR = 1000; // £10
-
-// London wall-clock "now" as a sortable key, for comparing against event end.
-function londonNowKey(): string {
-  const parts = Object.fromEntries(
-    new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Europe/London', year: 'numeric', month: '2-digit',
-      day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
-    }).formatToParts(new Date()).map((p) => [p.type, p.value]),
-  );
-  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
-}
-
-// An event has ended once its end time (or end of day, when none is set) has
-// passed. End times earlier than the start are taken as past-midnight and get
-// a day added via the date sorting trick of appending 24+ hours — simpler:
-// treat them as end-of-day too, which only delays payout, never rushes it.
-// deno-lint-ignore no-explicit-any
-function eventEnded(event: any, nowKey: string): boolean {
-  if (!event?.date) return false;
-  const start = typeof event.start_time === 'string' ? event.start_time.slice(0, 5) : '00:00';
-  let end = typeof event.end_time === 'string' ? event.end_time.slice(0, 5) : '23:59';
-  if (end <= start) end = '23:59'; // past-midnight finish: wait until the day is over
-  return `${event.date}T${end}` < nowKey;
-}
+const THRESHOLD_MINOR = 1000; // 10 major units of the row's currency (£10 / €10 / $10)
 
 Deno.serve(async (req) => {
   try {
@@ -44,13 +21,13 @@ Deno.serve(async (req) => {
 
     const { data: rows } = await svc.from('promoters')
       .select('id, user_id, email, commission_owed_minor, commission_paid_minor,' +
-        ' events!inner(id, date, start_time, end_time, currency)')
+        ' events!inner(id, date, start_time, end_time, timezone, currency)')
       .gt('commission_owed_minor', 0);
-    const nowKey = londonNowKey();
+    const now = new Date();
     // deno-lint-ignore no-explicit-any
     const due = (rows ?? []).filter((r: any) =>
       Number(r.commission_owed_minor) > Number(r.commission_paid_minor) &&
-      eventEnded(r.events, nowKey)
+      eventEnded(r.events, now)
     );
     if (!due.length) return json({ ok: true, paid: 0, skipped: 'nothing due' });
 

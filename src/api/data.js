@@ -51,7 +51,7 @@ const ENTITIES = {
   Event: {
     table: "events",
     select: `id, host_id, business_id, title, cover_image_url, date, start_time,
-      end_time, venue_name, address, venue_lat, venue_lng, dress_code,
+      end_time, timezone, venue_name, address, venue_lat, venue_lng, dress_code,
       description, entry_notes, instagram, is_public, discoverable, capacity,
       requests_open, plus_one_allowed, status, is_paid, currency, fee_mode,
       visibility, created_at, updated_at,
@@ -72,6 +72,7 @@ const ENTITIES = {
         date: r.date,
         start_time: hhmm(r.start_time),
         end_time: hhmm(r.end_time),
+        timezone: r.timezone,
         venue_name: r.venue_name,
         address: r.address,
         venue_lat: r.venue_lat,
@@ -103,7 +104,7 @@ const ENTITIES = {
     async fromApp(obj, isCreate) {
       const out = {};
       const copy = [
-        "title", "date", "venue_name", "address", "venue_lat", "venue_lng",
+        "title", "date", "timezone", "venue_name", "address", "venue_lat", "venue_lng",
         "dress_code", "description", "entry_notes", "host_notes", "instagram",
         "is_public", "discoverable", "capacity", "requests_open",
         "plus_one_allowed", "status", "is_paid", "currency", "fee_mode",
@@ -699,7 +700,7 @@ const entities = Object.fromEntries(
 // Auth (old surface: me / updateMe / logout / redirectToLogin)
 // ---------------------------------------------------------------------------
 const PROFILE_COLS =
-  "id, email, full_name, phone, instagram, snapchat, avatar_url, avatar_prompt_dismissed_at, role, stripe_onboarding_status, active_business_id, created_at";
+  "id, email, full_name, phone, instagram, snapchat, avatar_url, avatar_prompt_dismissed_at, role, stripe_onboarding_status, stripe_account_country, stripe_default_currency, active_business_id, created_at";
 
 function profileToUser(p) {
   return {
@@ -713,6 +714,8 @@ function profileToUser(p) {
     avatar_prompt_dismissed_at: p.avatar_prompt_dismissed_at,
     role: p.role,
     stripe_onboarding_status: p.stripe_onboarding_status,
+    stripe_account_country: p.stripe_account_country,
+    stripe_default_currency: p.stripe_default_currency,
     active_business_id: p.active_business_id,
     created_date: p.created_at,
   };

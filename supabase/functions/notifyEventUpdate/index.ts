@@ -3,8 +3,9 @@
 // verify_jwt=false — the secret header is the authentication.
 import { hasAutomationSecret, json, serviceClient } from '../_shared/db.ts';
 import {
-  appOrigin, brandedEmail, detailRows, emailCard, formatEventDateLong, sendEmail, ukTimeSuffix,
+  appOrigin, brandedEmail, detailRows, emailCard, formatEventDateLong, sendEmail,
 } from '../_shared/email.ts';
+import { timeZoneSuffix } from '../_shared/eventTime.ts';
 
 const RELEVANT_FIELDS = [
   'title', 'date', 'start_time', 'end_time', 'venue_name', 'address',
@@ -36,7 +37,7 @@ Deno.serve(async (req) => {
     if (!guests?.length) return json({ ok: true, skipped: 'no guests' });
 
     const fmt = (t: unknown) =>
-      typeof t === 'string' ? t.slice(0, 5) + ukTimeSuffix(event.date) : String(t ?? '');
+      typeof t === 'string' ? t.slice(0, 5) + timeZoneSuffix(event) : String(t ?? '');
     const rows: [string, unknown][] = [];
     if (changed.includes('title')) rows.push(['✨ Title', event.title]);
     if (changed.includes('date')) rows.push(['📅 Date', formatEventDateLong(event.date)]);

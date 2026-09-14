@@ -1,3 +1,5 @@
+import { currencySymbol } from "@/lib/money";
+import { timeSuffix } from "@/lib/eventTime";
 import { useState, useEffect } from "react";
 import { COVERS } from "../components/CoverPicker";
 import LoadingSpinner from "../components/LoadingSpinner";
@@ -198,7 +200,7 @@ export default function EventDetails() {
   if (!event) return null;
 
   const eventDate = moment(event.date);
-  const sym = ({ gbp: "£", eur: "€", usd: "$" })[String(event.currency || "gbp").toLowerCase()] || "";
+  const sym = currencySymbol(event.currency);
 
   return (
     <div className="max-w-lg mx-auto">
@@ -270,7 +272,7 @@ export default function EventDetails() {
           <div className={`rounded-xl p-3 border text-xs ${refStatus.valid ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-300" : "bg-amber-500/10 border-amber-500/20 text-amber-300"}`}>
             {refStatus.valid
               ? (() => {
-                  const sym = ({ gbp: "£", eur: "€", usd: "$" })[String(event.currency || "gbp").toLowerCase()] || "";
+                  const sym = currencySymbol(event.currency);
                   const label = discountLabel(refStatus.promoter, sym);
                   const active = promoterDiscountActive(refStatus.promoter);
                   const exhausted = refStatus.promoter && refStatus.promoter.discount_type && refStatus.promoter.discount_type !== "none" && Number(refStatus.promoter.discount_value || 0) > 0 && !active;
@@ -285,7 +287,7 @@ export default function EventDetails() {
         {/* Details Grid */}
         <div className="grid grid-cols-2 gap-3">
           <DetailChip icon={<Calendar className="w-4 h-4" />} label="Date" value={eventDate.format("ddd, MMM D")} />
-          <DetailChip icon={<Clock className="w-4 h-4" />} label="Time" value={`${event.start_time}${event.end_time ? ` - ${event.end_time}` : ""}`} />
+          <DetailChip icon={<Clock className="w-4 h-4" />} label="Time" value={`${event.start_time}${event.end_time ? ` - ${event.end_time}` : ""}${timeSuffix(event)}`} />
           {event.venue_name && <DetailChip icon={<MapPin className="w-4 h-4" />} label="Venue" value={event.venue_name} />}
           {event.dress_code && <DetailChip icon={<Shirt className="w-4 h-4" />} label="Dress Code" value={event.dress_code} />}
         </div>
