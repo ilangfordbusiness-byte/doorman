@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "@/api/data";
-import { Search, UserPlus, UserCheck } from "lucide-react";
+import { Search, UserPlus, UserCheck, Building2, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Avatar from "./Avatar";
 import SuggestionProfile from "./SuggestionProfile";
@@ -9,8 +10,10 @@ import SuggestionProfile from "./SuggestionProfile";
 // mutual-friend counts, tap a result to open their profile, and send friend
 // requests directly.
 export default function FriendsSearch({ me, friendEmails, sentSet, onSend, friends = [] }) {
+  const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
+  const [businesses, setBusinesses] = useState([]);
   const [searching, setSearching] = useState(false);
   const [mutuals, setMutuals] = useState({});
   const [sendingTo, setSendingTo] = useState(null);
@@ -22,16 +25,20 @@ export default function FriendsSearch({ me, friendEmails, sentSet, onSend, frien
   // Debounced server search over all accounts. Ignores stale responses when the
   // query changes mid-flight.
   useEffect(() => {
-    if (q.length < 2) { setResults([]); setSearching(false); return; }
+    if (q.length < 2) { setResults([]); setBusinesses([]); setSearching(false); return; }
     setSearching(true);
     let cancelled = false;
     const t = setTimeout(async () => {
       try {
-        const people = await api.auth.searchProfiles(q);
+        const [people, biz] = await Promise.all([
+          api.auth.searchProfiles(q),
+          api.auth.searchBusinesses(q),
+        ]);
         if (cancelled) return;
         setResults(people.filter((u) => u.email !== me?.email));
+        setBusinesses(biz);
       } catch {
-        if (!cancelled) setResults([]);
+        if (!cancelled) { setResults([]); setBusinesses([]); }
       } finally {
         if (!cancelled) setSearching(false);
       }
@@ -91,11 +98,28 @@ export default function FriendsSearch({ me, friendEmails, sentSet, onSend, frien
 
       {searching && <p className="text-xs text-muted-foreground text-center py-4">Searching...</p>}
 
-      {!searching && q.length >= 2 && results.length === 0 && (
+      {!searching && q.length >= 2 && results.length === 0 && businesses.length === 0 && (
         <div className="py-8 text-center">
           <p className="text-sm text-muted-foreground">No one found matching "{query}"</p>
         </div>
       )}
+
+      {businesses.map((b) => (
+        <div
+          key={`biz-${b.id}`}
+          onClick={() => navigate(`/b/${b.id}`)}
+          className="flex items-center gap-3 bg-secondary/40 rounded-xl px-4 py-3 border border-border/50 cursor-pointer hover:border-primary/30 transition-colors active:scale-[0.99]"
+        >
+          <Avatar src={b.business_picture} name={b.business_name} size="w-10 h-10" textClass="text-sm" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold truncate">{b.business_name}</p>
+            <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+              <Building2 className="w-3 h-3" /> Business
+            </p>
+          </div>
+          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+        </div>
+      ))}
 
       {!searching && q.length < 2 && (
         <div className="py-8 text-center">

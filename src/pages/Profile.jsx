@@ -16,6 +16,7 @@ import { useSwitchAccount } from "@/hooks/useActiveAccount";
 import { useNotifications } from "@/hooks/useNotifications";
 import NotificationDot from "../components/NotificationDot";
 import CoHostInvitesSection from "../components/CoHostInvitesSection";
+import BusinessMemberInvitesSection from "../components/BusinessMemberInvitesSection";
 import PhoneInput from "@/components/PhoneInput";
 import { normalizePhone, formatPhoneDisplay } from "@/lib/phone";
 
@@ -25,6 +26,7 @@ export default function Profile() {
   const { switchToBusiness } = useSwitchAccount();
   const { data: notifs } = useNotifications();
   const coHostInvites = notifs?.coHostInvites ?? [];
+  const businessInvites = notifs?.businessInvites ?? [];
   const coHostCount = notifs?.counts?.coHost ?? 0;
   const [user, setUser] = useState(null);
   const [stats, setStats] = useState({ hosted: 0, attended: 0 });
@@ -72,7 +74,7 @@ export default function Profile() {
         api.entities.GuestlistEntry.filter({ guest_email: me.email }),
       ]);
 
-      const businesses = await api.entities.BusinessAccount.filter({ owner_email: me.email });
+      const businesses = await api.businesses.mine(me.email);
       setBusinessAccounts(businesses);
       setStats({
         hosted: events.filter((e) => !e.business_id).length,
@@ -223,6 +225,7 @@ export default function Profile() {
       </div>
 
       <CoHostInvitesSection invites={coHostInvites} />
+      <BusinessMemberInvitesSection invites={businessInvites} />
 
       {/* Host Mode */}
       <Link to="/host" className="block group mb-4">

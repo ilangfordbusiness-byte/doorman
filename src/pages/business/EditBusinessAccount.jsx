@@ -4,11 +4,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Avatar from "@/components/Avatar";
 import ProfilePictureEditor from "@/components/ProfilePictureEditor";
+import BusinessTeamSection from "@/components/BusinessTeamSection";
 import { ArrowLeft, Camera, Loader2 } from "lucide-react";
 
 // Edits an existing BusinessAccount's name, email, and picture (square crop
@@ -23,6 +25,8 @@ export default function EditBusinessAccount() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [picture, setPicture] = useState("");
+  const [description, setDescription] = useState("");
+  const [instagram, setInstagram] = useState("");
   const [pendingPhoto, setPendingPhoto] = useState(null);
   const [saving, setSaving] = useState(false);
   const fileRef = useRef(null);
@@ -39,6 +43,8 @@ export default function EditBusinessAccount() {
       setName(b.business_name || "");
       setEmail(b.business_email || "");
       setPicture(b.business_picture || "");
+      setDescription(b.description || "");
+      setInstagram(b.instagram || "");
     } catch (e) {
       console.error(e);
     } finally {
@@ -62,6 +68,8 @@ export default function EditBusinessAccount() {
         business_name: name.trim(),
         business_email: email.trim().toLowerCase(),
         business_picture: picture,
+        description: description.trim() || null,
+        instagram: instagram.trim().replace(/^@/, "") || null,
       });
       await qc.invalidateQueries(["activeBusiness"]);
       toast({ title: "Business account updated" });
@@ -107,12 +115,28 @@ export default function EditBusinessAccount() {
             <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Business Email</Label>
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="business@email.com" className="bg-secondary/50 border-border h-11 rounded-xl" />
           </div>
+          <div>
+            <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Instagram</Label>
+            <Input value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="@yourhandle" className="bg-secondary/50 border-border h-11 rounded-xl" />
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Description <span className="normal-case text-muted-foreground/70">(optional)</span></Label>
+            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="A short description shown on your public host page" rows={3} className="bg-secondary/50 border-border rounded-xl resize-none" />
+          </div>
         </div>
 
         <Button className="w-full h-11 rounded-xl bg-primary mt-5" disabled={saving} onClick={handleSave}>
           {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
           Save Changes
         </Button>
+      </div>
+
+      <Button variant="outline" className="w-full h-11 rounded-xl mt-3" onClick={() => navigate(`/b/${id}`)}>
+        View public host page
+      </Button>
+
+      <div className="bg-card rounded-2xl border border-border p-6 mt-4">
+        <BusinessTeamSection businessId={id} />
       </div>
 
       <p className="text-xs text-muted-foreground mt-4 text-center">

@@ -267,12 +267,18 @@ Deno.serve(async (req) => {
     }
 
     // ---- Business accounts (payouts to owner's personal or separate account) ----
+    // A business is manageable by its owner OR any accepted member (members have
+    // full owner-parity access, including payouts).
     async function loadOwnedBusiness(businessId: string | undefined) {
       if (!businessId) return null;
       const { data: b } = await svc.from('business_accounts')
         .select('*').eq('id', businessId).single();
-      if (!b || b.owner_id !== user.id) return null;
-      return b;
+      if (!b) return null;
+      if (b.owner_id === user.id) return b;
+      const { data: m } = await svc.from('business_members')
+        .select('id').eq('business_id', businessId).eq('status', 'accepted')
+        .or(`user_id.eq.${user.id},email.eq.${user.email}`).maybeSingle();
+      return m ? b : null;
     }
 
     async function accountStatus(acctId: string | null) {

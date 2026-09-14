@@ -27,6 +27,7 @@ const DoormanScanner = lazy(() => import('./pages/DoormanScanner'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const InvitePage = lazy(() => import('./pages/InvitePage'));
 const Profile = lazy(() => import('./pages/Profile'));
+const PublicBusiness = lazy(() => import('./pages/PublicBusiness'));
 const HostHub = lazy(() => import('./pages/HostHub'));
 const GuestHub = lazy(() => import('./pages/GuestHub'));
 const StaffHub = lazy(() => import('./pages/StaffHub'));
@@ -108,6 +109,7 @@ const AuthenticatedApp = () => {
         <Route path="/friends" element={<Friends />} />
         <Route path="/invite/:code" element={<InvitePage />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/b/:id" element={<PublicBusiness />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>

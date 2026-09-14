@@ -239,7 +239,14 @@ export default function EventDetails() {
           </div>
           <h1 className="font-heading font-bold text-2xl text-foreground">{event.title}</h1>
           <div className="flex items-center gap-2 mt-2 flex-wrap">
-            <button onClick={() => setShowHostModal(true)} className="flex items-center gap-2 group">
+            <button
+              onClick={() =>
+                event.host_is_business && event.business_id
+                  ? navigate(`/b/${event.business_id}`)
+                  : setShowHostModal(true)
+              }
+              className="flex items-center gap-2 group"
+            >
               {event.host_is_business ? (
                 <Avatar src={event.host_picture} name={event.host_name} size="w-6 h-6" textClass="text-[10px]" />
               ) : (
