@@ -169,7 +169,7 @@ begin
     update public.guestlist_entries
       set status = 'checked_in', checked_in_at = now() where id = v_entry;
     raise exception 'FAIL: guest self-checked-in' using errcode = 'assert_failure';
-  exception when insufficient_privilege then
+  exception when insufficient_privilege or check_violation then
     perform pg_temp.ok('guest cannot set his own status to checked_in');
   end;
 
@@ -242,6 +242,47 @@ begin
     set status = 'checked_in', checked_in_at = now(), checked_in_by = carol
     where id = v_entry;
   perform pg_temp.ok('staff can check a guest in');
+
+  -- ---- single-use: bob cannot resurrect or forge his own check-in ----
+  perform pg_temp.impersonate(bob, 'bob@test.dev');
+  begin
+    update public.guestlist_entries
+      set status = 'approved', checked_in_at = null, checked_in_by = null
+      where id = v_entry;
+    raise exception 'FAIL: guest reset his own check-in (QR reuse)' using errcode = 'assert_failure';
+  exception when check_violation then
+    perform pg_temp.ok('guest cannot reset a checked-in ticket back to approved');
+  end;
+  begin
+    update public.guestlist_entries set checked_in_by = bob where id = v_entry;
+    raise exception 'FAIL: guest forged the check-in stamp' using errcode = 'assert_failure';
+  exception when check_violation then
+    perform pg_temp.ok('guest cannot forge checked_in_by/at on his own ticket');
+  end;
+  begin
+    update public.guestlist_entries set plus_one = true, plus_one_name = 'Gatecrasher' where id = v_entry;
+    raise exception 'FAIL: guest granted himself a plus-one' using errcode = 'assert_failure';
+  exception when check_violation then
+    perform pg_temp.ok('guest cannot grant himself a plus-one');
+  end;
+  -- The geofence auto-checkout still works: owner writes checked_out_at while
+  -- the ticket stays checked_in.
+  update public.guestlist_entries set checked_out_at = now() where id = v_entry;
+  select status into v_text from public.guestlist_entries where id = v_entry;
+  if v_text <> 'checked_in' then raise exception 'FAIL: geofence checkout altered status'; end if;
+  perform pg_temp.ok('guest can still set checked_out_at on a checked-in ticket (geofence)');
+
+  -- Staff can still correct a check-in (e.g. accidental scan).
+  perform pg_temp.impersonate(carol, 'carol@test.dev');
+  update public.guestlist_entries
+    set status = 'approved', checked_in_at = null, checked_in_by = null, checked_out_at = null
+    where id = v_entry;
+  update public.guestlist_entries
+    set status = 'checked_in', checked_in_at = now(), checked_in_by = carol
+    where id = v_entry;
+  perform pg_temp.ok('staff can still reset and re-check-in a ticket');
+  update public.guestlist_entries set plus_one = true, plus_one_name = 'Plus One' where id = v_entry;
+  perform pg_temp.ok('staff can grant a plus-one');
 
   -- ---- alice: host chat + client-side money writes blocked ----
   perform pg_temp.impersonate(alice, 'alice@test.dev');

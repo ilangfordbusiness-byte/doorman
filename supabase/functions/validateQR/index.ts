@@ -82,6 +82,11 @@ Deno.serve(async (req) => {
       });
     }
 
+    // A plus-one only counts if the host enabled plus-ones for this event, so
+    // a guest cannot make the door admit an extra person by flagging their own
+    // entry. (The trigger also blocks guests writing the field at all.)
+    const showPlusOne = !!(entry.plus_one && event?.plus_one_allowed);
+
     if (action === 'check_in') {
       // Atomic: only flips if the status is still valid (double-scan race safe).
       const { data: updated } = await svc.from('guestlist_entries').update({
@@ -97,8 +102,9 @@ Deno.serve(async (req) => {
         checked_in: true,
         guest_name: entry.guest_name,
         event_name: event?.title,
-        plus_one: entry.plus_one,
-        plus_one_name: entry.plus_one_name,
+        // Only surface a plus-one the host actually allowed for this event.
+        plus_one: showPlusOne,
+        plus_one_name: showPlusOne ? entry.plus_one_name : null,
       });
     }
 
@@ -109,8 +115,8 @@ Deno.serve(async (req) => {
       guest_email: entry.guest_email,
       event_name: event?.title,
       status: entry.status,
-      plus_one: entry.plus_one,
-      plus_one_name: entry.plus_one_name,
+      plus_one: showPlusOne,
+      plus_one_name: showPlusOne ? entry.plus_one_name : null,
     });
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : String(error) }, 500);
