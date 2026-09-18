@@ -65,6 +65,16 @@ node scripts/sheet-agent/sheet.mjs reconcile
 node scripts/sheet-agent/sheet.mjs update --tab Bugs --row 4 --task "<exact task text>" --status "" --notes ""
 ```
 
-Every write carries the Task text that was read, and the script refuses the
-write if the row's Task no longer matches, so sorting or inserting rows while a
-run is in flight cannot corrupt a neighbouring row.
+## Living with the TODO tracker automation
+
+`Code.gs` also holds the sheet's existing `onEdit` automation: ticking Done?
+strikes the row through and moves it to the bottom, and every task tab stays
+sorted by Priority. Rows therefore move, and the bridge is built for that:
+
+- Every write carries the Task text that was read. If the row at that number
+  no longer holds that text, the bridge re-finds the row by exact Task text
+  and writes there. If the text is missing or appears on more than one row it
+  refuses the write, so a neighbouring row can never be corrupted.
+- Programmatic writes never fire `onEdit`, so when `reconcile` ticks Done? the
+  bridge runs the same sort itself. The merged row is struck through and moved
+  down exactly as if a person had clicked the box.
