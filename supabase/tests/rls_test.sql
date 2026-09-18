@@ -259,6 +259,12 @@ begin
   exception when check_violation then
     perform pg_temp.ok('guest cannot forge checked_in_by/at on his own ticket');
   end;
+  begin
+    update public.guestlist_entries set plus_one = true, plus_one_name = 'Gatecrasher' where id = v_entry;
+    raise exception 'FAIL: guest granted himself a plus-one' using errcode = 'assert_failure';
+  exception when check_violation then
+    perform pg_temp.ok('guest cannot grant himself a plus-one');
+  end;
   -- The geofence auto-checkout still works: owner writes checked_out_at while
   -- the ticket stays checked_in.
   update public.guestlist_entries set checked_out_at = now() where id = v_entry;
@@ -275,6 +281,8 @@ begin
     set status = 'checked_in', checked_in_at = now(), checked_in_by = carol
     where id = v_entry;
   perform pg_temp.ok('staff can still reset and re-check-in a ticket');
+  update public.guestlist_entries set plus_one = true, plus_one_name = 'Plus One' where id = v_entry;
+  perform pg_temp.ok('staff can grant a plus-one');
 
   -- ---- alice: host chat + client-side money writes blocked ----
   perform pg_temp.impersonate(alice, 'alice@test.dev');

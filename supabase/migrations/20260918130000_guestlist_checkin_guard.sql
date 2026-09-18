@@ -19,6 +19,9 @@
 -- transitions (a policy can't compare old and new row in one pass), then let
 -- the policy allow the 'checked_in' status value so the geofence write passes.
 -- Staff, host/co-hosts and the service-role edge functions are unaffected.
+--
+-- The same trigger also stops a guest granting themselves a plus_one on their
+-- own entry (a host-only field the door staff read off the scanner).
 
 -- SECURITY INVOKER (the default) is deliberate: the guard must see the caller's
 -- effective role in current_user. A SECURITY DEFINER function would report the
@@ -49,6 +52,14 @@ begin
   if new.checked_in_at is distinct from old.checked_in_at
      or new.checked_in_by is distinct from old.checked_in_by then
     raise exception 'check-in fields are set at the door, not by the guest'
+      using errcode = 'check_violation';
+  end if;
+  -- A plus-one is the host's call (set on the guestlist, and only when the
+  -- event allows it). No guest-facing screen writes these; letting a guest set
+  -- them would just show door staff a "+1" the guest granted themselves.
+  if new.plus_one is distinct from old.plus_one
+     or new.plus_one_name is distinct from old.plus_one_name then
+    raise exception 'A plus-one is set by the host, not the guest'
       using errcode = 'check_violation';
   end if;
 
