@@ -3,8 +3,9 @@ import { useState, useEffect } from "react";
 import { tierRemaining } from "@/lib/tiers";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/api/data";
-import { ArrowLeft, CreditCard, Tag, Loader2, AlertCircle } from "lucide-react";
+import { ArrowLeft, CreditCard, Tag, Loader2, AlertCircle, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import HomeButton from "@/components/HomeButton";
 import { Input } from "@/components/ui/input";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -232,7 +233,20 @@ export default function TicketCheckout() {
             {discActive && promoterDiscount > 0 && <div className="flex justify-between text-emerald-400"><span>Promoter discount</span><span>-{sym}{promoterDiscount.toFixed(2)}</span></div>}
             {promo && <div className="flex justify-between text-emerald-400"><span>Promo ({promo.discount_percent}%)</span><span>-{sym}{promoDiscount.toFixed(2)}</span></div>}
             {passOn && <div className="flex justify-between"><span className="text-muted-foreground">Booking fee</span><span>{sym}{fee.toFixed(2)}</span></div>}
-            <div className="flex justify-between font-bold pt-1.5 border-t border-border/50"><span>Total</span><span>{sym}{totalDue.toFixed(2)}</span></div>
+            <div className="flex justify-between font-bold pt-1.5 border-t border-border/50">
+              <span className="inline-flex items-center gap-1">
+                Total
+                <TooltipProvider delayDuration={100}>
+                  <Tooltip>
+                    <TooltipTrigger type="button" className="cursor-help text-muted-foreground inline-flex" aria-label="Refund policy">
+                      <HelpCircle className="w-3.5 h-3.5" />
+                    </TooltipTrigger>
+                    <TooltipContent>No refunds — all ticket sales are final.</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </span>
+              <span>{sym}{totalDue.toFixed(2)}</span>
+            </div>
           </div>
 
           <Button className="w-full h-14 rounded-xl font-bold text-base gap-2" onClick={pay} disabled={paying}>
