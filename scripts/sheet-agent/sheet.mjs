@@ -39,6 +39,7 @@ function parseArgs(argv) {
 const ATTEMPTS = 4;              // Apps Script cold starts answer the first POST with a 404/5xx HTML page
 const REQUEST_TIMEOUT_MS = 60_000;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+let lostReplies = 0; // attempts whose write may have landed although the reply was unusable
 
 async function call(body) {
   if (!URL_ || !SECRET) die('SHEET_AGENT_URL and SHEET_AGENT_SECRET must be set');
@@ -66,6 +67,7 @@ async function call(body) {
       // 4xx other than 404/429 is a real answer (bad URL, auth); do not hammer it.
       const transient = res.status === 404 || res.status === 429 || res.status >= 500;
       if (!transient) die(lastErr);
+      lostReplies++; // Apps Script ran doPost and only the redirect target failed
       await backoff(attempt, lastErr);
       continue;
     }
@@ -73,7 +75,7 @@ async function call(body) {
       // Apps Script occasionally bounces the redirect back to doGet without the
       // body, which reads as "unauthorised"; a genuinely wrong secret fails the
       // same way after every attempt.
-      if (json.error === 'unauthorised') { lastErr = 'unauthorised'; await backoff(attempt, lastErr); continue; }
+      if (json.error === 'unauthorised') { lastErr = 'unauthorised'; lostReplies++; await backoff(attempt, lastErr); continue; }
       die(json.error || 'request failed');
     }
     return json;
@@ -95,9 +97,26 @@ function rowArgs(flags) {
 
 const isPending = (t) => t.agent && !t.done && t.status === '';
 
+function hasGh() {
+  try { execFileSync('gh', ['--version'], { stdio: 'ignore' }); return true; } catch { return false; }
+}
+
+// Returns { state: 'OPEN' | 'MERGED' | 'CLOSED' }. Uses `gh` when installed; otherwise
+// the REST API via curl, which honours HTTPS_PROXY (the cloud sandbox's GitHub proxy
+// injects credentials for GH_TOKEN / GITHUB_TOKEN).
 function prState(url) {
-  const out = execFileSync('gh', ['pr', 'view', url, '--json', 'state,mergedAt,isDraft,url'], { encoding: 'utf8' });
-  return JSON.parse(out); // state: OPEN | MERGED | CLOSED
+  if (hasGh()) {
+    const out = execFileSync('gh', ['pr', 'view', url, '--json', 'state,mergedAt,isDraft,url'], { encoding: 'utf8' });
+    return JSON.parse(out);
+  }
+  const m = /github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/.exec(url);
+  if (!m) throw new Error(`not a GitHub PR URL: ${url}`);
+  const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
+  const args = ['-sS', '--fail-with-body', '--max-time', '30', '-H', 'Accept: application/vnd.github+json'];
+  if (token) args.push('-H', `Authorization: Bearer ${token}`);
+  args.push(`https://api.github.com/repos/${m[1]}/${m[2]}/pulls/${m[3]}`);
+  const pr = JSON.parse(execFileSync('curl', args, { encoding: 'utf8' }));
+  return { url, isDraft: !!pr.draft, mergedAt: pr.merged_at, state: pr.merged_at ? 'MERGED' : pr.state === 'closed' ? 'CLOSED' : 'OPEN' };
 }
 
 async function reconcile() {
@@ -144,7 +163,19 @@ async function main() {
       return;
     }
     case 'claim': {
-      const r = await call({ action: 'claim', ...rowArgs(flags) });
+      const ref = rowArgs(flags);
+      const startedAt = Date.now() - 30_000; // clock-skew allowance
+      const r = await call({ action: 'claim', ...ref });
+      if (!r.claimed && lostReplies > 0) {
+        // Our own write may have landed although its reply was lost. If the row went
+        // "In progress" with no PR since we started, that was us.
+        const { tasks } = await call({ action: 'list' });
+        const row = tasks.find((t) => t.tab === ref.tab && t.task === ref.expect_task);
+        if (row && row.status === 'In progress' && !row.pr && Date.parse(row.agent_updated) >= startedAt) {
+          r.claimed = true;
+          r.recovered = true;
+        }
+      }
       console.log(JSON.stringify(r));
       if (!r.claimed) process.exit(2);
       return;
