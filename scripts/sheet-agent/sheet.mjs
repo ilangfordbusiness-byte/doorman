@@ -36,20 +36,56 @@ function parseArgs(argv) {
   return { cmd, flags };
 }
 
+const ATTEMPTS = 4;              // Apps Script cold starts answer the first POST with a 404/5xx HTML page
+const REQUEST_TIMEOUT_MS = 60_000;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 async function call(body) {
   if (!URL_ || !SECRET) die('SHEET_AGENT_URL and SHEET_AGENT_SECRET must be set');
-  // Apps Script answers POSTs with a 302 to googleusercontent; fetch follows it.
-  const res = await fetch(URL_, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ secret: SECRET, ...body }),
-    redirect: 'follow',
-  });
-  const text = await res.text();
-  let json;
-  try { json = JSON.parse(text); } catch { die(`non-JSON reply (${res.status}): ${text.slice(0, 300)}`); }
-  if (!json.ok) die(json.error || 'request failed');
-  return json;
+  let lastErr;
+  for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+    let res, text;
+    try {
+      // Apps Script answers POSTs with a 302 to googleusercontent; fetch follows it.
+      res = await fetch(URL_, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ secret: SECRET, ...body }),
+        redirect: 'follow',
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+      text = await res.text();
+    } catch (err) {
+      lastErr = `network error: ${err.name === 'TimeoutError' ? `no reply within ${REQUEST_TIMEOUT_MS / 1000}s` : err.message}`;
+      await backoff(attempt, lastErr);
+      continue;
+    }
+    let json;
+    try { json = JSON.parse(text); } catch {
+      lastErr = `non-JSON reply (${res.status}): ${text.slice(0, 300)}`;
+      // 4xx other than 404/429 is a real answer (bad URL, auth); do not hammer it.
+      const transient = res.status === 404 || res.status === 429 || res.status >= 500;
+      if (!transient) die(lastErr);
+      await backoff(attempt, lastErr);
+      continue;
+    }
+    if (!json.ok) {
+      // Apps Script occasionally bounces the redirect back to doGet without the
+      // body, which reads as "unauthorised"; a genuinely wrong secret fails the
+      // same way after every attempt.
+      if (json.error === 'unauthorised') { lastErr = 'unauthorised'; await backoff(attempt, lastErr); continue; }
+      die(json.error || 'request failed');
+    }
+    return json;
+  }
+  die(`${lastErr} (after ${ATTEMPTS} attempts)`);
+}
+
+async function backoff(attempt, why) {
+  if (attempt >= ATTEMPTS) return;
+  const ms = 2000 * attempt;
+  console.error(`sheet: attempt ${attempt} failed (${why.split('\n')[0].slice(0, 120)}); retrying in ${ms / 1000}s`);
+  await sleep(ms);
 }
 
 function rowArgs(flags) {
