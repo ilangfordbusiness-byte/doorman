@@ -58,7 +58,12 @@ export default function WhoIsGoing({ eventId, myEmail, visibility = "show_names"
 
   if (loading || visibility === "none") return null;
 
+  // count_only: the RPC's going_count excludes the caller and only counts
+  // approved/checked-in/invited entries, so a guest who has just requested a
+  // private event (or is the only one approved) gets 0. Show nothing then
+  // rather than a "0 going" line.
   if (visibility === "count_only") {
+    if (goingCount === 0) return null;
     return (
       <div className="flex items-center gap-2 mb-3">
         <Users className="w-4 h-4 text-muted-foreground" />
