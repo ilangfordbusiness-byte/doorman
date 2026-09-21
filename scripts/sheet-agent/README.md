@@ -54,6 +54,29 @@ re-queue it after answering.
    `ROUTINE_PROMPT.md` changes; the prompt is not read from the repo at run time.
 3. **CI.** Merge `.github/workflows/ci.yml` so agent PRs get the SQL suites,
    which the cloud runner cannot execute itself.
+4. **GitHub write access.** The cloud sandbox reaches GitHub through Claude's
+   proxy, which needs the Claude GitHub App installed with write access on the
+   account that owns the repository
+   (https://github.com/apps/claude/installations/select_target). Without it,
+   clones work but every push and API write returns 403 and the routine stops
+   at its access probe.
+5. **Environment network access.** The routine's cloud environment must allow
+   egress to `script.google.com` and `script.googleusercontent.com` (Custom
+   network access with the default package-manager list kept).
+
+## Known quirks of the bridge
+
+- The first POST of a run to the Apps Script often comes back as a Google
+  404 page or as `unauthorised` (the redirect bounced to `doGet` without the
+  body). `sheet.mjs` retries up to four times with backoff and a 60s timeout
+  per request. A wrong secret therefore takes ~12s to fail.
+- A write can land even when its reply is lost that way. `claim` handles it:
+  if a retry says the row is already taken but it went `In progress` with no
+  PR since the command started, it reports `"recovered": true` and exits 0.
+- `reconcile` uses `gh` when installed and otherwise the GitHub REST API via
+  `curl` (which honours the sandbox's `HTTPS_PROXY` and `GH_TOKEN` /
+  `GITHUB_TOKEN`). The cloud sandbox has no `gh`; the routine prompt tells the
+  agent to fall back to the GitHub MCP tools for anything the CLI cannot read.
 
 ## Using the CLI by hand
 
