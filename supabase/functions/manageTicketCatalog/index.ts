@@ -3,6 +3,17 @@
 import { getCaller, json, preflight, serviceClient } from '../_shared/db.ts';
 import { PAYOUT_SETUP_ERROR, resolvePayoutAccount } from '../_shared/connect.ts';
 
+// Optional scheduled release. `undefined` = field absent, `null`/'' = clear the
+// schedule (on sale now), string = ISO timestamp. Returns the normalised value
+// or an error message.
+function parseReleaseAt(raw: unknown): { value?: string | null; error?: string } {
+  if (raw === undefined) return {};
+  if (raw === null || raw === '') return { value: null };
+  const d = new Date(String(raw));
+  if (Number.isNaN(d.getTime())) return { error: 'Invalid release time' };
+  return { value: d.toISOString() };
+}
+
 Deno.serve(async (req) => {
   const pre = preflight(req);
   if (pre) return pre;
@@ -38,6 +49,8 @@ Deno.serve(async (req) => {
       // share is auto-routed at purchase, so there is no platform-held path.
       const payout = await resolvePayoutAccount(svc, evt);
       if (!payout.active) return json({ error: PAYOUT_SETUP_ERROR }, 400);
+      const release = parseReleaseAt(body.release_at);
+      if (release.error) return json({ error: release.error }, 400);
       const { data: tier, error } = await svc.from('ticket_tiers').insert({
         event_id: eventId,
         name,
@@ -45,6 +58,8 @@ Deno.serve(async (req) => {
         quantity: Math.round(Number(quantity)),
         sort_order: body.sort_order ?? 0,
         hide_remaining: !!body.hide_remaining,
+        // Scheduled release: visible to guests but not buyable until then.
+        release_at: release.value ?? null,
       }).select('*').single();
       if (error) return json({ error: error.message }, 400);
       return json({ tier });
@@ -64,6 +79,13 @@ Deno.serve(async (req) => {
         patch.name = nm;
       }
       if ('hide_remaining' in body) patch.hide_remaining = !!body.hide_remaining;
+      if ('release_at' in body) {
+        // Schedule, move, or clear (null) a tier's release. A past value is
+        // allowed and simply means "on sale now", the same as clearing it.
+        const release = parseReleaseAt(body.release_at);
+        if (release.error) return json({ error: release.error }, 400);
+        patch.release_at = release.value;
+      }
       if ('sales_status' in body) {
         if (!['open', 'closed', 'sold_out'].includes(body.sales_status)) {
           return json({ error: 'Invalid sales_status' }, 400);

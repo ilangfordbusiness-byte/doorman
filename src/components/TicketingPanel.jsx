@@ -1,13 +1,16 @@
 import { currencySymbol } from "@/lib/money";
 import { useState, useEffect } from "react";
-import { tierRemaining } from "@/lib/tiers";
+import { tierRemaining, tierScheduled, formatReleaseAt, releaseAtToLocalInput, localInputToReleaseAt } from "@/lib/tiers";
 import { Link } from "react-router-dom";
 import { api } from "@/api/data";
-import { Ticket, Tag, Plus, Trash2, Loader2, BarChart3, Pencil, Check, X } from "lucide-react";
+import { Ticket, Tag, Plus, Trash2, Loader2, BarChart3, Pencil, Check, X, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { bookingFee } from "@/lib/fees";
+
+// Same look as the shadcn <Input>, on a native element (datetime-local).
+const DATETIME_INPUT = "flex w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm";
 
 // stripeActive: null while loading, then whether the payout account is ready —
 // tier creation is server-gated on the same rule, this is the friendly path.
@@ -18,10 +21,12 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
   const [tiers, setTiers] = useState([]);
   const [promos, setPromos] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [newTier, setNewTier] = useState({ name: "", price: "", quantity: "" });
+  const [newTier, setNewTier] = useState({ name: "", price: "", quantity: "", release_at: "" });
   const [newPromo, setNewPromo] = useState({ code: "", discount_percent: "", max_uses: "" });
   const [renaming, setRenaming] = useState(null); // tier id being renamed
   const [renameValue, setRenameValue] = useState("");
+  const [scheduling, setScheduling] = useState(null); // tier id whose release is being edited
+  const [scheduleValue, setScheduleValue] = useState(""); // datetime-local, browser zone
 
   useEffect(() => { load(); }, [eventId]);
 
@@ -55,14 +60,41 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
         price: Number(newTier.price),
         quantity: Number(newTier.quantity),
         sort_order: tiers.length,
+        // Optional scheduled release; null = on sale as soon as it's created.
+        release_at: localInputToReleaseAt(newTier.release_at),
       });
       if (res.data?.error) throw new Error(res.data.error);
-      setNewTier({ name: "", price: "", quantity: "" });
+      setNewTier({ name: "", price: "", quantity: "", release_at: "" });
       await load();
-      toast({ title: "Tier added" });
+      toast({ title: newTier.release_at ? "Tier added — release scheduled" : "Tier added" });
     } catch (e) {
       console.error("TicketTier create failed:", e);
       toast({ title: "Couldn't save tier", description: e?.message || "Only the event host can add tiers.", variant: "destructive" });
+    }
+  }
+
+  // Schedule, move, or clear a tier's release. An empty input (or a time that
+  // has already passed) puts the tier on sale now.
+  async function saveSchedule(t) {
+    const release_at = localInputToReleaseAt(scheduleValue);
+    setScheduling(null);
+    // Compare as instants: the DB echoes timestamps in a different textual form.
+    const asTime = (v) => (v ? new Date(v).getTime() : null);
+    if (asTime(release_at) === asTime(t.release_at)) return;
+    try {
+      const res = await api.functions.invoke("manageTicketCatalog", {
+        action: "update_tier",
+        event_id: eventId,
+        id: t.id,
+        release_at,
+      });
+      if (res.data?.error) throw new Error(res.data.error);
+      await load();
+      const scheduled = release_at && new Date(release_at).getTime() > Date.now();
+      toast({ title: scheduled ? `Release scheduled for ${formatReleaseAt(release_at)}` : "Tier is on sale now" });
+    } catch (e) {
+      console.error("TicketTier schedule update failed:", e);
+      toast({ title: "Couldn't update release time", description: e?.message || "Only the event host can edit tiers.", variant: "destructive" });
     }
   }
 
@@ -177,6 +209,7 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
         {tiers.map((t) => {
           const manuallyClosed = t.sales_status === "closed";
           const naturallyOut = Number(t.sold || 0) >= Number(t.quantity || 0);
+          const scheduled = tierScheduled(t);
           return (
           <div key={t.id} className="bg-secondary/40 rounded-xl p-3 border border-border/50 flex items-center gap-3">
             <div className="flex-1 min-w-0">
@@ -202,8 +235,27 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
                 {feeMode === "pass_on" && Number(t.price) > 0 && ` (+ ${sym}${bookingFee(t.price).toFixed(2)} booking fee at checkout)`}
                 {" · "}{tierRemaining(t)} left{Number(t.reserved || 0) > 0 ? ` · ${t.reserved} in checkout` : ""}
                 {t.sales_status !== "open" && <span className="text-destructive"> · Sold out</span>}
+                {scheduled && <span className="text-amber-400"> · On sale {formatReleaseAt(t.release_at)}</span>}
               </p>
+              {scheduling === t.id && (
+                <div className="mt-2 space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <input type="datetime-local" autoFocus value={scheduleValue} onChange={(e) => setScheduleValue(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") saveSchedule(t); if (e.key === "Escape") setScheduling(null); }}
+                      className={`${DATETIME_INPUT} h-8 text-xs`} aria-label="Release time" />
+                    <button onClick={() => saveSchedule(t)} className="text-emerald-400 hover:text-emerald-300 shrink-0" aria-label="Save release time"><Check className="w-4 h-4" /></button>
+                    <button onClick={() => setScheduling(null)} className="text-muted-foreground hover:text-foreground shrink-0" aria-label="Cancel"><X className="w-4 h-4" /></button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">When this tier goes on sale (your local time). Leave empty to put it on sale now.</p>
+                </div>
+              )}
             </div>
+            <button
+              onClick={() => { setScheduling(scheduling === t.id ? null : t.id); setScheduleValue(releaseAtToLocalInput(t.release_at)); }}
+              className={`${scheduled ? "text-amber-400 hover:text-amber-300" : "text-muted-foreground hover:text-foreground"} transition-colors`}
+              aria-label={scheduled ? "Change scheduled release" : "Schedule release"} title={scheduled ? "Change scheduled release" : "Schedule release"}>
+              <Clock className="w-4 h-4" />
+            </button>
             {manuallyClosed ? (
               <Button variant="outline" size="sm" className="rounded-lg text-xs h-8" onClick={() => setTierStatus(t, "open")}>
                 Reopen
@@ -233,6 +285,13 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
             <Input placeholder="Tier name" value={newTier.name} onChange={(e) => setNewTier((s) => ({ ...s, name: e.target.value }))} className="h-10" />
             <Input type="number" placeholder="Price" value={newTier.price} onChange={(e) => setNewTier((s) => ({ ...s, price: e.target.value }))} className="h-10" />
             <Input type="number" placeholder="Qty" value={newTier.quantity} onChange={(e) => setNewTier((s) => ({ ...s, quantity: e.target.value }))} className="h-10" />
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-muted-foreground shrink-0" />
+              <input type="datetime-local" value={newTier.release_at} onChange={(e) => setNewTier((s) => ({ ...s, release_at: e.target.value }))} className={`${DATETIME_INPUT} h-10`} aria-label="Schedule release (optional)" />
+            </div>
+            <p className="text-[11px] text-muted-foreground">Optional: schedule when this tier goes on sale (your local time). Leave empty to sell right away.</p>
           </div>
           <Button className="w-full h-10 rounded-xl" onClick={addTier} disabled={!newTier.name || newTier.price === "" || newTier.quantity === ""}>
             <Plus className="w-4 h-4" /> Add Tier

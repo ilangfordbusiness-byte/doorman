@@ -31,6 +31,11 @@ Deno.serve(async (req) => {
     const { data: tier } = await svc.from('ticket_tiers').select('*').eq('id', tier_id).single();
     if (!tier) return json({ error: 'Ticket tier not found' }, 404);
     if (tier.sales_status !== 'open') return json({ error: 'This tier is sold out' }, 400);
+    // Scheduled release: not buyable until release_at. reserve_tier_seats
+    // enforces the same rule in the database; this is the friendly message.
+    if (tier.release_at && new Date(tier.release_at).getTime() > Date.now()) {
+      return json({ error: 'This tier is not on sale yet' }, 400);
+    }
 
     const { data: event } = await svc.from('events').select('*').eq('id', tier.event_id).single();
     if (!event) return json({ error: 'Event not found' }, 404);

@@ -1,6 +1,6 @@
 import { currencySymbol } from "@/lib/money";
 import { useState, useEffect } from "react";
-import { tierRemaining } from "@/lib/tiers";
+import { tierRemaining, tierScheduled, formatReleaseAt } from "@/lib/tiers";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/api/data";
 import { ArrowLeft, CreditCard, Tag, Loader2, AlertCircle, HelpCircle } from "lucide-react";
@@ -184,18 +184,21 @@ export default function TicketCheckout() {
       <div className="space-y-2 mb-5">
         {tiers.map((t) => {
           const left = remaining(t);
-          const soldOut = left <= 0 || t.sales_status !== "open";
+          // A scheduled tier isn't sold out, it just isn't on sale yet.
+          const scheduled = tierScheduled(t);
+          const soldOut = !scheduled && (left <= 0 || t.sales_status !== "open");
           return (
             <button
               key={t.id}
               onClick={() => { setSelected(t.id); setPromo(null); setPromoMsg(""); setPromoInput(""); }}
-              disabled={soldOut}
-              className={`w-full text-left rounded-xl p-3 border transition-colors ${selected === t.id ? "border-primary bg-primary/10" : "border-border bg-secondary/40"} ${soldOut ? "opacity-50 cursor-not-allowed" : ""}`}
+              disabled={soldOut || scheduled}
+              className={`w-full text-left rounded-xl p-3 border transition-colors ${selected === t.id ? "border-primary bg-primary/10" : "border-border bg-secondary/40"} ${soldOut ? "opacity-50 cursor-not-allowed" : scheduled ? "opacity-70 cursor-not-allowed" : ""}`}
             >
               <div className="flex justify-between items-center">
                 <div>
                   <p className={`text-sm font-semibold ${soldOut ? "line-through" : ""}`}>{t.name}</p>
                   {soldOut && <p className="text-xs text-muted-foreground">Sold out</p>}
+                  {scheduled && <p className="text-xs text-amber-400">On sale {formatReleaseAt(t.release_at)}</p>}
                 </div>
                 <div className="text-right">
                   {discActive ? (
