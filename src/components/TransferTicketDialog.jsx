@@ -6,10 +6,11 @@ import { useToast } from "@/components/ui/use-toast";
 import LoadingSpinner from "./LoadingSpinner";
 import Avatar from "./Avatar";
 
-// Modal for a guest to send a ticket (GuestlistEntry) to a friend.
-// The recipient is chosen from the sender's accepted-friends list. The transfer
-// is sent as a pending request — ownership only moves when the recipient
-// accepts (handled by the acceptTicketTransfer backend function).
+// Modal for a guest to send a ticket (GuestlistEntry) to anyone on DoorMan.
+// The sender's friends are shown as quick-picks before they type; typing
+// searches every account by name/@instagram. The transfer is sent as a pending
+// request — ownership only moves when the recipient accepts (handled by the
+// acceptTicketTransfer backend function).
 export default function TransferTicketDialog({ entry, event, user, onClose, onTransferred }) {
   const { toast } = useToast();
   const [friends, setFriends] = useState([]);
@@ -18,6 +19,8 @@ export default function TransferTicketDialog({ entry, event, user, onClose, onTr
   const [stage, setStage] = useState("select"); // select | confirm
   const [sending, setSending] = useState(false);
   const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
+  const [searching, setSearching] = useState(false);
 
   useEffect(() => { loadFriends(); }, []);
 
@@ -41,10 +44,35 @@ export default function TransferTicketDialog({ entry, event, user, onClose, onTr
     setLoading(false);
   }
 
-  const q = query.trim().toLowerCase();
-  const filtered = q
-    ? friends.filter((f) => String(f.name).toLowerCase().includes(q) || f.email.toLowerCase().includes(q))
-    : friends;
+  const q = query.trim();
+
+  // Debounced search over every account once the query is >= 2 chars. Ignores
+  // stale responses when the query changes mid-flight (same pattern as
+  // FriendsSearch). Below 2 chars we fall back to the friends quick-pick list.
+  useEffect(() => {
+    if (q.length < 2) { setResults([]); setSearching(false); return; }
+    setSearching(true);
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const people = await api.auth.searchProfiles(q);
+        if (cancelled) return;
+        setResults(
+          people
+            .filter((u) => u.email && u.email !== user.email)
+            .map((u) => ({ email: u.email, name: u.full_name || u.email, picture: u.profile_picture })),
+        );
+      } catch {
+        if (!cancelled) setResults([]);
+      } finally {
+        if (!cancelled) setSearching(false);
+      }
+    }, 300);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [q, user.email]);
+
+  const searchMode = q.length >= 2;
+  const list = searchMode ? results : friends;
 
   async function confirmTransfer() {
     setSending(true);
@@ -87,16 +115,19 @@ export default function TransferTicketDialog({ entry, event, user, onClose, onTr
 
         {stage === "select" && (
           <div className="flex-1 overflow-y-auto p-4">
-            <p className="text-xs text-muted-foreground mb-3">Choose a friend to send this ticket to. They'll need to accept it before it leaves your account.</p>
+            <p className="text-xs text-muted-foreground mb-3">Search for anyone on DoorMan to send this ticket to. They'll need to accept it before it leaves your account.</p>
             <div className="relative mb-3">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search friends..." className="w-full h-10 pl-10 pr-3 text-sm bg-secondary/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name or @instagram..." className="w-full h-10 pl-10 pr-3 text-sm bg-secondary/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
             </div>
-            {loading ? <LoadingSpinner /> : filtered.length === 0 ? (
-              <div className="py-10 text-center"><p className="text-sm text-muted-foreground">{friends.length === 0 ? "You don't have any friends yet." : "No friends match your search."}</p></div>
+            {!searchMode && !loading && friends.length > 0 && (
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Friends</p>
+            )}
+            {(searchMode ? searching : loading) ? <LoadingSpinner /> : list.length === 0 ? (
+              <div className="py-10 text-center"><p className="text-sm text-muted-foreground">{searchMode ? `No one found matching "${q}"` : "You don't have any friends yet — search by name to send to anyone."}</p></div>
             ) : (
               <div className="space-y-2">
-                {filtered.map((f) => (
+                {list.map((f) => (
                   <button key={f.email} onClick={() => { setSelected(f); setStage("confirm"); }} className="w-full flex items-center gap-3 bg-secondary/40 rounded-xl px-3 py-2.5 border border-border/50 hover:border-primary/40 transition-colors text-left">
                     <Avatar src={f.picture} name={f.name || f.email} size="w-9 h-9" textClass="text-sm" />
                     <div className="flex-1 min-w-0">
