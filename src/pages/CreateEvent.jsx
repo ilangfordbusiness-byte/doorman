@@ -96,16 +96,17 @@ export default function CreateEvent({ business = null }) {
   }
 
   const [tiers, setTiers] = useState([]);
-  const [newTier, setNewTier] = useState({ name: "", price: "", quantity: "" });
+  const [newTier, setNewTier] = useState({ name: "", description: "", price: "", quantity: "" });
 
   function addTier() {
     if (!newTier.name || newTier.price === "" || newTier.quantity === "") return;
     setTiers((prev) => [...prev, {
       name: newTier.name,
+      description: newTier.description.trim(),
       price: Number(newTier.price),
       quantity: Number(newTier.quantity),
     }]);
-    setNewTier({ name: "", price: "", quantity: "" });
+    setNewTier({ name: "", description: "", price: "", quantity: "" });
   }
 
   function removeTier(i) {
@@ -163,6 +164,7 @@ export default function CreateEvent({ business = null }) {
           await api.entities.TicketTier.create({
             event_id: event.id,
             name: t.name,
+            description: t.description || null,
             price: t.price,
             quantity: t.quantity,
             sold: 0,
@@ -482,6 +484,7 @@ export default function CreateEvent({ business = null }) {
                       <div key={i} className="flex items-center gap-2 bg-secondary/40 rounded-lg px-3 py-2 border border-border/50">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{t.name}</p>
+                          {t.description && <p className="text-[11px] text-muted-foreground whitespace-pre-line break-words">{t.description}</p>}
                           <p className="text-[11px] text-muted-foreground">{currencySymbol(form.currency)}{Number(t.price).toFixed(2)} · {t.quantity} tickets</p>
                         </div>
                         <button onClick={() => removeTier(i)} className="text-muted-foreground hover:text-destructive p-1 flex-shrink-0">
@@ -499,6 +502,9 @@ export default function CreateEvent({ business = null }) {
                     <Plus className="w-4 h-4" />
                   </Button>
                 </div>
+                <textarea placeholder="Description (optional) — e.g. Includes a welcome drink" value={newTier.description}
+                  onChange={(e) => setNewTier((s) => ({ ...s, description: e.target.value }))} maxLength={280} rows={2}
+                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:text-sm resize-none mt-2 bg-secondary/50" />
               </div>
               {/* Booking fee — who pays the platform fee */}
               <div>

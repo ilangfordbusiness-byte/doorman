@@ -308,6 +308,7 @@ const ENTITIES = {
       ...base(r),
       event_id: r.event_id,
       name: r.name,
+      description: r.description ?? "",
       price: minorToMajor(r.price_minor),
       quantity: r.quantity,
       sold: r.sold,
@@ -323,6 +324,7 @@ const ENTITIES = {
         action: "create_tier",
         event_id: obj.event_id,
         name: obj.name,
+        description: obj.description ?? null,
         price: obj.price,
         quantity: obj.quantity,
         sort_order: obj.sort_order ?? 0,
@@ -335,6 +337,7 @@ const ENTITIES = {
         action: "update_tier",
         id,
         hide_remaining: obj.hide_remaining,
+        ...("description" in obj ? { description: obj.description } : {}),
       });
       return ENTITIES.TicketTier.toApp(data.tier);
     },

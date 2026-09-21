@@ -465,6 +465,7 @@ export default function EventDetails() {
                       <div key={t.id} className={`flex justify-between items-center text-sm ${soldOut ? "opacity-60" : ""}`}>
                         <div>
                           <p className={`font-medium ${soldOut ? "line-through" : ""}`}>{t.name}</p>
+                          {t.description && <p className="text-xs text-muted-foreground whitespace-pre-line break-words">{t.description}</p>}
                           {soldOut && <p className="text-xs text-muted-foreground">Sold out</p>}
                         </div>
                         <p className={`font-bold ${soldOut ? "line-through" : ""}`}>{sym}{Number(t.price).toFixed(2)}</p>
