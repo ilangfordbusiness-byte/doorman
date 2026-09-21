@@ -1,17 +1,20 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/api/data";
-import { UserPlus, Ticket, Lock } from "lucide-react";
+import { UserPlus, Ticket, Lock, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
+import { formatReleaseAt } from "@/lib/tiers";
 
 // Renders the primary join action for a guest on an event page:
-//  - paid event        → "Buy Tickets"
+//  - paid event        → "Buy Tickets" (or "Sold Out" / "On sale <time>" when
+//                        nothing is buyable yet; onSaleFrom is the earliest
+//                        scheduled tier release)
 //  - free + public     → "Join" (instant, adds to attendee list)
 //  - free + private    → "Request to Join" (or a disabled state if declined)
 // Active entries (approved/invited/checked_in/requested) render nothing here;
 // the parent shows the status / pass in that case.
-export default function EventJoinActions({ event, me, myEntry, soldOut = false, onChanged }) {
+export default function EventJoinActions({ event, me, myEntry, soldOut = false, onSaleFrom = null, onChanged }) {
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
 
@@ -70,10 +73,12 @@ export default function EventJoinActions({ event, me, myEntry, soldOut = false, 
 
   if (isPaid) {
     if (active) return null;
-    if (soldOut) {
+    if (soldOut || onSaleFrom) {
       return (
         <Button disabled className="w-full h-14 rounded-xl font-bold text-base gap-2 opacity-60">
-          <Ticket className="w-5 h-5" /> Sold Out
+          {soldOut
+            ? <><Ticket className="w-5 h-5" /> Sold Out</>
+            : <><Clock className="w-5 h-5" /> On sale {formatReleaseAt(onSaleFrom)}</>}
         </Button>
       );
     }

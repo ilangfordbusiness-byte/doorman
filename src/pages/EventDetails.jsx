@@ -15,7 +15,7 @@ function getCoverStyle(cover_image) {
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { api } from "@/api/data";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { tierSoldOut } from "@/lib/tiers";
+import { tierSoldOut, tierScheduled, nextTierRelease, formatReleaseAt } from "@/lib/tiers";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   ArrowLeft, Calendar, Clock, MapPin, Shirt, Users, Share2,
@@ -93,9 +93,13 @@ export default function EventDetails() {
   const stats = data?.stats ?? { invited: 0, approved: 0, checked_in: 0, total: 0 };
   const staff = data?.staff ?? [];
   const tiers = data?.tiers ?? [];
-  // Every tier unavailable (manually closed or none left) → show a "Sold Out"
-  // CTA instead of "Buy Tickets". Reverts automatically when a tier reopens.
-  const allSoldOut = !!event?.is_paid && tiers.length > 0 && tiers.every(tierSoldOut);
+  // Nothing buyable right now → the CTA says why. A scheduled tier is not
+  // sold out, so "On sale from …" wins over "Sold Out" whenever one is coming;
+  // both revert automatically when a tier reopens or its release time passes.
+  const nothingOnSale = !!event?.is_paid && tiers.length > 0
+    && tiers.every((t) => tierScheduled(t) || tierSoldOut(t));
+  const onSaleFrom = nothingOnSale ? nextTierRelease(tiers) : null;
+  const allSoldOut = nothingOnSale && !onSaleFrom;
   const loadError = data?.notFound
     ? "This event is no longer available or the link is invalid."
     : isError
@@ -460,12 +464,14 @@ export default function EventDetails() {
                 <h3 className="font-heading font-semibold text-sm mb-3">Tickets</h3>
                 <div className="space-y-2">
                   {tiers.map((t) => {
-                    const soldOut = tierSoldOut(t);
+                    const scheduled = tierScheduled(t);
+                    const soldOut = !scheduled && tierSoldOut(t);
                     return (
                       <div key={t.id} className={`flex justify-between items-center text-sm ${soldOut ? "opacity-60" : ""}`}>
                         <div>
                           <p className={`font-medium ${soldOut ? "line-through" : ""}`}>{t.name}</p>
                           {soldOut && <p className="text-xs text-muted-foreground">Sold out</p>}
+                          {scheduled && <p className="text-xs text-amber-400">On sale {formatReleaseAt(t.release_at)}</p>}
                         </div>
                         <p className={`font-bold ${soldOut ? "line-through" : ""}`}>{sym}{Number(t.price).toFixed(2)}</p>
                       </div>
@@ -475,7 +481,7 @@ export default function EventDetails() {
                 </div>
               </div>
             )}
-            <EventJoinActions event={event} me={user} myEntry={myEntry} soldOut={allSoldOut} onChanged={() => queryClient.invalidateQueries(["event", id])} />
+            <EventJoinActions event={event} me={user} myEntry={myEntry} soldOut={allSoldOut} onSaleFrom={onSaleFrom} onChanged={() => queryClient.invalidateQueries(["event", id])} />
             {event.visibility !== "none" && (myEntry || event.is_paid) && (
               <WhoIsGoing
                 eventId={id}

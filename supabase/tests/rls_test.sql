@@ -478,6 +478,31 @@ begin
     perform pg_temp.ok('sold + reserved <= quantity is enforced by the database');
   end;
 
+  -- ---- scheduled tier releases: no seat can be held before release_at ----
+  insert into public.ticket_tiers (event_id, name, price_minor, quantity, release_at)
+    values (v_event, 'Second release', 700, 5, now() + interval '1 hour') returning id into v_id;
+  if public.reserve_tier_seats(v_id, 1) then
+    raise exception 'FAIL: reserved a seat on a tier before its release' using errcode = 'assert_failure';
+  end if;
+  if (select reserved from public.ticket_tiers where id = v_id) <> 0 then
+    raise exception 'FAIL: scheduled tier reservation counter moved';
+  end if;
+  perform pg_temp.ok('a scheduled tier cannot be reserved before release_at');
+
+  update public.ticket_tiers set release_at = now() - interval '1 minute' where id = v_id;
+  if not public.reserve_tier_seats(v_id, 1) then
+    raise exception 'FAIL: released tier refused a reservation' using errcode = 'assert_failure';
+  end if;
+  perform pg_temp.ok('a tier goes on sale once release_at has passed');
+
+  -- guests read the release time (tiers are world-readable) so the event page
+  -- can say "On sale from ..."
+  perform pg_temp.impersonate(bob, 'bob@test.dev');
+  if (select release_at from public.ticket_tiers where id = v_id) is null then
+    raise exception 'FAIL: guest cannot read release_at' using errcode = 'assert_failure';
+  end if;
+  perform pg_temp.ok('guests can read a tier release time');
+
   execute 'reset role';
   raise notice '';
   raise notice 'ALL % CHECKS PASSED', currval('pg_temp.t_pass');
