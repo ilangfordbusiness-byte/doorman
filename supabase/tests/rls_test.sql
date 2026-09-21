@@ -204,6 +204,16 @@ begin
   update public.profiles set avatar_prompt_dismissed_at = now() where id = bob;
   perform pg_temp.ok('user can dismiss own avatar prompt');
 
+  update public.profiles set location = 'London, UK' where id = bob;
+  perform pg_temp.ok('user can set own profile location');
+
+  begin
+    update public.profiles set location = repeat('x', 101) where id = bob;
+    raise exception 'FAIL: user set a 101-char location' using errcode = 'assert_failure';
+  exception when check_violation then
+    perform pg_temp.ok('profile location is capped at 100 chars (check constraint)');
+  end;
+
   -- stripe_account_country / stripe_default_currency are facts copied from
   -- Stripe by the service role; a client must never be able to set them.
   begin
