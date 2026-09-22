@@ -317,7 +317,7 @@ export default function EventDetails() {
         {event.description && (
           <div>
             <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5">About</p>
-            <p className="text-sm text-foreground/80 leading-relaxed">{event.description}</p>
+            <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-line">{event.description}</p>
           </div>
         )}
 
