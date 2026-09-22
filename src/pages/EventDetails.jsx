@@ -263,6 +263,38 @@ export default function EventDetails() {
           </div>
         </div>
 
+        {/* Guest status + QR pass — at the top so a ticket is one tap away */}
+        {!canManage && myEntry && myEntry.status !== "denied" && (
+          <div className="space-y-3">
+            <div className="bg-secondary/50 rounded-xl p-4 border border-border/50 text-center">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Your Status</p>
+              <StatusBadge status={myEntry.status} size="lg" />
+            </div>
+            {(myEntry.status === "approved" || myEntry.status === "invited") && (
+              <Link to={`/pass/${id}`}>
+                <Button className="w-full h-14 rounded-xl font-bold text-base bg-primary hover:bg-primary/90 gap-2">
+                  <QrCode className="w-5 h-5" /> Open QR Pass
+                </Button>
+              </Link>
+            )}
+            {myEntry.status === "requested" && (
+              <p className="text-sm text-muted-foreground text-center">The host will review your request.</p>
+            )}
+            {myEntry.status === "checked_in" && (
+              <>
+                <div className="bg-emerald-500/10 rounded-xl p-4 border border-emerald-500/20 text-center">
+                  <p className="text-sm text-emerald-400 font-medium">✓ You're checked in!</p>
+                </div>
+                <Link to={`/pass/${id}`}>
+                  <Button variant="outline" className="w-full h-12 rounded-xl font-semibold gap-2">
+                    <QrCode className="w-5 h-5" /> View My Passes
+                  </Button>
+                </Link>
+              </>
+            )}
+          </div>
+        )}
+
         {myCoHostInvite && (
           <div className="bg-primary/10 border border-primary/30 rounded-xl p-3 flex items-center justify-between gap-3">
             <div>
@@ -483,36 +515,6 @@ export default function EventDetails() {
                 visibility={event.visibility}
                 unlocked={!!myEntry && ["approved", "checked_in"].includes(myEntry.status)}
               />
-            )}
-            {myEntry && myEntry.status !== "denied" && (
-              <div className="space-y-3">
-                <div className="bg-secondary/50 rounded-xl p-4 border border-border/50 text-center">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Your Status</p>
-                  <StatusBadge status={myEntry.status} size="lg" />
-                </div>
-                {(myEntry.status === "approved" || myEntry.status === "invited") && (
-                  <Link to={`/pass/${id}`}>
-                    <Button className="w-full h-14 rounded-xl font-bold text-base bg-primary hover:bg-primary/90 gap-2">
-                      <QrCode className="w-5 h-5" /> Open QR Pass
-                    </Button>
-                  </Link>
-                )}
-                {myEntry.status === "requested" && (
-                  <p className="text-sm text-muted-foreground text-center">The host will review your request.</p>
-                )}
-                {myEntry.status === "checked_in" && (
-                  <>
-                    <div className="bg-emerald-500/10 rounded-xl p-4 border border-emerald-500/20 text-center">
-                      <p className="text-sm text-emerald-400 font-medium">✓ You're checked in!</p>
-                    </div>
-                    <Link to={`/pass/${id}`}>
-                      <Button variant="outline" className="w-full h-12 rounded-xl font-semibold gap-2">
-                        <QrCode className="w-5 h-5" /> View My Passes
-                      </Button>
-                    </Link>
-                  </>
-                )}
-              </div>
             )}
           </div>
         )}
