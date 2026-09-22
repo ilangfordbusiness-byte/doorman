@@ -539,6 +539,7 @@ function base(r) {
 }
 
 const SORT_FIELD_MAP = { created_date: "created_at", updated_date: "updated_at" };
+const RANGE_OPS = ["$gte", "$gt", "$lte", "$lt"];
 
 function applySort(q, sort) {
   if (!sort) return q;
@@ -576,6 +577,9 @@ function makeEntity(name) {
         q = q.is(col, null);
       } else if (typeof val === "object" && "$in" in val) {
         q = q.in(col, val.$in);
+      } else if (typeof val === "object" && RANGE_OPS.some((op) => op in val)) {
+        // Range filters, e.g. { date: { $gte: "2026-09-22" } }; several may combine.
+        for (const op of RANGE_OPS) if (op in val) q = q[op.slice(1)](col, val[op]);
       } else {
         q = q.eq(col, val);
       }
