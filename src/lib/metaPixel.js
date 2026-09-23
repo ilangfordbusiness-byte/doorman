@@ -59,15 +59,45 @@ function readCookie(name) {
   return m ? decodeURIComponent(m[1]) : null;
 }
 
+// Meta appends ?fbclid=... to every ad click. Meta's own script turns it into
+// the _fbc cookie, but that script is blocked for many visitors (ad blockers,
+// tracking protection), so DoorMan keeps its own copy of the click id. Stored
+// per browser for 90 days, Meta's attribution window ceiling.
+const CLICK_KEY = "meta_click";
+const CLICK_TTL_MS = 90 * 24 * 60 * 60 * 1000;
+
+export function captureMetaClick() {
+  try {
+    const fbclid = new URLSearchParams(window.location.search).get("fbclid");
+    if (!fbclid) return;
+    localStorage.setItem(CLICK_KEY, JSON.stringify({ fbclid, ts: Date.now() }));
+  } catch {
+    // storage unavailable: the cookie path (if any) still applies
+  }
+}
+
+function storedClick() {
+  try {
+    const raw = localStorage.getItem(CLICK_KEY);
+    if (!raw) return null;
+    const { fbclid, ts } = JSON.parse(raw);
+    if (!fbclid || !ts || Date.now() - ts > CLICK_TTL_MS) return null;
+    return { fbclid, ts };
+  } catch {
+    return null;
+  }
+}
+
 // Browser match keys for the Conversions API: the pixel's _fbp cookie and the
-// click id (_fbc cookie, or derived from an fbclid landing parameter the
-// pixel has not yet turned into a cookie).
+// click id as an fbc value (Meta's documented format fb.1.<ms>.<fbclid>),
+// taken from the _fbc cookie, the current URL, or our own stored capture.
 export function metaMatchKeys() {
   try {
+    captureMetaClick();
     let fbc = readCookie("_fbc");
     if (!fbc) {
-      const fbclid = new URLSearchParams(window.location.search).get("fbclid");
-      if (fbclid) fbc = `fb.1.${Date.now()}.${fbclid}`;
+      const click = storedClick();
+      if (click) fbc = `fb.1.${click.ts}.${click.fbclid}`;
     }
     return {
       fbp: readCookie("_fbp"),

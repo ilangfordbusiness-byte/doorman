@@ -33,7 +33,7 @@ import CoHostsSection from "../components/CoHostsSection";
 import EventJoinActions from "../components/EventJoinActions";
 import moment from "moment";
 import { captureRef, getLinkDomain, discountLabel, promoterDiscountActive } from "@/lib/promoterRef";
-import { loadPixel, trackPixel } from "@/lib/metaPixel";
+import { loadPixel, trackPixel, captureMetaClick } from "@/lib/metaPixel";
 
 async function loadEvent(id, me) {
   const events = await api.entities.Event.filter({ id });
@@ -129,7 +129,9 @@ export default function EventDetails() {
     setAccepting(false);
   }
 
-  // Organiser ad tracking: the business's own Meta Pixel, only on its events.
+  // Organiser ad tracking: remember an ad click id (?fbclid) as soon as we
+  // land, then load the business's own Meta Pixel, only on its events.
+  useEffect(() => { captureMetaClick(); }, [id]);
   useEffect(() => {
     if (!event?.meta_pixel_id) return;
     loadPixel(event.meta_pixel_id);
