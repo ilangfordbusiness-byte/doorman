@@ -1,15 +1,19 @@
 import { useState, useEffect } from "react";
 import { api } from "@/api/data";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { Users, Lock } from "lucide-react";
+import { Users, Lock, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AttendeeList from "./AttendeeList";
 import AttendeesModal from "./AttendeesModal";
+import AttendeeSearchInput from "./AttendeeSearchInput";
+import { useAllAttendees } from "@/hooks/useAllAttendees";
+import { filterAttendees } from "@/lib/attendeeSearch";
 
 const PREVIEW = 10;
 
 // Served by the get_event_attendees RPC (client RLS only exposes your own
-// entry). Shows a 10-person preview; "View all" opens the full list paged by 50.
+// entry). Shows a 10-person preview; "View all" opens the full list. Typing in
+// the search box loads the complete list once and filters it inline.
 export default function WhoIsGoing({ eventId, myEmail, visibility = "show_names", unlocked = false }) {
   const { data: me } = useCurrentUser();
   const [preview, setPreview] = useState([]);
@@ -18,6 +22,17 @@ export default function WhoIsGoing({ eventId, myEmail, visibility = "show_names"
   const [sentSet, setSentSet] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
+  const [query, setQuery] = useState("");
+
+  // The preview already holds everyone when the event is small; otherwise the
+  // first keystroke pulls the full list so search covers every attendee.
+  const searching = query.trim() !== "";
+  const needsFullList = goingCount > preview.length;
+  const full = useAllAttendees(eventId, goingCount, searching && needsFullList);
+  const searchLoading = searching && needsFullList && full.loading;
+  const matches = searching ? filterAttendees(needsFullList ? full.attendees : preview, query) : preview;
+  const shown = matches.slice(0, PREVIEW);
+  const hiddenCount = searching ? matches.length - shown.length : goingCount - preview.length;
 
   useEffect(() => {
     (async () => {
@@ -97,11 +112,19 @@ export default function WhoIsGoing({ eventId, myEmail, visibility = "show_names"
         <h3 className="font-heading font-semibold text-sm">Who's Going ({goingCount})</h3>
       </div>
 
-      <AttendeeList attendees={preview} myEmail={myEmail} friends={friends} sentSet={sentSet} onSend={sendRequest} />
+      <AttendeeSearchInput value={query} onChange={setQuery} className="mb-3" />
 
-      {goingCount > preview.length && (
+      {searchLoading ? (
+        <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 text-muted-foreground animate-spin" /></div>
+      ) : shown.length === 0 ? (
+        <p className="text-xs text-muted-foreground text-center py-6">No one going matches "{query.trim()}".</p>
+      ) : (
+        <AttendeeList attendees={shown} myEmail={myEmail} friends={friends} sentSet={sentSet} onSend={sendRequest} />
+      )}
+
+      {!searchLoading && hiddenCount > 0 && (
         <Button variant="outline" className="w-full rounded-xl mt-3 text-sm" onClick={() => setShowAll(true)}>
-          View all {goingCount} going
+          {searching ? `View all ${matches.length} matches` : `View all ${goingCount} going`}
         </Button>
       )}
 
@@ -113,6 +136,7 @@ export default function WhoIsGoing({ eventId, myEmail, visibility = "show_names"
           sentSet={sentSet}
           onSend={sendRequest}
           goingCount={goingCount}
+          initialQuery={query}
           onClose={() => setShowAll(false)}
         />
       )}
