@@ -14,6 +14,7 @@ import { getStoredRef, captureRef, getLinkDomain, getPromoterByCode, computeProm
 import { bookingFee } from "@/lib/fees";
 import CheckoutSuccess from "@/components/checkout/CheckoutSuccess";
 import CheckoutCancelled from "@/components/checkout/CheckoutCancelled";
+import { loadPixel, trackPixel, metaMatchKeys } from "@/lib/metaPixel";
 
 // Standalone checkout page at /event/:id/checkout (and /checkout/:id).
 // Guests must be logged into a DoorMan account before buying — if not, they're
@@ -63,6 +64,11 @@ export default function TicketCheckout() {
   useEffect(() => {
     if (authed) load();
   }, [authed]);
+
+  // Organiser ad tracking: the business's own Meta Pixel on its checkout.
+  useEffect(() => {
+    if (event?.meta_pixel_id && !payment) loadPixel(event.meta_pixel_id);
+  }, [event?.meta_pixel_id]);
 
   async function load() {
     try {
@@ -115,12 +121,21 @@ export default function TicketCheckout() {
       const promoterCode = getStoredRef(id);
       const base = `${getLinkDomain()}/event/${id}/checkout`;
       const refPart = promoterCode ? `&ref=${promoterCode}` : "";
+      if (event.meta_pixel_id) {
+        trackPixel(event.meta_pixel_id, "InitiateCheckout", {
+          value: totalDue, currency: cur.toUpperCase(),
+          content_ids: [tier.id], content_type: "product", num_items: 1,
+        });
+      }
       const res = await api.functions.invoke("createTicketCheckout", {
         tier_id: tier.id,
         promo_code: promo ? promoInput.trim() : null,
         promoter_code: promoterCode || null,
         success_url: `${base}?payment=success${refPart}`,
         cancel_url: `${base}?payment=cancelled${refPart}`,
+        // Browser match keys for the server-side Purchase (ignored unless the
+        // event's business has Meta tracking configured).
+        tracking: event.meta_pixel_id ? metaMatchKeys() : null,
       });
       if (res.data?.url) window.location.href = res.data.url;
       else throw new Error(res.data?.error || "Failed to start checkout");

@@ -69,7 +69,8 @@ with it.
 - **Never trust the client.** Anything a user must not do is enforced by RLS,
   column grants, or a validating function — never only by UI state.
 - **Secret columns stay unreadable**: `qr_secret`, `invite_code`, `staff_code`,
-  `host_notes`, `stripe_account_id`, promoter counters (write). Access goes
+  `host_notes`, `stripe_account_id`, `meta_capi_token` (write-only: managers set
+  it, never read it back), promoter counters (write). Access goes
   through validating RPCs (`get_event_private`, `my_qr_payload`, …).
 - Because of column grants, **`select('*')` fails on protected tables** — use
   explicit column lists (the compat layer's entity definitions already do).

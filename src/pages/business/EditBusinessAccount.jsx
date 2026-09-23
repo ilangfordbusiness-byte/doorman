@@ -11,6 +11,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import Avatar from "@/components/Avatar";
 import ProfilePictureEditor from "@/components/ProfilePictureEditor";
 import BusinessTeamSection from "@/components/BusinessTeamSection";
+import MetaTrackingSection from "@/components/business/MetaTrackingSection";
 import { ArrowLeft, Camera, Loader2 } from "lucide-react";
 
 // Edits an existing BusinessAccount's name, email, and picture (square crop
@@ -137,6 +138,10 @@ export default function EditBusinessAccount() {
 
       <div className="bg-card rounded-2xl border border-border p-6 mt-4">
         <BusinessTeamSection businessId={id} />
+      </div>
+
+      <div className="bg-card rounded-2xl border border-border p-6 mt-4">
+        <MetaTrackingSection businessId={id} />
       </div>
 
       <p className="text-xs text-muted-foreground mt-4 text-center">
