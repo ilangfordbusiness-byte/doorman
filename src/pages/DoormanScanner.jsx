@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/data";
 import jsQR from "jsqr";
-import { ArrowLeft, Search, CheckCircle2, XCircle, RotateCcw, Ticket } from "lucide-react";
+import { ArrowLeft, Search, CheckCircle2, XCircle, RotateCcw, Ticket, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import TicketSalesQR from "@/components/TicketSalesQR";
@@ -175,14 +175,24 @@ export default function DoormanScanner() {
         </Button>
         <h1 className="font-heading font-bold text-lg">Door Scanner</h1>
         {event && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="ml-auto text-amber-400 hover:bg-amber-500/10 hover:text-amber-400"
-            onClick={() => setShowSell(true)}
-          >
-            <Ticket className="w-4 h-4" /> Sell
-          </Button>
+          <div className="ml-auto flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-400"
+              onClick={() => navigate(`/event/${event.id}/door`)}
+            >
+              <ClipboardList className="w-4 h-4" /> List
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-amber-400 hover:bg-amber-500/10 hover:text-amber-400"
+              onClick={() => setShowSell(true)}
+            >
+              <Ticket className="w-4 h-4" /> Sell
+            </Button>
+          </div>
         )}
       </div>
 

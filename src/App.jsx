@@ -22,6 +22,7 @@ const Home = lazy(() => import('./pages/Home'));
 const CreateEvent = lazy(() => import('./pages/CreateEvent'));
 const EventDetails = lazy(() => import('./pages/EventDetails'));
 const GuestlistManagement = lazy(() => import('./pages/GuestlistManagement'));
+const DoorList = lazy(() => import('./pages/DoorList'));
 const GuestPass = lazy(() => import('./pages/GuestPass'));
 const DoormanScanner = lazy(() => import('./pages/DoormanScanner'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
@@ -98,6 +99,7 @@ const AuthenticatedApp = () => {
         <Route path="/create-event" element={<CreateEvent />} />
         <Route path="/event/:id" element={<EventDetails />} />
         <Route path="/event/:id/guestlist" element={<GuestlistManagement />} />
+        <Route path="/event/:id/door" element={<DoorList />} />
         <Route path="/event/:id/edit" element={<EditEvent />} />
         <Route path="/event/:id/checkout" element={<TicketCheckout />} />
         <Route path="/event/:id/analytics" element={<EventAnalytics />} />
