@@ -81,6 +81,21 @@ export default function GuestlistManagement() {
     loadData();
   }
 
+  // Check a guest in (or undo) by name via the atomic, authorized validateQR path.
+  async function checkIn(guest, undo = false) {
+    try {
+      const { data } = await api.functions.invoke("validateQR", {
+        guestlist_entry_id: guest.id,
+        action: undo ? "uncheck" : "check_in",
+      });
+      if (data?.valid === false && !data?.already_used) throw new Error(data.error || "Check-in failed");
+      toast({ title: undo ? "Check-in undone" : data?.already_used ? "Already checked in" : "Checked in" });
+    } catch (e) {
+      toast({ title: e?.message || "Check-in failed", variant: "destructive" });
+    }
+    loadData();
+  }
+
   async function addFriendToGuestlist(friend) {
     const existing = guests.find((g) => g.guest_email === friend.email);
     if (existing) {
@@ -295,6 +310,7 @@ export default function GuestlistManagement() {
                 guest={g}
                 picture={profiles?.[g.guest_email?.toLowerCase()]?.picture}
                 onViewProfile={setViewProfile}
+                onCheckIn={(g) => checkIn(g)}
                 onDeny={(g) => updateStatus(g, "revoked")}
                 showActions={true}
               />
@@ -308,7 +324,7 @@ export default function GuestlistManagement() {
           ) : (
             checkedIn.map((g) => (
               <GuestCard key={g.id} guest={g} picture={profiles?.[g.guest_email?.toLowerCase()]?.picture}
-                onViewProfile={setViewProfile} showActions={true} />
+                onViewProfile={setViewProfile} onUncheck={(g) => checkIn(g, true)} showActions={true} />
             ))
           )}
         </TabsContent>

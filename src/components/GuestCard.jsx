@@ -1,13 +1,15 @@
-import { Check, X, Clock, UserPlus } from "lucide-react";
+import { Check, X, Clock, UserPlus, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import StatusBadge from "./StatusBadge";
 import Avatar from "./Avatar";
 import { formatPhoneDisplay } from "@/lib/phone";
 
-export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, showActions = true, picture, onViewProfile }) {
+export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, onCheckIn, onUncheck, showActions = true, picture, onViewProfile }) {
   const canApprove = ["requested", "waitlist", "denied"].includes(guest.status);
   const canDeny = ["requested", "waitlist", "approved", "invited"].includes(guest.status);
   const canWaitlist = ["requested"].includes(guest.status);
+  const canCheckIn = onCheckIn && ["approved", "invited"].includes(guest.status);
+  const canUncheck = onUncheck && guest.status === "checked_in";
 
   return (
     <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/50 border border-border/50">
@@ -40,6 +42,25 @@ export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, showAc
         <StatusBadge status={guest.status} />
         {showActions && (
           <div className="flex gap-1">
+            {canCheckIn && (
+              <Button
+                size="sm"
+                className="h-11 rounded-lg gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
+                onClick={(e) => { e.stopPropagation(); onCheckIn(guest); }}
+              >
+                <Check className="w-4 h-4" /> Check in
+              </Button>
+            )}
+            {canUncheck && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-11 rounded-lg gap-1.5 text-muted-foreground hover:text-foreground"
+                onClick={(e) => { e.stopPropagation(); onUncheck(guest); }}
+              >
+                <RotateCcw className="w-4 h-4" /> Undo
+              </Button>
+            )}
             {canApprove && (
               <Button
                 size="icon"

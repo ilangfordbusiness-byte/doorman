@@ -19,7 +19,7 @@ import { tierSoldOut } from "@/lib/tiers";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   ArrowLeft, Calendar, Clock, MapPin, Shirt, Users, Share2,
-  QrCode, Edit, Check, Plus, X, BarChart3, Megaphone, Instagram
+  QrCode, Edit, Check, Plus, X, BarChart3, Megaphone, Instagram, ClipboardList
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -411,6 +411,11 @@ export default function EventDetails() {
               <Link to={`/event/${id}/guestlist`} className="flex-1">
                 <Button variant="outline" className="w-full h-12 rounded-xl gap-2 font-semibold">
                   <Users className="w-4 h-4" /> Guestlist
+                </Button>
+              </Link>
+              <Link to={`/event/${id}/door`} className="flex-1">
+                <Button variant="outline" className="w-full h-12 rounded-xl gap-2 font-semibold">
+                  <ClipboardList className="w-4 h-4" /> Door
                 </Button>
               </Link>
               <Button variant="outline" className="h-12 rounded-xl gap-2 font-semibold" onClick={handleShare}>
