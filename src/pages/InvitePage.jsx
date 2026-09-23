@@ -146,7 +146,7 @@ export default function InvitePage() {
       </div>
 
       {event.description && (
-        <p className="text-sm text-foreground/80 leading-relaxed mb-6">{event.description}</p>
+        <p className="text-sm text-foreground/80 leading-relaxed mb-6 whitespace-pre-line">{event.description}</p>
       )}
 
       {/* Action */}
