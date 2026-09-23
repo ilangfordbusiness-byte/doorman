@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "@/api/data";
-import { X, Instagram, Ghost, UserPlus, PartyPopper } from "lucide-react";
+import { X, Instagram, Ghost, MapPin, UserPlus, PartyPopper } from "lucide-react";
 import { Link } from "react-router-dom";
 import LoadingSpinner from "./LoadingSpinner";
 import Avatar from "./Avatar";
@@ -17,19 +17,21 @@ export default function SuggestionProfile({ user, myEmail, myFriends, sent, onSe
   const [mutualFriends, setMutualFriends] = useState([]);
   const [instagram, setInstagram] = useState(user.instagram || null);
   const [snapchat, setSnapchat] = useState(user.snapchat || null);
+  const [location, setLocation] = useState(user.location || null);
 
   useEffect(() => { load(); }, [user.email]);
 
   async function load() {
     setLoading(true);
     try {
-      // Backfill instagram / snapchat when the caller didn't supply them (a
-      // friend request row has no socials, unlike a suggestion).
-      if (!user.instagram || !user.snapchat) {
+      // Backfill instagram / snapchat / location when the caller didn't supply
+      // them (a friend request row has no socials, unlike a suggestion).
+      if (!user.instagram || !user.snapchat || !user.location) {
         api.auth.getProfile(user.email)
           .then((p) => {
             if (p?.instagram) setInstagram((v) => v || p.instagram);
             if (p?.snapchat) setSnapchat((v) => v || p.snapchat);
+            if (p?.location) setLocation((v) => v || p.location);
           })
           .catch(() => {});
       }
@@ -111,6 +113,11 @@ export default function SuggestionProfile({ user, myEmail, myFriends, sent, onSe
                     >
                       <Ghost className="w-3.5 h-3.5" />@{snapchat}
                     </a>
+                  )}
+                  {location && (
+                    <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <MapPin className="w-3.5 h-3.5" />{location}
+                    </span>
                   )}
                 </div>
               </div>

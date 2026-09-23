@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { api } from "@/api/data";
-import { LogOut, User, Calendar, Camera, ArrowLeft, Pencil, Check, X, Shield, Trash2, AtSign, Ghost, Mic2, ChevronRight, Building2, ArrowLeftRight } from "lucide-react";
+import { LogOut, User, Calendar, Camera, ArrowLeft, Pencil, Check, X, Shield, Trash2, AtSign, Ghost, Mic2, ChevronRight, Building2, ArrowLeftRight, MapPin } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import HomeButton from "@/components/HomeButton";
@@ -32,7 +32,7 @@ export default function Profile() {
   const [stats, setStats] = useState({ hosted: 0, attended: 0 });
   const [loading, setLoading] = useState(true);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [editing, setEditing] = useState(null); // "name" | "phone" | "instagram"
+  const [editing, setEditing] = useState(null); // "name" | "phone" | "instagram" | "snapchat" | "location"
   const [editValue, setEditValue] = useState("");
   const [saving, setSaving] = useState(false);
   const [adminTapCount, setAdminTapCount] = useState(0);
@@ -106,15 +106,23 @@ export default function Profile() {
 
   function startEdit(field) {
     setEditing(field);
-    setEditValue(field === "name" ? user?.full_name || "" : field === "phone" ? user?.phone || "" : field === "snapchat" ? user?.snapchat || "" : user?.instagram || "");
+    setEditValue(
+      field === "name" ? user?.full_name || ""
+        : field === "phone" ? user?.phone || ""
+        : field === "snapchat" ? user?.snapchat || ""
+        : field === "location" ? user?.location || ""
+        : user?.instagram || "",
+    );
   }
 
   async function saveEdit() {
-    if (!editValue.trim()) return;
+    // Location is the one optional field that can be cleared again.
+    if (!editValue.trim() && editing !== "location") return;
     setSaving(true);
     const update = editing === "name" ? { full_name: editValue.trim() }
       : editing === "phone" ? { phone: normalizePhone(editValue) }
       : editing === "snapchat" ? { snapchat: editValue.trim().replace(/^@/, "") }
+      : editing === "location" ? { location: editValue.trim() || null }
       : { instagram: editValue.trim().replace(/^@/, "") };
     await api.auth.updateMe(update);
     setUser((prev) => ({ ...prev, ...update }));
@@ -430,6 +438,42 @@ export default function Profile() {
           </div>
           {editing !== "snapchat" && (
             <button onClick={() => startEdit("snapchat")} className="text-muted-foreground hover:text-foreground">
+              <Pencil className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Location */}
+        <div className="flex items-center gap-3 px-4 py-3.5 border-t border-border/50">
+          <MapPin className="w-5 h-5 text-muted-foreground" />
+          <div className="flex-1">
+            <p className="text-xs text-muted-foreground mb-0.5">Location</p>
+            {editing === "location" ? (
+              <div className="flex items-center gap-2">
+                <input
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  placeholder="City, Country"
+                  maxLength={100}
+                  className="flex h-8 flex-1 rounded-lg border border-border bg-secondary/50 px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  autoFocus
+                  onKeyDown={(e) => e.key === "Enter" && saveEdit()}
+                />
+                <button onClick={saveEdit} disabled={saving} className="text-emerald-400 hover:text-emerald-300">
+                  <Check className="w-4 h-4" />
+                </button>
+                <button onClick={() => setEditing(null)} className="text-muted-foreground hover:text-foreground">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <p className="text-sm font-medium">
+                {user?.location || <span className="text-muted-foreground">Add location</span>}
+              </p>
+            )}
+          </div>
+          {editing !== "location" && (
+            <button onClick={() => startEdit("location")} className="text-muted-foreground hover:text-foreground">
               <Pencil className="w-4 h-4" />
             </button>
           )}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "@/api/data";
-import { X, Instagram, Ghost, PartyPopper } from "lucide-react";
+import { X, Instagram, Ghost, MapPin, PartyPopper } from "lucide-react";
 import { Link } from "react-router-dom";
 import LoadingSpinner from "./LoadingSpinner";
 import UserAvatar from "./UserAvatar";
@@ -35,11 +35,12 @@ export default function FriendProfile({ friend, myEmail, myFriends, onClose }) {
         api.auth.getProfile(friend.email),
       ]);
 
-      if (friendProfile?.instagram || friendProfile?.snapchat) {
+      if (friendProfile?.instagram || friendProfile?.snapchat || friendProfile?.location) {
         setProfile((p) => ({
           ...p,
           instagram: friendProfile.instagram ?? p.instagram,
           snapchat: friendProfile.snapchat ?? p.snapchat,
+          location: friendProfile.location ?? p.location,
         }));
       }
 
@@ -134,6 +135,12 @@ export default function FriendProfile({ friend, myEmail, myFriends, onClose }) {
                       <Ghost className="w-3.5 h-3.5" />
                       @{profile.snapchat}
                     </a>
+                  )}
+                  {profile?.location && (
+                    <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <MapPin className="w-3.5 h-3.5" />
+                      {profile.location}
+                    </span>
                   )}
                 </div>
               </div>

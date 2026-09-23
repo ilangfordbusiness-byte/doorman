@@ -34,6 +34,7 @@ Deno.serve(async (req) => {
       phone: null,
       instagram: null,
       snapchat: null,
+      location: null,
       avatar_url: null,
     }).eq('id', user.id);
     if (error) return json({ error: error.message }, 400);
