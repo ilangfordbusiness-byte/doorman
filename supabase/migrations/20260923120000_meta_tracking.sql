@@ -58,4 +58,8 @@ create table if not exists public.ticket_order_tracking (
   created_at timestamptz not null default now()
 );
 alter table public.ticket_order_tracking enable row level security;
+-- Some Supabase images carry default privileges that grant new tables to
+-- anon/authenticated; revoke explicitly so clients get a permission error,
+-- not an empty (RLS-filtered) result, and rls_test behaves the same everywhere.
+revoke all on public.ticket_order_tracking from anon, authenticated;
 grant all on public.ticket_order_tracking to service_role;
