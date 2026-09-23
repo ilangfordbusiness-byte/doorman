@@ -3,6 +3,18 @@
 import { getCaller, json, preflight, serviceClient } from '../_shared/db.ts';
 import { PAYOUT_SETUP_ERROR, resolvePayoutAccount } from '../_shared/connect.ts';
 
+// Optional per-tier blurb shown to guests. Mirrors the database check
+// constraint so the host gets a friendly error instead of a constraint name.
+const DESCRIPTION_MAX = 280;
+function normalizeDescription(raw: unknown): { value: string | null; error?: string } {
+  const text = String(raw ?? '').trim();
+  if (!text) return { value: null };
+  if (text.length > DESCRIPTION_MAX) {
+    return { value: null, error: `Tier description must be ${DESCRIPTION_MAX} characters or fewer` };
+  }
+  return { value: text };
+}
+
 Deno.serve(async (req) => {
   const pre = preflight(req);
   if (pre) return pre;
@@ -38,9 +50,12 @@ Deno.serve(async (req) => {
       // share is auto-routed at purchase, so there is no platform-held path.
       const payout = await resolvePayoutAccount(svc, evt);
       if (!payout.active) return json({ error: PAYOUT_SETUP_ERROR }, 400);
+      const description = normalizeDescription(body.description);
+      if (description.error) return json({ error: description.error }, 400);
       const { data: tier, error } = await svc.from('ticket_tiers').insert({
         event_id: eventId,
         name,
+        description: description.value,
         price_minor: Math.round(Number(price) * 100),
         quantity: Math.round(Number(quantity)),
         sort_order: body.sort_order ?? 0,
@@ -52,7 +67,7 @@ Deno.serve(async (req) => {
 
     if (action === 'update_tier') {
       if (!body.id) return json({ error: 'Missing tier id' }, 400);
-      // Editable fields: the remaining-count display flag, and sales_status —
+      // Editable fields: name, description, the remaining-count display flag, and sales_status —
       // a host can manually end a tier ('closed') or reopen it ('open')
       // regardless of how many tickets are left. 'closed' (not 'sold_out') is
       // used for manual ends so a later refund doesn't auto-reopen it.
@@ -62,6 +77,12 @@ Deno.serve(async (req) => {
         const nm = String(body.name ?? '').trim();
         if (!nm) return json({ error: 'Tier name required' }, 400);
         patch.name = nm;
+      }
+      if ('description' in body) {
+        // Blank clears the description (it is optional).
+        const description = normalizeDescription(body.description);
+        if (description.error) return json({ error: description.error }, 400);
+        patch.description = description.value;
       }
       if ('hide_remaining' in body) patch.hide_remaining = !!body.hide_remaining;
       if ('sales_status' in body) {

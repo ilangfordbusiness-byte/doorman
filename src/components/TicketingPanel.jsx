@@ -18,10 +18,10 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
   const [tiers, setTiers] = useState([]);
   const [promos, setPromos] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [newTier, setNewTier] = useState({ name: "", price: "", quantity: "" });
+  const [newTier, setNewTier] = useState({ name: "", description: "", price: "", quantity: "" });
   const [newPromo, setNewPromo] = useState({ code: "", discount_percent: "", max_uses: "" });
-  const [renaming, setRenaming] = useState(null); // tier id being renamed
-  const [renameValue, setRenameValue] = useState("");
+  const [editing, setEditing] = useState(null); // tier id whose name/description is being edited
+  const [editValue, setEditValue] = useState({ name: "", description: "" });
 
   useEffect(() => { load(); }, [eventId]);
 
@@ -52,12 +52,13 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
         action: "create_tier",
         event_id: eventId,
         name: newTier.name,
+        description: newTier.description.trim() || null,
         price: Number(newTier.price),
         quantity: Number(newTier.quantity),
         sort_order: tiers.length,
       });
       if (res.data?.error) throw new Error(res.data.error);
-      setNewTier({ name: "", price: "", quantity: "" });
+      setNewTier({ name: "", description: "", price: "", quantity: "" });
       await load();
       toast({ title: "Tier added" });
     } catch (e) {
@@ -98,23 +99,33 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
     }
   }
 
-  async function saveRename(t) {
-    const name = renameValue.trim();
-    setRenaming(null);
-    if (!name || name === t.name) return;
+  function startEdit(t) {
+    setEditing(t.id);
+    setEditValue({ name: t.name, description: t.description || "" });
+  }
+
+  async function saveEdit(t) {
+    const name = editValue.name.trim();
+    const description = editValue.description.trim();
+    setEditing(null);
+    if (!name) return;
+    const patch = {};
+    if (name !== t.name) patch.name = name;
+    if (description !== (t.description || "")) patch.description = description || null;
+    if (Object.keys(patch).length === 0) return;
     try {
       const res = await api.functions.invoke("manageTicketCatalog", {
         action: "update_tier",
         event_id: eventId,
         id: t.id,
-        name,
+        ...patch,
       });
       if (res.data?.error) throw new Error(res.data.error);
       await load();
-      toast({ title: "Tier renamed" });
+      toast({ title: "Tier updated" });
     } catch (e) {
-      console.error("TicketTier rename failed:", e);
-      toast({ title: "Couldn't rename tier", description: e?.message || "Only the event host can edit tiers.", variant: "destructive" });
+      console.error("TicketTier update failed:", e);
+      toast({ title: "Couldn't update tier", description: e?.message || "Only the event host can edit tiers.", variant: "destructive" });
     }
   }
 
@@ -180,22 +191,31 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
           return (
           <div key={t.id} className="bg-secondary/40 rounded-xl p-3 border border-border/50 flex items-center gap-3">
             <div className="flex-1 min-w-0">
-              {renaming === t.id ? (
-                <div className="flex items-center gap-1.5 mb-1">
-                  <Input autoFocus value={renameValue} onChange={(e) => setRenameValue(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") saveRename(t); if (e.key === "Escape") setRenaming(null); }}
-                    className="h-8 text-sm" />
-                  <button onClick={() => saveRename(t)} className="text-emerald-400 hover:text-emerald-300 shrink-0"><Check className="w-4 h-4" /></button>
-                  <button onClick={() => setRenaming(null)} className="text-muted-foreground hover:text-foreground shrink-0"><X className="w-4 h-4" /></button>
+              {editing === t.id ? (
+                <div className="space-y-1.5 mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <Input autoFocus value={editValue.name} onChange={(e) => setEditValue((s) => ({ ...s, name: e.target.value }))}
+                      onKeyDown={(e) => { if (e.key === "Enter") saveEdit(t); if (e.key === "Escape") setEditing(null); }}
+                      placeholder="Tier name" className="h-8 text-sm" />
+                    <button onClick={() => saveEdit(t)} className="text-emerald-400 hover:text-emerald-300 shrink-0" aria-label="Save tier"><Check className="w-4 h-4" /></button>
+                    <button onClick={() => setEditing(null)} className="text-muted-foreground hover:text-foreground shrink-0" aria-label="Cancel"><X className="w-4 h-4" /></button>
+                  </div>
+                  <textarea value={editValue.description} onChange={(e) => setEditValue((s) => ({ ...s, description: e.target.value }))}
+                    onKeyDown={(e) => { if (e.key === "Escape") setEditing(null); }}
+                    placeholder="Description (optional) — e.g. Includes a welcome drink" maxLength={280} rows={2}
+                    className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:text-sm resize-none" />
                 </div>
               ) : (
-                <p className="text-sm font-medium flex items-center gap-1.5">
-                  <span className="truncate">{t.name}</span>
-                  <button onClick={() => { setRenaming(t.id); setRenameValue(t.name); }}
-                    className="text-muted-foreground hover:text-foreground shrink-0" aria-label="Rename tier">
-                    <Pencil className="w-3.5 h-3.5" />
-                  </button>
-                </p>
+                <>
+                  <p className="text-sm font-medium flex items-center gap-1.5">
+                    <span className="truncate">{t.name}</span>
+                    <button onClick={() => startEdit(t)}
+                      className="text-muted-foreground hover:text-foreground shrink-0" aria-label="Edit tier">
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  </p>
+                  {t.description && <p className="text-xs text-muted-foreground whitespace-pre-line break-words">{t.description}</p>}
+                </>
               )}
               <p className="text-xs text-muted-foreground">
                 {sym}{Number(t.price).toFixed(2)}
@@ -234,6 +254,9 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
             <Input type="number" placeholder="Price" value={newTier.price} onChange={(e) => setNewTier((s) => ({ ...s, price: e.target.value }))} className="h-10" />
             <Input type="number" placeholder="Qty" value={newTier.quantity} onChange={(e) => setNewTier((s) => ({ ...s, quantity: e.target.value }))} className="h-10" />
           </div>
+          <textarea placeholder="Description (optional) — e.g. Includes a welcome drink" value={newTier.description}
+            onChange={(e) => setNewTier((s) => ({ ...s, description: e.target.value }))} maxLength={280} rows={2}
+            className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:text-sm resize-none" />
           <Button className="w-full h-10 rounded-xl" onClick={addTier} disabled={!newTier.name || newTier.price === "" || newTier.quantity === ""}>
             <Plus className="w-4 h-4" /> Add Tier
           </Button>

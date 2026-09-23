@@ -478,6 +478,21 @@ begin
     perform pg_temp.ok('sold + reserved <= quantity is enforced by the database');
   end;
 
+  -- ---- optional tier description ----
+  begin
+    update public.ticket_tiers set description = repeat('x', 281) where id = v_id;
+    raise exception 'FAIL: over-long tier description accepted' using errcode = 'assert_failure';
+  exception when check_violation then
+    perform pg_temp.ok('tier descriptions are capped at 280 characters by the database');
+  end;
+  update public.ticket_tiers set description = 'Includes a welcome drink' where id = v_id;
+  perform pg_temp.impersonate(bob, 'bob@test.dev');
+  if (select description from public.ticket_tiers where id = v_id) is distinct from 'Includes a welcome drink' then
+    raise exception 'FAIL: guest cannot read the tier description' using errcode = 'assert_failure';
+  end if;
+  execute 'reset role';
+  perform pg_temp.ok('guests can read tier descriptions');
+
   execute 'reset role';
   raise notice '';
   raise notice 'ALL % CHECKS PASSED', currval('pg_temp.t_pass');
