@@ -5,6 +5,7 @@ import { api } from "@/api/data";
 import { Ticket, QrCode, CheckCircle2, Megaphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { trackPixel } from "@/lib/metaPixel";
 
 // Confirmation screen shown after a successful Stripe Checkout redirect.
 // Polls for the paid order (webhook may still be processing) then shows the
@@ -35,6 +36,17 @@ export default function CheckoutSuccess({ eventId }) {
         const paid = orders.sort((a, b) => new Date(b.created_date) - new Date(a.created_date))[0];
         if (paid) {
           if (active) { setOrder(paid); setPolling(false); }
+          // Browser-side Purchase for the organiser's pixel; eventID = order id
+          // matches the server-side Conversions API event so Meta dedups.
+          const pixel = evts[0]?.meta_pixel_id;
+          if (pixel) {
+            trackPixel(pixel, "Purchase", {
+              value: Number(paid.paid_amount || 0),
+              currency: String(paid.currency || evts[0]?.currency || "gbp").toUpperCase(),
+              content_ids: [paid.tier_id], content_type: "product",
+              num_items: paid.quantity || 1,
+            }, paid.id);
+          }
           if (paid.promoter_id) {
             const p = await api.entities.Promoter.filter({ id: paid.promoter_id }).catch(() => []);
             if (active) setPromoter(p[0] || null);

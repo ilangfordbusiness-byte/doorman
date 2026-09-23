@@ -160,13 +160,18 @@ const ENTITIES = {
       if (bizIds.length) {
         const { data: bz } = await supabase
           .from("business_public")
-          .select("id, business_name, business_picture_url")
+          .select("id, business_name, business_picture_url, meta_pixel_id")
           .in("id", bizIds);
         const m = new Map((bz ?? []).map((b) => [b.id, b]));
         rows = rows.map((r) => {
           const b = r.business_id && m.get(r.business_id);
           return b
-            ? { ...r, host_name: b.business_name, host_picture: b.business_picture_url || "", host_is_business: true }
+            ? {
+              ...r, host_name: b.business_name, host_picture: b.business_picture_url || "",
+              host_is_business: true,
+              // The business's Meta Pixel, loaded on this event's pages (src/lib/metaPixel.js).
+              meta_pixel_id: b.meta_pixel_id || null,
+            }
             : r;
         });
       }
@@ -490,7 +495,12 @@ const ENTITIES = {
 
   BusinessAccount: {
     table: "business_accounts",
-    select: `*, owner:profiles!business_accounts_owner_id_fkey(email)`,
+    // Explicit columns: meta_capi_token is write-only for clients (column grant).
+    select: `id, owner_id, business_email, business_name, business_picture_url,
+      stripe_mode, stripe_account_id, stripe_onboarding_status,
+      stripe_account_country, stripe_default_currency, description, instagram,
+      meta_pixel_id, meta_test_event_code, meta_capi_token_set, created_at, updated_at,
+      owner:profiles!business_accounts_owner_id_fkey(email)`,
     toApp: (r) => ({
       ...base(r),
       owner_email: r.owner?.email ?? null,
@@ -502,6 +512,11 @@ const ENTITIES = {
       stripe_mode: r.stripe_mode,
       stripe_account_id: r.stripe_account_id,
       stripe_onboarding_status: r.stripe_onboarding_status,
+      // Meta ads tracking (organiser's own pixel). The token never comes back;
+      // only whether one is saved.
+      meta_pixel_id: r.meta_pixel_id ?? null,
+      meta_test_event_code: r.meta_test_event_code ?? null,
+      meta_capi_token_set: !!r.meta_capi_token_set,
     }),
     async fromApp(obj, isCreate) {
       const out = {};
@@ -509,6 +524,10 @@ const ENTITIES = {
         if (k in obj) out[k] = obj[k];
       }
       if ("business_picture" in obj) out.business_picture_url = obj.business_picture;
+      // Empty strings clear the Meta fields (null), so "remove token" works.
+      for (const k of ["meta_pixel_id", "meta_capi_token", "meta_test_event_code"]) {
+        if (k in obj) out[k] = String(obj[k] ?? "").trim() || null;
+      }
       if (isCreate) out.owner_id = (await resolveUserId(obj.owner_email)) ?? (await uid());
       return out;
     },

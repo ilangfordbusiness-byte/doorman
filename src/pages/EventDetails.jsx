@@ -33,6 +33,7 @@ import CoHostsSection from "../components/CoHostsSection";
 import EventJoinActions from "../components/EventJoinActions";
 import moment from "moment";
 import { captureRef, getLinkDomain, discountLabel, promoterDiscountActive } from "@/lib/promoterRef";
+import { loadPixel, trackPixel } from "@/lib/metaPixel";
 
 async function loadEvent(id, me) {
   const events = await api.entities.Event.filter({ id });
@@ -127,6 +128,15 @@ export default function EventDetails() {
     }
     setAccepting(false);
   }
+
+  // Organiser ad tracking: the business's own Meta Pixel, only on its events.
+  useEffect(() => {
+    if (!event?.meta_pixel_id) return;
+    loadPixel(event.meta_pixel_id);
+    trackPixel(event.meta_pixel_id, "ViewContent", {
+      content_ids: [event.id], content_type: "product", content_name: event.title,
+    });
+  }, [event?.id, event?.meta_pixel_id]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);

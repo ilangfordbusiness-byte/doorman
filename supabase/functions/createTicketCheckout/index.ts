@@ -6,6 +6,7 @@ import {
   promoterDiscountAvailable,
 } from '../_shared/tickets.ts';
 import { PAYOUT_SETUP_ERROR, resolvePayoutAccount } from '../_shared/connect.ts';
+import { metaConfigForEvent } from '../_shared/meta.ts';
 
 function allowedOrigins(req: Request): string[] {
   const extra = (Deno.env.get('ALLOWED_ORIGINS') || '').split(',').map((s) => s.trim()).filter(Boolean);
@@ -23,8 +24,10 @@ Deno.serve(async (req) => {
     const user = await getCaller(req, svc);
     if (!user) return json({ error: 'Unauthorized' }, 401);
 
-    const { tier_id, promo_code, promoter_code, quantity = 1, success_url, cancel_url } =
-      await req.json();
+    const {
+      tier_id, promo_code, promoter_code, quantity = 1, success_url, cancel_url,
+      tracking = null,
+    } = await req.json();
     if (!tier_id) return json({ error: 'A ticket tier is required' }, 400);
     const qty = Math.max(1, Math.round(Number(quantity) || 1));
 
@@ -158,6 +161,30 @@ Deno.serve(async (req) => {
     }
     // From here on a failure cancels the order, which releases the hold.
     const abandon = () => svc.rpc('cancel_pending_ticket_order', { p_order: order.id });
+
+    // Organiser ad attribution: keep the browser match keys (Meta cookies,
+    // IP, user agent) for the server-side Purchase in ticketWebhook — only
+    // when the event's business actually has a Meta pixel + token set up, so
+    // nothing is collected for everyone else. Best effort.
+    try {
+      if (await metaConfigForEvent(svc, event)) {
+        const t = tracking && typeof tracking === 'object' ? tracking : {};
+        const str = (v: unknown, max: number) => (typeof v === 'string' && v ? v.slice(0, max) : null);
+        const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim()
+          || req.headers.get('cf-connecting-ip') || null;
+        const { error } = await svc.from('ticket_order_tracking').insert({
+          order_id: order.id,
+          fbp: str(t.fbp, 200),
+          fbc: str(t.fbc, 500),
+          client_ip: ip,
+          client_user_agent: str(req.headers.get('user-agent'), 500),
+          event_source_url: str(t.source_url, 500),
+        });
+        if (error) console.log('ticket_order_tracking insert error', error.message);
+      }
+    } catch (e) {
+      console.log('ticket_order_tracking error', e instanceof Error ? e.message : String(e));
+    }
 
     const stripeKey = Deno.env.get('STRIPE_TEST_SECRET_KEY') || Deno.env.get('STRIPE_SECRET_KEY');
     if (!stripeKey) { await abandon(); return json({ error: 'Stripe is not configured' }, 500); }

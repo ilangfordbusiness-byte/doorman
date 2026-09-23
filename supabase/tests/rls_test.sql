@@ -503,6 +503,55 @@ begin
   execute 'reset role';
   perform pg_temp.ok('guests can read tier descriptions');
 
+  -- ---- Meta ads tracking: pixel public, token write-only ----
+  perform pg_temp.impersonate(alice, 'alice@test.dev');
+  insert into public.business_accounts (owner_id, business_email, business_name)
+    values (alice, 'biz@test.dev', 'Alice Events Ltd') returning id into v_id;
+  update public.business_accounts
+    set meta_pixel_id = '123456789012345', meta_capi_token = 'EAAB-secret-token',
+        meta_test_event_code = 'TEST123'
+    where id = v_id;
+  if (select meta_capi_token_set from public.business_accounts where id = v_id) is not true then
+    raise exception 'FAIL: meta_capi_token_set flag not readable/true after saving a token';
+  end if;
+  perform pg_temp.ok('business manager can save Meta pixel + token');
+
+  begin
+    execute format('select meta_capi_token from public.business_accounts where id = %L', v_id);
+    raise exception 'FAIL: meta_capi_token readable by client' using errcode = 'assert_failure';
+  exception when insufficient_privilege then
+    perform pg_temp.ok('meta_capi_token hidden from clients (column grant)');
+  end;
+
+  begin
+    update public.business_accounts set meta_pixel_id = 'not-a-pixel' where id = v_id;
+    raise exception 'FAIL: malformed pixel id accepted' using errcode = 'assert_failure';
+  exception when check_violation then
+    perform pg_temp.ok('pixel id must be numeric');
+  end;
+
+  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  update public.business_accounts set meta_capi_token = 'hijack' where id = v_id;
+  execute 'reset role';
+  if (select meta_capi_token from public.business_accounts where id = v_id) <> 'EAAB-secret-token' then
+    raise exception 'FAIL: stranger overwrote the Meta token';
+  end if;
+  perform pg_temp.ok('stranger cannot change another business''s Meta settings');
+
+  perform pg_temp.go_anon();
+  if (select meta_pixel_id from public.business_public where id = v_id) <> '123456789012345' then
+    raise exception 'FAIL: pixel id not visible via business_public';
+  end if;
+  perform pg_temp.ok('pixel id is readable by anon via business_public');
+
+  perform pg_temp.impersonate(alice, 'alice@test.dev');
+  begin
+    perform * from public.ticket_order_tracking;
+    raise exception 'FAIL: ticket_order_tracking readable by client' using errcode = 'assert_failure';
+  exception when insufficient_privilege then
+    perform pg_temp.ok('ticket_order_tracking (browser match keys) is service-role only');
+  end;
+
   execute 'reset role';
   raise notice '';
   raise notice 'ALL % CHECKS PASSED', currval('pg_temp.t_pass');
