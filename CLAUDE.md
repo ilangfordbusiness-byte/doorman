@@ -50,12 +50,22 @@ src/
   components/        Feature components (EventCard, GuestCard, EventChat, ...)
     ui/              shadcn/ui primitives (generated; do not hand-edit casually)
     business/, checkout/, home/   Feature-grouped components
-  hooks/             React hooks (useCurrentUser, useNotifications, useStripeStatus, ...)
+  hooks/             React hooks (useCurrentUser, useNotifications, useStripeStatus,
+                     useDeepLinks for iOS URL handling, ...)
   lib/               AuthContext, fees, phone normalization, impersonation,
                      promoter ref capture, react-query client, cn() helper
+    native.js        THE Capacitor choke point: the only file importing @capacitor/*
+                     (isNative, in-app browser, deep-link listeners, Apple sign-in,
+                     splash/status bar). Every export is a no-op or web fallback.
+    appUrl.js        getLinkDomain/appBaseUrl/toAppPath: URLs that must never be
+                     capacitor://localhost (auth emails, Stripe returns, share links)
   utils/index.ts     createPageUrl helper
   App.jsx            Router, auth gate, lazy-loaded routes
   main.jsx           Entry point
+
+capacitor.config.ts  iOS shell config (bundle id com.thedoorman.app, webDir dist)
+ios/                 Generated Xcode project (SPM plugins). Commit it; build output,
+                     copied web assets and generated configs are gitignored.
 
 supabase/
   migrations/        Ordered SQL migrations: schema, RLS, RPCs, storage,
@@ -134,6 +144,10 @@ in Mailpit at http://127.0.0.1:54324.
 
 - **Pages never call Supabase directly.** Go through `api` from `src/api/data.js`.
   Do not import `supabase` from `client.js` outside `src/api` and `src/lib`.
+- **Pages never import `@capacitor/*` directly.** Go through `src/lib/native.js`,
+  which falls back to browser APIs on the web. Anything that leaves the app and
+  comes back (auth emails, Stripe, OAuth) builds its URL with `appBaseUrl()`
+  from `src/lib/appUrl.js`, never `window.location.origin`.
 - **Business logic goes in edge functions.** SQL functions only for hot
   aggregation reads, atomic counters, or tiny privileged lookups.
 - **Integrity lives in the database.** Constraints, unique indexes, RLS.
