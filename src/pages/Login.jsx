@@ -1,5 +1,8 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { api } from "@/api/data";
+import { isNative } from "@/lib/native";
+import { toAppPath } from "@/lib/appUrl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, Mail, ListChecks, QrCode, ScanLine, UserPlus } from "lucide-react";
@@ -7,13 +10,13 @@ import PhoneInput from "@/components/PhoneInput";
 
 // Where to land after signing in: redirectToLogin() stores the page the user
 // was heading for (e.g. a shared /pass or /event/...?ref= link) in
-// sessionStorage. Same-origin URLs only — anything else is ignored.
+// sessionStorage. In-app URLs only — anything else is ignored.
 function peekLoginNext() {
   try {
     const raw = sessionStorage.getItem("login_next");
     if (!raw) return null;
-    const url = new URL(raw, window.location.origin);
-    return url.origin === window.location.origin ? url.href : null;
+    const path = toAppPath(raw);
+    return path ? new URL(path, window.location.origin).href : null;
   } catch {
     return null;
   }
@@ -26,11 +29,9 @@ function takeLoginNext() {
 }
 
 // After an OAuth round-trip, a failure comes back in the redirect URL — in the
-// hash for the implicit flow, the query string for PKCE. Turn it into a
-// friendly message. Google sign-up is blocked at the database trigger, which
-// GoTrue reports generically as "Database error saving new user"; treat that as
-// "no account yet — sign up with email first". Also strips the error from the
-// URL so a refresh doesn't resurface it.
+// hash for the implicit flow, the query string for PKCE (the iOS app also
+// navigates here with ?error= when its callback fails). Turn it into a
+// friendly message and strip it from the URL so a refresh doesn't resurface it.
 function readOAuthError() {
   try {
     const hash = (window.location.hash || "").replace(/^#/, "");
@@ -40,9 +41,6 @@ function readOAuthError() {
     const desc = (params.get("error_description") || "").replace(/\+/g, " ");
     // Drop the error params (hash or query) so a refresh doesn't resurface it.
     window.history.replaceState(null, "", window.location.pathname);
-    if (/database error saving new user/i.test(desc)) {
-      return "There's no DoorMan account for that Google address yet. Create an account with email first — Google can only sign you in to an account you already have.";
-    }
     return desc || "Sign-in failed. Please try again.";
   } catch {
     return "";
@@ -63,13 +61,15 @@ export default function Login() {
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [instagram, setInstagram] = useState("");
+  const { search } = useLocation();
 
-  // Surface an OAuth failure carried back in the redirect URL (e.g. a new
-  // Google user rejected by the sign-up block) on the entry screen.
+  // Surface an OAuth failure carried back in the redirect URL on the entry
+  // screen. Keyed on the router search so an error the iOS app navigates in
+  // while this screen is already mounted shows too.
   useEffect(() => {
     const msg = readOAuthError();
     if (msg) setError(msg);
-  }, []);
+  }, [search]);
 
   async function withBusy(fn) {
     setBusy(true);
@@ -151,6 +151,18 @@ export default function Login() {
               </svg>
               Continue with Google
             </Button>
+            {isNative() && (
+              <Button
+                disabled={busy}
+                onClick={() => withBusy(() => api.auth.signInWithApple())}
+                className="w-full h-12 rounded-xl font-semibold gap-3 mt-3 bg-white text-black hover:bg-white/90"
+              >
+                <svg width="18" height="18" viewBox="0 0 814 1000" aria-hidden="true" fill="currentColor">
+                  <path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76.5 0-103.7 40.8-165.9 40.8s-105.6-57-155.5-127C46.7 790.7 0 663 0 541.8c0-194.4 126.4-297.5 250.8-297.5 66.1 0 121.2 43.4 162.7 43.4 39.5 0 101.1-46 176.3-46 28.5 0 130.9 2.6 198.3 99.2zm-234-181.5c31.1-36.9 53.1-88.1 53.1-139.3 0-7.1-.6-14.3-1.9-20.1-50.6 1.9-110.8 33.7-147.1 75.8-28.5 32.4-55.1 83.6-55.1 135.5 0 7.8 1.3 15.6 1.9 18.1 3.2.6 8.4 1.3 13.6 1.3 45.4 0 102.5-30.4 135.5-71.3z" />
+                </svg>
+                Continue with Apple
+              </Button>
+            )}
             <Button
               disabled={busy}
               onClick={() => go("signin")}

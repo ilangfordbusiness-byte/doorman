@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import moment from "moment";
 import { ArrowLeft, Share2, Check, Instagram, Pencil, Calendar } from "lucide-react";
 import { api } from "@/api/data";
+import { appBaseUrl } from "@/lib/appUrl";
 import Avatar from "@/components/Avatar";
 import EventCard from "@/components/EventCard";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -62,7 +63,7 @@ export default function PublicBusiness() {
   }, [id]);
 
   function handleShare() {
-    const url = `${window.location.origin}/b/${id}`;
+    const url = `${appBaseUrl()}/b/${id}`;
     navigator.clipboard.writeText(url);
     setCopied(true);
     toast({ title: "Link copied!" });

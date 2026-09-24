@@ -1,45 +1,19 @@
 import { api } from "@/api/data";
 
-const DOMAIN_KEY = "doorman_link_domain";
-
-// The canonical live domain for shareable links. All promoter tracking links,
-// event share links, ticket-sale QR codes, and checkout redirects use this so
-// they resolve to the real app regardless of where the code is running (preview
-// sandbox, staging, etc.). Hosts can still override it from the Promoter panel.
-const DEFAULT_LINK_DOMAIN = "https://thedoorman.app";
-
-export function getLinkDomain() {
-  try {
-    const stored = localStorage.getItem(DOMAIN_KEY);
-    if (stored) return stored;
-  } catch {}
-  return DEFAULT_LINK_DOMAIN;
-}
-
-export function setLinkDomain(raw) {
-  let v = String(raw || "").trim();
-  if (v && !/^https?:\/\//i.test(v)) v = `https://${v}`;
-  try {
-    if (!v) {
-      localStorage.removeItem(DOMAIN_KEY);
-      return DEFAULT_LINK_DOMAIN;
-    }
-    const origin = new URL(v).origin;
-    localStorage.setItem(DOMAIN_KEY, origin);
-    return origin;
-  } catch {
-    return DEFAULT_LINK_DOMAIN;
-  }
-}
+// The canonical share domain lives in appUrl.js (data.js needs it too and
+// cannot import this module, which imports data.js). Re-exported so existing
+// callers keep working.
+export { getLinkDomain, setLinkDomain } from "@/lib/appUrl";
 
 // Stash a ?ref= code from the URL before auth. The login screen renders at the
 // event URL, but EventDetails (and captureRef) only mount once signed in — so a
 // first-time visitor who signs up via email confirmation would otherwise lose
 // the attribution. The raw code is stored unvalidated; checkout re-validates it
-// server-side, so a bogus code just attributes nothing.
-export function stashRefFromUrl() {
+// server-side, so a bogus code just attributes nothing. Deep links into the
+// iOS app pass the incoming URL explicitly.
+export function stashRefFromUrl(href = window.location.href) {
   try {
-    const url = new URL(window.location.href);
+    const url = new URL(href, window.location.origin);
     const code = url.searchParams.get("ref");
     const m = url.pathname.match(/^\/event\/([0-9a-f-]{36})$/i);
     if (code && m) localStorage.setItem(`promoter_ref_${m[1]}`, code.trim());
