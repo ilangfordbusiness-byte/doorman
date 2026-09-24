@@ -1,6 +1,8 @@
 import { currencySymbol } from "@/lib/money";
 import { useState, useEffect } from "react";
 import { api } from "@/api/data";
+import { isNative, openInAppBrowser, onBrowserFinished } from "@/lib/native";
+import { getLinkDomain } from "@/lib/appUrl";
 import { CreditCard, Wallet, ExternalLink, CheckCircle2, AlertCircle, Loader2, UserPlus, User, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -10,6 +12,14 @@ import { CountryPicker } from "@/components/StripeConnectPanel";
 
 function inIframe() {
   try { return window.self !== window.top; } catch { return true; }
+}
+
+// iOS: Stripe's hosted pages open in a browser sheet that cannot return to the
+// app's own origin, so they come back via /native/return on the public site.
+function stripeReturnUrl() {
+  return isNative()
+    ? `${getLinkDomain()}/native/return?to=${encodeURIComponent("/business/create-event")}`
+    : undefined;
 }
 
 export default function BusinessStripePanel({ business }) {
@@ -40,6 +50,8 @@ export default function BusinessStripePanel({ business }) {
   }
 
   useEffect(() => { load(); }, [business?.id]);
+  // iOS: refresh the status once the Stripe sheet is dismissed.
+  useEffect(() => onBrowserFinished(() => load()), [business?.id]);
 
   async function switchMode(m) {
     setBusy(true);
@@ -61,8 +73,8 @@ export default function BusinessStripePanel({ business }) {
     }
     setBusy(true);
     try {
-      const res = await api.functions.invoke("stripeConnect", { action: "business_onboard", business_id: business.id, country: accountCountry });
-      if (res.data?.url) window.location.href = res.data.url;
+      const res = await api.functions.invoke("stripeConnect", { action: "business_onboard", return_url: stripeReturnUrl(), business_id: business.id, country: accountCountry });
+      if (res.data?.url) await openInAppBrowser(res.data.url);
       else if (res.data?.error) throw new Error(res.data.error);
     } catch (e) {
       toast({ title: "Couldn't start Stripe onboarding", description: e?.message, variant: "destructive" });
@@ -77,8 +89,8 @@ export default function BusinessStripePanel({ business }) {
     }
     setBusy(true);
     try {
-      const res = await api.functions.invoke("stripeConnect", { action: "business_dashboard_link", business_id: business.id });
-      if (res.data?.url) window.location.href = res.data.url;
+      const res = await api.functions.invoke("stripeConnect", { action: "business_dashboard_link", return_url: stripeReturnUrl(), business_id: business.id });
+      if (res.data?.url) await openInAppBrowser(res.data.url);
       else if (res.data?.error) throw new Error(res.data.error);
     } catch (e) {
       toast({ title: "Couldn't open Stripe dashboard", description: e?.message, variant: "destructive" });
@@ -147,7 +159,7 @@ export default function BusinessStripePanel({ business }) {
               {busy ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CreditCard className="w-4 h-4 mr-2" />}
               Connect existing account
             </Button>
-            <Button variant="outline" className="w-full rounded-xl gap-2" onClick={() => window.open("https://dashboard.stripe.com/register", "_blank", "noopener,noreferrer")}>
+            <Button variant="outline" className="w-full rounded-xl gap-2" onClick={() => openInAppBrowser("https://dashboard.stripe.com/register")}>
               <UserPlus className="w-4 h-4" /> Sign up to create one
             </Button>
           </div>
