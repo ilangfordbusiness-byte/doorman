@@ -15,6 +15,12 @@ import { stashRefFromUrl } from "@/lib/promoterRef";
 //   https://thedoorman.app/path      universal links (shared event/invite/pass
 //                                    links, auth emails, password reset)
 // Must be mounted inside the Router. No-op on the web.
+// The launch URL is remembered per WebView session: Capacitor reports the URL
+// that last opened the app even after the page reloads (logout, /auth/confirm's
+// location.replace), which would replay a one-time link — e.g. re-verify an
+// already consumed recovery token — on every boot.
+const HANDLED_KEY = "dm_handled_launch_url";
+
 export function useDeepLinks() {
   const navigate = useNavigate();
   const lastHandled = useRef(null);
@@ -22,9 +28,15 @@ export function useDeepLinks() {
   useEffect(() => {
     if (!isNative()) return;
 
-    async function handle(url) {
+    async function handle(url, { fromLaunch = false } = {}) {
       if (!url || url === lastHandled.current) return;
+      if (fromLaunch) {
+        try {
+          if (sessionStorage.getItem(HANDLED_KEY) === url) return;
+        } catch { /* storage unavailable */ }
+      }
       lastHandled.current = url;
+      try { sessionStorage.setItem(HANDLED_KEY, url); } catch { /* storage unavailable */ }
 
       if (url.startsWith(NATIVE_AUTH_CALLBACK)) {
         try {
@@ -56,7 +68,7 @@ export function useDeepLinks() {
       if (path) navigate(path);
     }
 
-    getLaunchUrl().then((u) => { if (u) handle(u); });
+    getLaunchUrl().then((u) => { if (u) handle(u, { fromLaunch: true }); });
     return onAppUrlOpen(handle);
   }, [navigate]);
 }
