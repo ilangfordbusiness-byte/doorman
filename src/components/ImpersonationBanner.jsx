@@ -11,7 +11,7 @@ export default function ImpersonationBanner() {
 
   return (
     <div
-      className="sticky top-0 z-50 flex items-center gap-3 px-4 py-2 bg-amber-500/15 border-b border-amber-500/30 backdrop-blur-xl"
+      className="native-no-top-inset sticky top-0 z-50 flex items-center gap-3 px-4 py-2 bg-amber-500/15 border-b border-amber-500/30 backdrop-blur-xl"
       style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top))" }}
     >
       <Eye className="w-4 h-4 text-amber-400 shrink-0" />

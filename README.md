@@ -36,5 +36,7 @@ Testing on a physical device against the local stack: the phone cannot reach
 to `thedoorman.app` open in the app once the site serves
 `public/.well-known/apple-app-site-association` (replace `TEAMID` with the
 Apple team id). Release builds: bump `MARKETING_VERSION` in Xcode, `npm run
-ios:sync`, Product → Archive.
+ios:sync`, Product → Archive. App icons and splash screens are generated from
+`assets/logo.png` with `npx @capacitor/assets generate --ios
+--iconBackgroundColor '#000000' --splashBackgroundColor '#000000'`.
 

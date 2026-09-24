@@ -6,6 +6,8 @@ import { StatusBar, Style } from "@capacitor/status-bar";
 import { SplashScreen } from "@capacitor/splash-screen";
 import { SignInWithApple } from "@capacitor-community/apple-sign-in";
 import { PushNotifications } from "@capacitor/push-notifications";
+import { Haptics, NotificationType } from "@capacitor/haptics";
+import { Share } from "@capacitor/share";
 
 // The one module that talks to Capacitor. Pages, hooks and the data layer
 // import from here and never from @capacitor/* directly — the same rule that
@@ -187,6 +189,37 @@ export function onPushReceived(cb) {
   if (!isNative()) return () => {};
   const handle = PushNotifications.addListener("pushNotificationReceived", (n) => cb(n));
   return () => { handle.then((h) => h.remove()); };
+}
+
+// --- Haptics / share ----------------------------------------------------------
+
+export async function hapticSuccess() {
+  if (!isNative()) { try { navigator.vibrate?.(30); } catch { /* unsupported */ } return; }
+  try { await Haptics.notification({ type: NotificationType.Success }); } catch { /* unsupported */ }
+}
+
+export async function hapticError() {
+  if (!isNative()) { try { navigator.vibrate?.([60, 40, 60]); } catch { /* unsupported */ } return; }
+  try { await Haptics.notification({ type: NotificationType.Error }); } catch { /* unsupported */ }
+}
+
+// Native share sheet; on the web the Web Share API, else copy to clipboard.
+// Resolves to 'shared' | 'copied' | 'failed'.
+export async function shareUrl({ title, text, url }) {
+  try {
+    if (isNative()) {
+      await Share.share({ title, text, url, dialogTitle: title });
+      return "shared";
+    }
+    if (navigator.share) {
+      await navigator.share({ title, text, url });
+      return "shared";
+    }
+    await navigator.clipboard.writeText(url);
+    return "copied";
+  } catch {
+    return "failed";
+  }
 }
 
 // --- Shell chrome -----------------------------------------------------------
