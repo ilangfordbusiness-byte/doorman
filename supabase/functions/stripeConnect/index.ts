@@ -3,6 +3,7 @@
 // replace the original app user object, balances are computed from *_minor columns.
 import { getCaller, json, preflight, serviceClient } from '../_shared/db.ts';
 import { toMajor } from '../_shared/tickets.ts';
+import { allowedOrigins, safeRedirect } from '../_shared/origins.ts';
 
 const STRIPE_VERSION = '2025-10-29.clover';
 
@@ -79,7 +80,13 @@ Deno.serve(async (req) => {
     if (!user) return json({ error: 'Unauthorized' }, 401);
     const body = await req.json().catch(() => ({}));
     const { action } = body;
-    const origin = req.headers.get('origin') || Deno.env.get('APP_ORIGIN') || 'https://thedoorman.app';
+    // Where Stripe sends the user back after onboarding/dashboard. Only
+    // allow-listed origins: a raw Origin header could be anything (and the
+    // iOS app's is capacitor://localhost, which Stripe rejects). The app
+    // passes an explicit https return_url on the public site instead.
+    const origins = allowedOrigins(req);
+    const origin = origins[0];
+    const explicitReturn = safeRedirect(origins, body.return_url, '');
 
     let accountId: string | null = user.stripe_account_id;
 
@@ -191,13 +198,14 @@ Deno.serve(async (req) => {
         console.error('acct fetch failed', e instanceof Error ? e.message : e);
       }
       const fullyEnabled = acctInfo && acctInfo.charges_enabled && acctInfo.payouts_enabled;
+      const returnUrl = explicitReturn || `${origin}${returnPath}`;
       try {
         const link = await stripeApi('/account_links', {
           method: 'POST',
           body: formEncode({
             account: acctId,
-            refresh_url: `${origin}${returnPath}`,
-            return_url: `${origin}${returnPath}`,
+            refresh_url: returnUrl,
+            return_url: returnUrl,
             type: dashboardIfEnabled && fullyEnabled ? 'account_dashboard' : 'account_onboarding',
           }),
         });
