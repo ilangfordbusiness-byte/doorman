@@ -27,6 +27,11 @@ Deno.serve(async (req) => {
     });
     if (authErr) return json({ error: authErr.message }, 400);
 
+    // Stop pushing to this person's phones. Profiles are anonymised, not
+    // deleted, so the FK cascade on push_devices never fires by itself.
+    const { error: pushErr } = await svc.from('push_devices').delete().eq('user_id', user.id);
+    if (pushErr) console.log('deleteAccount: push_devices cleanup failed', pushErr.message);
+
     // Scrub the profile: release the unique email and clear personal fields.
     const { error } = await svc.from('profiles').update({
       email: tombstone,
