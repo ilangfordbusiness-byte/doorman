@@ -6,6 +6,13 @@ import { ArrowLeft, Search, CheckCircle2, XCircle, RotateCcw, Ticket, ClipboardL
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import TicketSalesQR from "@/components/TicketSalesQR";
+import { hapticSuccess, hapticError } from "@/lib/native";
+
+// Decode every Nth frame: a full-frame getImageData + jsQR per animation frame
+// is the hottest thing on a phone at the door; every 2nd frame is still ~30 scans/s.
+const DECODE_EVERY = 2;
+// Camera diagnostics are for development only.
+const SHOW_DEBUG = import.meta.env.DEV;
 
 export default function DoormanScanner() {
   const navigate = useNavigate();
@@ -17,6 +24,8 @@ export default function DoormanScanner() {
   const [debugMsg, setDebugMsg] = useState("");
   const [event, setEvent] = useState(null);
   const [showSell, setShowSell] = useState(false);
+  // Bumped when the app returns to the foreground so the camera effect re-runs.
+  const [cameraEpoch, setCameraEpoch] = useState(0);
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -76,12 +85,14 @@ export default function DoormanScanner() {
         setCameraStatus("active");
         setDebugMsg(`Camera: ${video.videoWidth}x${video.videoHeight}`);
 
+        let frame = 0;
         function tick() {
           if (!active || processingRef.current) {
             rafRef.current = requestAnimationFrame(tick);
             return;
           }
-          if (video.readyState >= 2 && video.videoWidth > 0) {
+          frame += 1;
+          if (frame % DECODE_EVERY === 0 && video.readyState >= 2 && video.videoWidth > 0) {
             const canvas = canvasRef.current;
             if (canvas) {
               canvas.width = video.videoWidth;
@@ -111,11 +122,25 @@ export default function DoormanScanner() {
 
     init();
 
+    // iOS suspends the camera when the app is backgrounded (and the WebView
+    // fires visibilitychange). Release the track, then restart on return.
+    function onVisibility() {
+      if (document.visibilityState === "hidden") {
+        active = false;
+        stopEverything();
+      } else if (document.visibilityState === "visible" && !streamRef.current) {
+        setCameraStatus("starting");
+        setCameraEpoch((n) => n + 1);
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+
     return () => {
       active = false;
+      document.removeEventListener("visibilitychange", onVisibility);
       stopEverything();
     };
-  }, [mode]);
+  }, [mode, cameraEpoch]);
 
   async function handleScannedData(data) {
     if (processingRef.current) return;
@@ -128,9 +153,11 @@ export default function DoormanScanner() {
       const response = await api.functions.invoke("validateQR", { qr_data: data });
       setResult(response.data);
       setMode("result");
+      if (response.data?.valid) hapticSuccess(); else hapticError();
     } catch {
       setResult({ valid: false, error: "Failed to validate QR code" });
       setMode("result");
+      hapticError();
     }
     setProcessing(false);
     processingRef.current = false;
@@ -150,6 +177,7 @@ export default function DoormanScanner() {
         action: "check_in",
       });
       setResult(response.data);
+      if (response.data?.valid) hapticSuccess(); else hapticError();
     } catch {
       setResult({ valid: false, error: "Check-in failed" });
     }
@@ -232,7 +260,7 @@ export default function DoormanScanner() {
           </div>
 
           {/* Debug status */}
-          {debugMsg ? (
+          {SHOW_DEBUG && debugMsg ? (
             <p className="text-center text-[10px] text-zinc-600 mt-1 px-4 truncate">{debugMsg}</p>
           ) : (
             <p className="text-center text-[10px] text-zinc-600 mt-1">Initializing camera...</p>

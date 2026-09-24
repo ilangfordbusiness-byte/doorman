@@ -101,5 +101,30 @@
   button, a, [role="button"] {
     user-select: none;
     -webkit-user-select: none;
+    /* Taps fire immediately (no double-tap-to-zoom wait) on touch screens. */
+    touch-action: manipulation;
+  }
+
+  /* iOS app shell (html.native is set by initNativeShell). The WebView draws
+     under the status bar, so the document is padded by the top inset and an
+     opaque bar sits behind the clock so sticky headers and modals scroll under
+     it instead of colliding with it. Pages that already pad for the inset
+     (ImpersonationBanner) drop their own padding here to avoid doubling. */
+  html.native #root {
+    padding-top: env(safe-area-inset-top);
+  }
+  html.native body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: env(safe-area-inset-top);
+    background: #000;
+    z-index: 100;
+    pointer-events: none;
+  }
+  html.native .native-no-top-inset {
+    padding-top: 0.5rem !important;
   }
 }

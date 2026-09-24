@@ -2,6 +2,7 @@ import { timeSuffix } from "@/lib/eventTime";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/api/data";
+import { QRCodeSVG } from "qrcode.react";
 import { ArrowLeft, Shield, Send, ChevronLeft, ChevronRight, Clock as ClockIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import StatusBadge from "../components/StatusBadge";
@@ -223,12 +224,10 @@ export default function GuestPass() {
               <>
                 <div className="relative">
                   <div className="w-52 h-52 bg-white rounded-2xl p-3 flex items-center justify-center">
-                    <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}&bgcolor=FFFFFF&color=000000`}
-                      alt="QR Code"
-                      className="w-full h-full"
-                      key={qrData}
-                    />
+                    {/* Rendered locally: the signed payload never leaves the
+                        device and the pass still works with no signal at the door. */}
+                    <QRCodeSVG value={qrData} size={200} level="M" bgColor="#FFFFFF" fgColor="#000000"
+                      className="w-full h-full" role="img" aria-label="QR Code" key={qrData} />
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 mt-5 text-xs text-muted-foreground">
