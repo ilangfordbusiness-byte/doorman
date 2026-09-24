@@ -5,6 +5,7 @@ import {
   appOrigin, brandedEmail, detailRows, emailCard, formatEventDateLong, formatTimeRange, sendEmail,
 } from '../_shared/email.ts';
 import { daysUntil, eventZone, localDate } from '../_shared/eventTime.ts';
+import { notifyGuestsPush } from '../_shared/push.ts';
 
 const LABELS: Record<number, string> = { 0: 'today', 1: 'tomorrow', 7: 'in 7 days' };
 
@@ -28,11 +29,12 @@ Deno.serve(async (req) => {
     if (!events.length) return json({ ok: true, skipped: 'no upcoming events' });
 
     let totalNotified = 0;
+    let totalPushed = 0;
     for (const { event, offset } of events) {
       const label = LABELS[offset];
 
       const { data: guests } = await svc.from('guestlist_entries')
-        .select('guest_email, guest_name')
+        .select('guest_email, guest_name, guest_user_id')
         .eq('event_id', event.id)
         .in('status', ['approved', 'invited', 'checked_in']);
       if (!guests?.length) continue;
@@ -66,9 +68,20 @@ Deno.serve(async (req) => {
         })
       ));
       totalNotified += results.filter((r) => r.status === 'fulfilled' && r.value.sent).length;
+
+      const time = formatTimeRange(event);
+      const push = await notifyGuestsPush(svc, guests, {
+        title: event.title,
+        body: `Happening ${label}${time ? ` · ${time}` : ''}`,
+        url: `/event/${event.id}`,
+        threadId: event.id,
+        collapseId: `reminder-${event.id}`,
+        ttlSeconds: 6 * 3600,
+      });
+      totalPushed += push.sent;
     }
 
-    return json({ ok: true, events: events.length, notified: totalNotified });
+    return json({ ok: true, events: events.length, notified: totalNotified, pushed: totalPushed });
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : String(error) }, 500);
   }

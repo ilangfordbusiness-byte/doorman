@@ -6,6 +6,7 @@ import {
   appOrigin, brandedEmail, detailRows, emailCard, formatEventDateLong, sendEmail,
 } from '../_shared/email.ts';
 import { timeZoneSuffix } from '../_shared/eventTime.ts';
+import { notifyGuestsPush } from '../_shared/push.ts';
 
 const RELEVANT_FIELDS = [
   'title', 'date', 'start_time', 'end_time', 'venue_name', 'address',
@@ -31,7 +32,7 @@ Deno.serve(async (req) => {
     if (!event) return json({ ok: true, skipped: 'event not found' });
 
     const { data: guests } = await svc.from('guestlist_entries')
-      .select('guest_email, guest_name')
+      .select('guest_email, guest_name, guest_user_id')
       .eq('event_id', event.id)
       .in('status', ['approved', 'invited', 'checked_in']);
     if (!guests?.length) return json({ ok: true, skipped: 'no guests' });
@@ -70,7 +71,24 @@ Deno.serve(async (req) => {
       })
     ));
     const sent = results.filter((r) => r.status === 'fulfilled' && r.value.sent).length;
-    return json({ ok: true, notified: sent, guests: guests.length });
+
+    // Native push alongside the email. Bursty edits collapse into one banner.
+    const labels: Record<string, string> = {
+      title: 'Title', date: 'Date', start_time: 'Start time', end_time: 'End time',
+      venue_name: 'Venue', address: 'Address', dress_code: 'Dress code',
+      description: 'Description', entry_notes: 'Entry notes', status: 'Status',
+    };
+    const pushBody = event.status === 'cancelled' && changed.includes('status')
+      ? 'This event has been cancelled.'
+      : `${changed.map((f) => labels[f] || f).join(', ')} updated`;
+    const push = await notifyGuestsPush(svc, guests, {
+      title: `Update: ${event.title}`,
+      body: pushBody,
+      url: `/event/${event.id}`,
+      threadId: event.id,
+      collapseId: `event-update-${event.id}`,
+    });
+    return json({ ok: true, notified: sent, pushed: push.sent, guests: guests.length });
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : String(error) }, 500);
   }

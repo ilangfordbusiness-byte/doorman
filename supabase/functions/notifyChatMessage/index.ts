@@ -3,6 +3,7 @@
 // AUTOMATION_SECRET. verify_jwt=false — the secret header is the auth.
 import { hasAutomationSecret, json, serviceClient } from '../_shared/db.ts';
 import { appOrigin, brandedEmail, emailCard, escapeHtml, sendEmail } from '../_shared/email.ts';
+import { notifyGuestsPush } from '../_shared/push.ts';
 
 Deno.serve(async (req) => {
   try {
@@ -70,7 +71,14 @@ Deno.serve(async (req) => {
       })
     ));
     const sent = results.filter((r) => r.status === 'fulfilled' && r.value.sent).length;
-    return json({ ok: true, notified: sent });
+
+    const push = await notifyGuestsPush(svc, targets, {
+      title: event.title,
+      body: `${senderName}: ${message.text || ''}`,
+      url: `/event/${event.id}`,
+      threadId: event.id,
+    }, [message.sender_id]);
+    return json({ ok: true, notified: sent, pushed: push.sent });
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : String(error) }, 500);
   }
