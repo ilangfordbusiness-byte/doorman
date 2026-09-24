@@ -35,6 +35,9 @@ import moment from "moment";
 import { captureRef, getLinkDomain, discountLabel, promoterDiscountActive } from "@/lib/promoterRef";
 import { loadPixel, trackPixel, captureMetaClick } from "@/lib/metaPixel";
 
+// Shared classes for the host dashboard action buttons so they line up as a uniform grid.
+const HOST_ACTION_BUTTON = "w-full h-12 rounded-xl gap-2 font-semibold";
+
 async function loadEvent(id, me) {
   const events = await api.entities.Event.filter({ id });
   if (!events.length) return { notFound: true };
@@ -412,42 +415,41 @@ export default function EventDetails() {
               </div>
             )}
 
-            <div className="flex gap-2">
-              <Link to={`/event/${id}/edit`} className="flex-1">
-                <Button variant="outline" className="w-full h-12 rounded-xl gap-2 font-semibold">
+            {/* Host actions: one uniform grid so every button shares the same width, height and spacing */}
+            <div className="grid grid-cols-2 gap-3">
+              <Link to={`/event/${id}/edit`} className="min-w-0">
+                <Button variant="outline" className={HOST_ACTION_BUTTON}>
                   <Edit className="w-4 h-4" /> Edit Event
                 </Button>
               </Link>
-            </div>
-            <div className="flex gap-2">
-              <Link to={`/event/${id}/guestlist`} className="flex-1">
-                <Button variant="outline" className="w-full h-12 rounded-xl gap-2 font-semibold">
+              <Link to={`/event/${id}/guestlist`} className="min-w-0">
+                <Button variant="outline" className={HOST_ACTION_BUTTON}>
                   <Users className="w-4 h-4" /> Guestlist
                 </Button>
               </Link>
-              <Link to={`/event/${id}/door`} className="flex-1">
-                <Button variant="outline" className="w-full h-12 rounded-xl gap-2 font-semibold">
+              <Link to={`/event/${id}/door`} className="min-w-0">
+                <Button variant="outline" className={HOST_ACTION_BUTTON}>
                   <ClipboardList className="w-4 h-4" /> Door
                 </Button>
               </Link>
-              <Button variant="outline" className="h-12 rounded-xl gap-2 font-semibold" onClick={handleShare}>
+              <Button variant="outline" className={HOST_ACTION_BUTTON} onClick={handleShare}>
                 <Share2 className="w-4 h-4" /> Share
               </Button>
+              {event.is_paid && (
+                <>
+                  <Link to={`/event/${id}/analytics`} className="min-w-0">
+                    <Button variant="outline" className={HOST_ACTION_BUTTON}>
+                      <BarChart3 className="w-4 h-4" /> Analytics
+                    </Button>
+                  </Link>
+                  <Link to={`/event/${id}/promoters`} className="min-w-0">
+                    <Button variant="outline" className={HOST_ACTION_BUTTON}>
+                      <Megaphone className="w-4 h-4" /> Promoters
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
-            {event.is_paid && (
-              <div className="flex gap-2">
-                <Link to={`/event/${id}/analytics`} className="flex-1">
-                  <Button variant="outline" className="w-full h-12 rounded-xl gap-2 font-semibold">
-                    <BarChart3 className="w-4 h-4" /> Analytics
-                  </Button>
-                </Link>
-                <Link to={`/event/${id}/promoters`} className="flex-1">
-                  <Button variant="outline" className="w-full h-12 rounded-xl gap-2 font-semibold">
-                    <Megaphone className="w-4 h-4" /> Promoters
-                  </Button>
-                </Link>
-              </div>
-            )}
 
             {/* Co-Hosts */}
             <CoHostsSection event={event} onUpdated={() => queryClient.invalidateQueries(["event", id])} />
