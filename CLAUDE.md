@@ -105,7 +105,8 @@ Money and side effects live here: `createTicketCheckout`, `ticketWebhook`
 (Stripe, exactly-once fulfilment), `refundTicket`, `stripeConnect`,
 `payPromoterCommissions`, ticket transfers (`initiateTicketTransfer`,
 `acceptTicketTransfer`), `validateQR` (door check-in), `sendTicketEmail`,
-notifications (`notifyEventUpdate`, `notifyChatMessage`, `sendEventReminders`),
+notifications (`notifyEventCreated`, `notifyEventUpdate`, `notifyChatMessage`,
+`sendEventReminders`),
 `autoCheckoutGuests` (cron), `acceptCoHost`, `validatePromoCode`,
 `manageTicketCatalog`, `deleteAccount`, and admin (`adminUsers`, `adminEvents`).
 

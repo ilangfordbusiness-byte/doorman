@@ -195,6 +195,10 @@ export default function CreateEvent({ business = null }) {
         } catch {}
       }
 
+      // Confirmation email to the host. Fire-and-forget: a failed send must
+      // never block or fail event creation.
+      api.functions.invoke("notifyEventCreated", { event_id: event.id }).catch(() => {});
+
       toast({ title: status === "published" ? "Event published!" : "Draft saved" });
       navigate(`/event/${event.id}`);
     } catch (e) {
