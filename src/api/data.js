@@ -9,6 +9,7 @@ import { appBaseUrl } from "@/lib/appUrl";
 import {
   isNative, openInAppBrowser, appleAuthorize, NATIVE_AUTH_CALLBACK,
 } from "@/lib/native";
+import { getStoredPushToken, setStoredPushToken, clearStoredPushToken } from "@/lib/pushToken";
 
 // ---------------------------------------------------------------------------
 // Session + lookups
@@ -948,6 +949,9 @@ const auth = {
     throwOn(error);
   },
   async logout() {
+    // Stop this phone's pushes for the account first: the delete needs the
+    // session that signOut is about to drop.
+    await push.unregisterCurrent();
     await supabase.auth.signOut();
     window.location.assign("/");
   },
@@ -1244,4 +1248,35 @@ const businesses = {
   },
 };
 
-export const api = { entities, auth, functions, integrations, admin, businesses };
+// ---------------------------------------------------------------------------
+// Push devices (iOS app). Registration goes through the register_push_device
+// RPC because a token must move to whoever is signed in on the phone now,
+// which RLS cannot express; removal is a plain delete of the caller's own row.
+// ---------------------------------------------------------------------------
+const push = {
+  async register(token, platform = "ios", appVersion = null) {
+    const { error } = await supabase.rpc("register_push_device", {
+      p_token: token, p_platform: platform, p_app_version: appVersion,
+    });
+    throwOn(error);
+    setStoredPushToken(token);
+  },
+  async unregister(token) {
+    const { error } = await supabase.from("push_devices").delete().eq("token", token);
+    throwOn(error);
+    clearStoredPushToken();
+  },
+  // Best effort, used by logout: never throws.
+  async unregisterCurrent() {
+    const token = getStoredPushToken();
+    if (!token) return;
+    try {
+      await push.unregister(token);
+    } catch (e) {
+      console.warn("push unregister failed", e);
+      clearStoredPushToken();
+    }
+  },
+};
+
+export const api = { entities, auth, functions, integrations, admin, businesses, push };

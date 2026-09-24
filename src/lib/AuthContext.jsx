@@ -60,8 +60,8 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     setUser(null);
     setIsAuthenticated(false);
-    await supabase.auth.signOut();
-    window.location.assign('/');
+    // One logout path: the data layer also drops this phone's push token.
+    await api.auth.logout();
   };
 
   const navigateToLogin = () => {

@@ -6,6 +6,7 @@ import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from 'r
 import { lazy, Suspense, useEffect } from 'react';
 import { isNative, hideSplash } from '@/lib/native';
 import { useDeepLinks } from '@/hooks/useDeepLinks';
+import { usePushRegistration } from '@/hooks/usePushRegistration';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
@@ -69,6 +70,8 @@ const AuthenticatedApp = () => {
   const { pathname } = useLocation();
   // iOS: OAuth callbacks, universal links and doorman:// links. No-op on web.
   useDeepLinks();
+  // iOS: register this phone for push once signed in; route notification taps.
+  usePushRegistration();
   // iOS: keep the splash up until we know whether there is a session.
   useEffect(() => {
     if (!isLoadingAuth) hideSplash();

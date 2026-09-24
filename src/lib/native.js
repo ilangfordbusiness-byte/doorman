@@ -5,6 +5,7 @@ import { Preferences } from "@capacitor/preferences";
 import { StatusBar, Style } from "@capacitor/status-bar";
 import { SplashScreen } from "@capacitor/splash-screen";
 import { SignInWithApple } from "@capacitor-community/apple-sign-in";
+import { PushNotifications } from "@capacitor/push-notifications";
 
 // The one module that talks to Capacitor. Pages, hooks and the data layer
 // import from here and never from @capacitor/* directly — the same rule that
@@ -133,6 +134,59 @@ export async function appleAuthorize() {
     familyName: response.familyName || "",
     email: response.email || "",
   };
+}
+
+// --- Push notifications (APNs) ---------------------------------------------
+
+// "1.2.0 (14)" — stored with the device token so stale builds are visible.
+export async function getAppVersion() {
+  if (!isNative()) return null;
+  try {
+    const info = await App.getInfo();
+    return `${info.version} (${info.build})`;
+  } catch {
+    return null;
+  }
+}
+
+// 'granted' | 'denied' | 'prompt' | 'prompt-with-rationale'
+export async function pushPermission() {
+  if (!isNative()) return "denied";
+  return (await PushNotifications.checkPermissions()).receive;
+}
+
+export async function requestPushPermission() {
+  if (!isNative()) return "denied";
+  return (await PushNotifications.requestPermissions()).receive;
+}
+
+// Asks iOS for a device token. onToken(hexToken) fires once registration
+// completes (and again if the OS rotates the token). Returns a cleanup that
+// removes both listeners.
+export async function registerPush({ onToken, onError }) {
+  if (!isNative()) return () => {};
+  const a = await PushNotifications.addListener("registration", (t) => onToken(t.value));
+  const b = await PushNotifications.addListener("registrationError", (e) => onError?.(e));
+  await PushNotifications.register();
+  return () => { a.remove(); b.remove(); };
+}
+
+// cb(url) when the user taps a notification; url is the in-app path the
+// sender put at the top level of the payload. Returns unsub.
+export function onPushTapped(cb) {
+  if (!isNative()) return () => {};
+  const handle = PushNotifications.addListener("pushNotificationActionPerformed", (a) => {
+    const data = a?.notification?.data || {};
+    cb(data.url ?? data.data?.url ?? null);
+  });
+  return () => { handle.then((h) => h.remove()); };
+}
+
+// cb(notification) when a push arrives while the app is in the foreground.
+export function onPushReceived(cb) {
+  if (!isNative()) return () => {};
+  const handle = PushNotifications.addListener("pushNotificationReceived", (n) => cb(n));
+  return () => { handle.then((h) => h.remove()); };
 }
 
 // --- Shell chrome -----------------------------------------------------------
