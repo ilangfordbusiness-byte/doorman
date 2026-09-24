@@ -196,7 +196,7 @@ export async function sendPushToUsers(svc: Svc, userIds: string[], msg: PushMess
     console.log('push: device lookup failed', error.message);
     return { devices: 0, sent: 0, failed: 0, removed: 0, skipped: 'lookup failed' };
   }
-  const tokens = [...new Set((devices ?? []).map((d: { token: string }) => d.token))];
+  const tokens: string[] = [...new Set<string>((devices ?? []).map((d: { token: string }) => String(d.token)))];
   if (!tokens.length) return { devices: 0, sent: 0, failed: 0, removed: 0, skipped: 'no devices' };
 
   const results = await pmap(tokens, CONCURRENCY, (token) => sendToDevice(token, msg));
