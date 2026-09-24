@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/api/data";
-import { ArrowLeft, Search, UserPlus } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowLeft, Search, UserPlus, Download } from "lucide-react";
+import { buildGuestlistCsv } from "@/lib/eventExport";
+import { downloadCsv, slugForFilename } from "@/lib/csv";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -152,6 +155,11 @@ export default function GuestlistManagement() {
     loadData();
   }
 
+  function exportCsv() {
+    const day = new Date().toISOString().slice(0, 10);
+    downloadCsv(`${slugForFilename(event?.title)}-guestlist-${day}.csv`, buildGuestlistCsv({ guests }));
+  }
+
   const filtered = guests.filter((g) => {
     const q = search.toLowerCase();
     // Digits-only match lets "07700" find a stored "+447700…".
@@ -184,6 +192,16 @@ export default function GuestlistManagement() {
           <h1 className="font-heading font-bold text-lg">Guestlist</h1>
           <p className="text-xs text-muted-foreground">{event?.title} · {guests.length} guests</p>
         </div>
+        <button
+          type="button"
+          className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "rounded-full")}
+          onClick={exportCsv}
+          disabled={guests.length === 0}
+          aria-label="Export guestlist as CSV"
+          title="Export CSV"
+        >
+          <Download className="w-4 h-4" />
+        </button>
         <Dialog open={addOpen} onOpenChange={setAddOpen}>
           <DialogTrigger asChild>
             <Button size="sm" className="rounded-full gap-1.5 bg-primary hover:bg-primary/90">
