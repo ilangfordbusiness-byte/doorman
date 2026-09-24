@@ -166,6 +166,8 @@ additional_redirect_urls = [
   "http://localhost:5173/reset-password",
   "http://localhost:5174",
   "http://localhost:5174/reset-password",
+  # iOS app: OAuth returns via the app's custom URL scheme (see src/lib/native.js).
+  "doorman://auth/callback",
 ]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
@@ -342,9 +344,11 @@ max_frequency = "5s"
 # Use an external OAuth provider. The full list of providers are: `apple`, `azure`, `bitbucket`,
 # `discord`, `facebook`, `github`, `gitlab`, `google`, `keycloak`, `linkedin_oidc`, `notion`, `twitch`,
 # `twitter`, `x`, `slack`, `spotify`, `workos`, `zoom`.
+# Sign in with Apple, native iOS app only (signInWithIdToken). client_id is the
+# app's bundle id; a Services ID + secret would only be needed for web sign-in.
 [auth.external.apple]
-enabled = false
-client_id = ""
+enabled = true
+client_id = "com.thedoorman.app"
 # DO NOT commit your OAuth provider secret to git. Use environment variable substitution instead:
 secret = "env(SUPABASE_AUTH_EXTERNAL_APPLE_SECRET)"
 # Overrides the default auth callback URL derived from auth.external_url.
