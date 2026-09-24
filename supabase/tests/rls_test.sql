@@ -43,6 +43,10 @@ declare
   v_id uuid;
   v_text text;
   v_count int;
+  v_biz uuid;
+  v_member uuid;
+  v_biz_event uuid;
+  v_json jsonb;
 begin
   -- ---- seed users (as postgres; trigger creates profiles) ----
   insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
@@ -551,6 +555,132 @@ begin
   exception when insufficient_privilege then
     perform pg_temp.ok('ticket_order_tracking (browser match keys) is service-role only');
   end;
+
+  -- ---- business members: owner-only management, member access, invites ----
+  perform pg_temp.impersonate(alice, 'alice@test.dev');
+  insert into public.business_accounts (owner_id, business_email, business_name)
+    values (alice, 'team@test.dev', 'Team Events Ltd') returning id into v_biz;
+
+  -- owner invites bob (existing user) and a stranger with no account yet
+  insert into public.business_members (business_id, email, user_id, status)
+    values (v_biz, 'bob@test.dev', bob, 'pending') returning id into v_member;
+  insert into public.business_members (business_id, email, status)
+    values (v_biz, 'newbie@test.dev', 'pending');
+  perform pg_temp.ok('owner can invite business members');
+
+  -- pending invitee sees the invite (own row + notifications) but not the business
+  perform pg_temp.impersonate(bob, 'bob@test.dev');
+  select count(*) into v_count from public.business_members where business_id = v_biz;
+  if v_count <> 1 then
+    raise exception 'FAIL: pending invitee sees % member rows, expected only their own', v_count;
+  end if;
+  v_json := public.get_notifications();
+  if (v_json -> 'counts' ->> 'businessInvite')::int <> 1
+     or (v_json -> 'businessInvites' -> 0 ->> 'business_id')::uuid <> v_biz then
+    raise exception 'FAIL: pending business invite missing from get_notifications';
+  end if;
+  select count(*) into v_count from public.business_accounts where id = v_biz;
+  if v_count <> 0 then
+    raise exception 'FAIL: pending invitee can read the business account';
+  end if;
+  perform pg_temp.ok('pending invitee sees their invite but not the business');
+
+  begin
+    insert into public.events (host_id, business_id, title, date, start_time, status)
+      values (bob, v_biz, 'Not Mine', '2026-10-01', '20:00', 'draft');
+    raise exception 'FAIL: non-member created an event under a business' using errcode = 'assert_failure';
+  exception when insufficient_privilege then
+    perform pg_temp.ok('non-member cannot create events under a business');
+  end;
+
+  -- accept (the acceptBusinessMember edge function does this with the service role)
+  execute 'reset role';
+  update public.business_members set status = 'accepted' where id = v_member;
+
+  perform pg_temp.impersonate(bob, 'bob@test.dev');
+  select count(*) into v_count from public.business_accounts where id = v_biz;
+  if v_count <> 1 then
+    raise exception 'FAIL: accepted member cannot read the business account';
+  end if;
+  update public.business_accounts set description = 'Run by the team' where id = v_biz;
+  execute 'reset role';
+  if (select description from public.business_accounts where id = v_biz) <> 'Run by the team' then
+    raise exception 'FAIL: accepted member could not edit the business';
+  end if;
+  perform pg_temp.ok('accepted member can read + edit the business account');
+
+  perform pg_temp.impersonate(bob, 'bob@test.dev');
+  insert into public.events (host_id, business_id, title, date, start_time, status)
+    values (bob, v_biz, 'Team Night', '2026-10-02', '21:00', 'published')
+    returning id into v_biz_event;
+  select count(*) into v_count from public.business_members where business_id = v_biz;
+  if v_count <> 2 then
+    raise exception 'FAIL: accepted member sees % team rows, expected 2', v_count;
+  end if;
+  perform pg_temp.ok('accepted member can create business events and see the team');
+
+  -- the owner manages any event under the business, even one a member created
+  perform pg_temp.impersonate(alice, 'alice@test.dev');
+  update public.events set title = 'Team Night (renamed)' where id = v_biz_event;
+  execute 'reset role';
+  if (select title from public.events where id = v_biz_event) <> 'Team Night (renamed)' then
+    raise exception 'FAIL: owner could not edit a member-created business event';
+  end if;
+  perform pg_temp.ok('owner manages events created by team members');
+
+  -- members cannot manage the team
+  perform pg_temp.impersonate(bob, 'bob@test.dev');
+  begin
+    insert into public.business_members (business_id, email, user_id, status)
+      values (v_biz, 'dave@test.dev', dave, 'pending');
+    raise exception 'FAIL: member invited another member' using errcode = 'assert_failure';
+  exception when insufficient_privilege then
+    perform pg_temp.ok('member cannot invite other members (owner only)');
+  end;
+  delete from public.business_members where business_id = v_biz and email = 'newbie@test.dev';
+  update public.business_members set status = 'declined' where business_id = v_biz and email = 'newbie@test.dev';
+  execute 'reset role';
+  if (select status from public.business_members where business_id = v_biz and email = 'newbie@test.dev') is distinct from 'pending' then
+    raise exception 'FAIL: member changed or removed another member''s row';
+  end if;
+  perform pg_temp.ok('member cannot remove or edit other members (owner only)');
+
+  -- strangers see nothing
+  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  select count(*) into v_count from public.business_members where business_id = v_biz;
+  if v_count <> 0 then
+    raise exception 'FAIL: stranger can see business members';
+  end if;
+  delete from public.business_members where id = v_member;
+  execute 'reset role';
+  if not exists (select 1 from public.business_members where id = v_member) then
+    raise exception 'FAIL: stranger removed a business member';
+  end if;
+  perform pg_temp.ok('stranger cannot see or remove business members');
+
+  -- signing up with the invited email links the pending row
+  insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
+                          email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
+                          created_at, updated_at)
+  values ('00000000-0000-0000-0000-000000000000',
+          '77777777-7777-7777-7777-777777777777', 'authenticated', 'authenticated',
+          'newbie@test.dev', '', now(), '{}',
+          json_build_object('full_name', 'New Member')::jsonb, now(), now());
+  if (select user_id from public.business_members where business_id = v_biz and email = 'newbie@test.dev')
+     is distinct from '77777777-7777-7777-7777-777777777777'::uuid then
+    raise exception 'FAIL: signup trigger did not link the pending business invite';
+  end if;
+  perform pg_temp.ok('signup trigger links pending business invites by email');
+
+  -- owner removes a member; their access ends
+  perform pg_temp.impersonate(alice, 'alice@test.dev');
+  delete from public.business_members where id = v_member;
+  perform pg_temp.impersonate(bob, 'bob@test.dev');
+  select count(*) into v_count from public.business_accounts where id = v_biz;
+  if v_count <> 0 then
+    raise exception 'FAIL: removed member can still read the business account';
+  end if;
+  perform pg_temp.ok('owner can remove members and their access ends');
 
   execute 'reset role';
   raise notice '';
