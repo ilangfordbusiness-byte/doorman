@@ -14,6 +14,7 @@ import ImpersonationBanner from './components/ImpersonationBanner';
 import Login from './pages/Login';
 import Privacy from './pages/Privacy';
 import AuthConfirm from './pages/AuthConfirm';
+import NativeReturn from './pages/NativeReturn';
 import { stashRefFromUrl } from '@/lib/promoterRef';
 
 // Capture a promoter ?ref= before the auth gate decides what to render, so
@@ -80,6 +81,10 @@ const AuthenticatedApp = () => {
   // Auth email links land here with a token hash; there is no session yet.
   if (pathname === '/auth/confirm') {
     return <AuthConfirm />;
+  }
+  // Stripe redirects the iOS app's browser sheet here; it hands back to the app.
+  if (pathname === '/native/return') {
+    return <NativeReturn />;
   }
 
   // Show loading spinner while checking app public settings or auth
