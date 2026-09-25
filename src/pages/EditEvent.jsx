@@ -4,7 +4,8 @@ import { DEFAULT_TZ } from "@/lib/eventTime";
 import { useState, useEffect } from "react";
 import CoverPicker from "../components/CoverPicker";
 import CoverPhotoUpload from "../components/CoverPhotoUpload";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/data";
 import { ArrowLeft, Ticket, AtSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,8 @@ import { useBusinessStripeStatus } from "@/hooks/useBusinessStripeStatus";
 export default function EditEvent() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -122,6 +125,14 @@ export default function EditEvent() {
     if (url) setCoverId("");
   }
 
+  // EventDetails links here with `state.from = "event"`. Going back in history
+  // returns to that page instead of pushing a second copy of it, so its own back
+  // arrow (navigate(-1)) leads out to the hub rather than bouncing into this form.
+  function returnToEvent() {
+    if (location.state?.from === "event") navigate(-1);
+    else navigate(`/event/${id}`, { replace: true });
+  }
+
   async function handleSave() {
     if (!form.title || !form.date || !form.start_time) {
       setError("Please fill in the event name, date, and start time.");
@@ -158,21 +169,23 @@ export default function EditEvent() {
     }
 
     toast({ title: "Event updated!" });
-    navigate(`/event/${id}`);
+    // The details page caches this event for 30s; drop it so the edit is visible on return.
+    queryClient.invalidateQueries({ queryKey: ["event", id] });
+    returnToEvent();
   }
 
   if (loading) return <LoadingSpinner fullScreen />;
   if (!original) return (
     <div className="max-w-lg mx-auto px-4 pt-10 text-center">
       <p className="text-sm text-muted-foreground">Couldn't load this event.</p>
-      <Button className="mt-4" onClick={() => navigate(`/event/${id}`)}>Back to event</Button>
+      <Button className="mt-4" onClick={returnToEvent}>Back to event</Button>
     </div>
   );
 
   return (
     <div className="max-w-lg mx-auto px-4 pt-4 pb-8">
       <div className="flex items-center gap-3 mb-6">
-        <Button variant="ghost" size="icon" className="rounded-full" onClick={() => navigate(`/event/${id}`)}>
+        <Button variant="ghost" size="icon" className="rounded-full" onClick={returnToEvent}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <h1 className="font-heading font-bold text-xl flex-1">Edit Event</h1>
