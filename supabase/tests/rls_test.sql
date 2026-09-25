@@ -43,6 +43,7 @@ declare
   v_id uuid;
   v_text text;
   v_count int;
+  v_ts timestamptz;
 begin
   -- ---- seed users (as postgres; trigger creates profiles) ----
   insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
@@ -84,6 +85,50 @@ begin
     values (alice, 'Secret Afters', '2026-09-02', '02:00', 'draft')
     returning id into v_draft;
   perform pg_temp.ok('host can create events');
+
+  -- ---- published_at (weekly new-events digest) ----
+  begin
+    execute format('select published_at from public.events where id = %L', v_event);
+    raise exception 'FAIL: published_at readable by client' using errcode = 'assert_failure';
+  exception when insufficient_privilege then
+    perform pg_temp.ok('published_at hidden from clients (column grant)');
+  end;
+
+  execute 'reset role';
+  if (select published_at from public.events where id = v_event) is null then
+    raise exception 'FAIL: inserting a published event did not stamp published_at';
+  end if;
+  if (select published_at from public.events where id = v_draft) is not null then
+    raise exception 'FAIL: draft event has published_at';
+  end if;
+  perform pg_temp.ok('published_at stamped on publish, null for drafts');
+
+  perform pg_temp.impersonate(alice, 'alice@test.dev');
+  insert into public.events (host_id, title, date, start_time, status)
+    values (alice, 'Digest Probe', '2026-09-03', '20:00', 'draft')
+    returning id into v_id;
+  update public.events set status = 'published' where id = v_id;
+  execute 'reset role';
+  select published_at into v_ts from public.events where id = v_id;
+  if v_ts is null then
+    raise exception 'FAIL: publishing a draft did not stamp published_at';
+  end if;
+  perform pg_temp.impersonate(alice, 'alice@test.dev');
+  update public.events set status = 'draft' where id = v_id;
+  update public.events set status = 'published' where id = v_id;
+  execute 'reset role';
+  if (select published_at from public.events where id = v_id) is distinct from v_ts then
+    raise exception 'FAIL: republishing changed published_at (event would be "new" twice)';
+  end if;
+  delete from public.events where id = v_id;
+  perform pg_temp.ok('published_at set once on first publish, kept on republish');
+
+  if not exists (select 1 from cron.job where jobname = 'send-new-events-digest'
+                   and schedule = '0 9 * * 4') then
+    raise exception 'FAIL: send-new-events-digest cron job not scheduled for Thursdays';
+  end if;
+  perform pg_temp.ok('weekly new-events digest scheduled (Thursday 09:00 UTC)');
+  perform pg_temp.impersonate(alice, 'alice@test.dev');
 
   begin
     execute format('select invite_code from public.events where id = %L', v_event);
