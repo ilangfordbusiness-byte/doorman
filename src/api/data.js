@@ -503,6 +503,7 @@ const ENTITIES = {
       owner:profiles!business_accounts_owner_id_fkey(email)`,
     toApp: (r) => ({
       ...base(r),
+      owner_id: r.owner_id,
       owner_email: r.owner?.email ?? null,
       business_email: r.business_email,
       business_name: r.business_name,
@@ -1166,19 +1167,31 @@ const businesses = {
     throwOn(error);
     return data ?? [];
   },
+  // Owner-only. The edge function creates/refreshes the pending row and emails
+  // the invitee a link to /business/:id/invite. No account is needed yet: the
+  // signup trigger links the row by email when they register.
   async inviteMember(businessId, email) {
     const clean = String(email || "").trim().toLowerCase();
     if (!clean) throw new Error("Enter an email address.");
-    const userId = await resolveUserId(clean);
-    if (!userId) throw new Error("No DoorMan account found for that email. They need to sign up first.");
-    const { error } = await supabase.from("business_members").insert({
-      business_id: businessId, email: clean, user_id: userId, status: "pending",
-    });
-    if (error) {
-      if (error.code === "23505") throw new Error("That person is already invited.");
-      throw new Error(error.message);
-    }
-    return { ok: true };
+    const { data } = await invokeEdge("inviteBusinessMember", { business_id: businessId, email: clean });
+    if (data?.error) throw new Error(data.error);
+    return data;
+  },
+  // The current user's own invite row for a business (any status), or null.
+  // Matched by user id or email so it works before the row is back-linked.
+  async myInvite(businessId) {
+    const me = await uid();
+    if (!me || !businessId) return null;
+    const { data: sess } = await supabase.auth.getSession();
+    const email = String(sess.session?.user?.email || "").toLowerCase();
+    let q = supabase
+      .from("business_members")
+      .select("id, business_id, email, user_id, status, created_at")
+      .eq("business_id", businessId);
+    q = email ? q.or(`user_id.eq.${me},email.eq.${email}`) : q.eq("user_id", me);
+    const { data, error } = await q.limit(1).maybeSingle();
+    throwOn(error);
+    return data ?? null;
   },
   async removeMember(id) {
     const { error } = await supabase.from("business_members").delete().eq("id", id);

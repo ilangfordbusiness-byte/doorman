@@ -42,6 +42,7 @@ const BusinessLayout = lazy(() => import('./components/BusinessLayout'));
 const BusinessCreateEvent = lazy(() => import('./pages/business/BusinessCreateEvent'));
 const BusinessPastEvents = lazy(() => import('./pages/business/BusinessPastEvents'));
 const EditBusinessAccount = lazy(() => import('./pages/business/EditBusinessAccount'));
+const BusinessInvite = lazy(() => import('./pages/business/BusinessInvite'));
 const Admin = lazy(() => import('./pages/Admin'));
 
 const PageLoader = () => (
@@ -112,6 +113,7 @@ const AuthenticatedApp = () => {
         <Route path="/invite/:code" element={<InvitePage />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/b/:id" element={<PublicBusiness />} />
+        <Route path="/business/:id/invite" element={<BusinessInvite />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
