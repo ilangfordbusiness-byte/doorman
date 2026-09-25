@@ -12,6 +12,7 @@ import UserAvatar from "../components/UserAvatar";
 import FriendProfile from "../components/FriendProfile";
 import SuggestionProfile from "../components/SuggestionProfile";
 import FriendsSearch from "../components/FriendsSearch";
+import ActivityFeed from "../components/ActivityFeed";
 
 const PAGE_SIZE = 50;
 
@@ -33,7 +34,7 @@ async function loadFriendsData(me) {
 export default function Friends() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState("suggestions");
+  const [tab, setTab] = useState("activity");
   const { data: me } = useCurrentUser();
   const { data: fd, isLoading: loading } = useQuery({
     queryKey: ["friendsData"],
@@ -92,14 +93,16 @@ export default function Friends() {
   async function respond(req, status) {
     await api.entities.FriendRequest.update(req.id, { status });
     queryClient.invalidateQueries(["friendsData"]);
+    queryClient.invalidateQueries(["notifications"]);
     if (status === "accepted") {
       toast({ title: "Friend added!" });
     }
   }
 
   const tabs = [
+    { id: "activity", label: "Activity" },
     { id: "search", label: "Search" },
-    { id: "suggestions", label: "Suggestions" },
+    { id: "suggestions", label: "Suggest" },
     { id: "requests", label: `Requests${requests.length ? ` (${requests.length})` : ""}` },
     { id: "friends", label: `Friends${friends.length ? ` (${friends.length})` : ""}` },
   ];
@@ -122,7 +125,7 @@ export default function Friends() {
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${
+            className={`flex-1 py-2 rounded-lg text-[13px] font-semibold transition-colors ${
               tab === t.id ? "bg-card text-foreground shadow" : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -174,6 +177,15 @@ export default function Friends() {
         <LoadingSpinner />
       ) : (
         <>
+          {tab === "activity" && (
+            <ActivityFeed
+              requestsCount={requests.length}
+              onOpenProfile={(u) => setViewingSuggestion(u)}
+              onGoToRequests={() => setTab("requests")}
+              onFindFriends={() => setTab("suggestions")}
+            />
+          )}
+
           {tab === "search" && (
             <FriendsSearch
               me={me}

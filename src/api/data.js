@@ -962,6 +962,11 @@ const functions = {
           p_offset: body.offset ?? 0,
           p_limit: body.limit ?? 20,
         });
+      case "getActivityFeed":
+        return rpc("get_activity_feed", {
+          p_offset: body.offset ?? 0,
+          p_limit: body.limit ?? 20,
+        });
       case "resolvePromoterRef": {
         const res = await rpc("resolve_promoter_ref", {
           p_event_id: body.event_id,
