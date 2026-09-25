@@ -184,10 +184,15 @@ export default function EventDetails() {
   }
 
   async function handleShare() {
-    const url = `${getLinkDomain()}/invite/${event.invite_code}`;
+    // Public events share the event page itself (recipients can scroll down and
+    // buy a ticket). Private events aren't reachable without an invite, so they
+    // keep the invite link. No promotional text — just the title + link.
+    const url = event.is_public
+      ? `${getLinkDomain()}/event/${event.id}`
+      : `${getLinkDomain()}/invite/${event.invite_code}`;
     try {
       if (navigator.share) {
-        await navigator.share({ title: event.title, text: `You're invited to ${event.title}!`, url });
+        await navigator.share({ title: event.title, url });
         return;
       }
     } catch {
