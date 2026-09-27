@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "@/api/data";
-import { X, UserPlus, Check, Instagram, Ghost } from "lucide-react";
+import { X, UserPlus, Check, Instagram, Ghost, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import UserAvatar from "./UserAvatar";
 import Avatar from "./Avatar";
@@ -12,15 +12,21 @@ export default function HostProfileModal({ host, me, onClose, isBusiness = false
   const [sending, setSending] = useState(false);
   const [instagram, setInstagram] = useState(null);
   const [snapchat, setSnapchat] = useState(null);
+  const [location, setLocation] = useState(null);
   const isMe = me?.email === host.email;
 
-  // Backfill the host's instagram / snapchat handles from their public profile
-  // (personal hosts only — a business isn't a person).
+  // Backfill the host's instagram / snapchat handles and location from their
+  // public profile (personal hosts only — a business isn't a person).
   useEffect(() => {
     if (isBusiness) return;
     let active = true;
     api.auth.getProfile(host.email)
-      .then((p) => { if (active) { if (p?.instagram) setInstagram(p.instagram); if (p?.snapchat) setSnapchat(p.snapchat); } })
+      .then((p) => {
+        if (!active) return;
+        if (p?.instagram) setInstagram(p.instagram);
+        if (p?.snapchat) setSnapchat(p.snapchat);
+        if (p?.location) setLocation(p.location);
+      })
       .catch(() => {});
     return () => { active = false; };
   }, [host.email, isBusiness]);
@@ -76,6 +82,11 @@ export default function HostProfileModal({ host, me, onClose, isBusiness = false
           >
             <Ghost className="w-3.5 h-3.5" />@{snapchat}
           </a>
+        )}
+        {!isBusiness && location && (
+          <span className="flex items-center justify-center gap-1.5 mb-2 text-sm text-muted-foreground">
+            <MapPin className="w-3.5 h-3.5" />{location}
+          </span>
         )}
         <span className="block text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full font-semibold mb-4 mt-2 uppercase tracking-wider w-fit mx-auto">Event Host</span>
         {!isBusiness && !isMe && (

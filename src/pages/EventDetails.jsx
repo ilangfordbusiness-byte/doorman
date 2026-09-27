@@ -19,7 +19,7 @@ import { tierSoldOut, tierScheduled, nextTierRelease, formatReleaseAt } from "@/
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   ArrowLeft, Calendar, Clock, MapPin, Shirt, Users, Share2,
-  QrCode, Edit, Check, Plus, X, BarChart3, Megaphone, Instagram
+  QrCode, Edit, Check, Plus, X, BarChart3, Megaphone, Instagram, ClipboardList
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -33,6 +33,7 @@ import CoHostsSection from "../components/CoHostsSection";
 import EventJoinActions from "../components/EventJoinActions";
 import moment from "moment";
 import { captureRef, getLinkDomain, discountLabel, promoterDiscountActive } from "@/lib/promoterRef";
+import { loadPixel, trackPixel, captureMetaClick } from "@/lib/metaPixel";
 
 async function loadEvent(id, me) {
   const events = await api.entities.Event.filter({ id });
@@ -132,6 +133,17 @@ export default function EventDetails() {
     setAccepting(false);
   }
 
+  // Organiser ad tracking: remember an ad click id (?fbclid) as soon as we
+  // land, then load the business's own Meta Pixel, only on its events.
+  useEffect(() => { captureMetaClick(); }, [id]);
+  useEffect(() => {
+    if (!event?.meta_pixel_id) return;
+    loadPixel(event.meta_pixel_id);
+    trackPixel(event.meta_pixel_id, "ViewContent", {
+      content_ids: [event.id], content_type: "product", content_name: event.title,
+    });
+  }, [event?.id, event?.meta_pixel_id]);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const payment = params.get("payment");
@@ -176,10 +188,15 @@ export default function EventDetails() {
   }
 
   async function handleShare() {
-    const url = `${getLinkDomain()}/invite/${event.invite_code}`;
+    // Public events share the event page itself (recipients can scroll down and
+    // buy a ticket). Private events aren't reachable without an invite, so they
+    // keep the invite link. No promotional text — just the title + link.
+    const url = event.is_public
+      ? `${getLinkDomain()}/event/${event.id}`
+      : `${getLinkDomain()}/invite/${event.invite_code}`;
     try {
       if (navigator.share) {
-        await navigator.share({ title: event.title, text: `You're invited to ${event.title}!`, url });
+        await navigator.share({ title: event.title, url });
         return;
       }
     } catch {
@@ -267,6 +284,38 @@ export default function EventDetails() {
           </div>
         </div>
 
+        {/* Guest status + QR pass — at the top so a ticket is one tap away */}
+        {!canManage && myEntry && myEntry.status !== "denied" && (
+          <div className="space-y-3">
+            <div className="bg-secondary/50 rounded-xl p-4 border border-border/50 text-center">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Your Status</p>
+              <StatusBadge status={myEntry.status} size="lg" />
+            </div>
+            {(myEntry.status === "approved" || myEntry.status === "invited") && (
+              <Link to={`/pass/${id}`}>
+                <Button className="w-full h-14 rounded-xl font-bold text-base bg-primary hover:bg-primary/90 gap-2">
+                  <QrCode className="w-5 h-5" /> Open QR Pass
+                </Button>
+              </Link>
+            )}
+            {myEntry.status === "requested" && (
+              <p className="text-sm text-muted-foreground text-center">The host will review your request.</p>
+            )}
+            {myEntry.status === "checked_in" && (
+              <>
+                <div className="bg-emerald-500/10 rounded-xl p-4 border border-emerald-500/20 text-center">
+                  <p className="text-sm text-emerald-400 font-medium">✓ You're checked in!</p>
+                </div>
+                <Link to={`/pass/${id}`}>
+                  <Button variant="outline" className="w-full h-12 rounded-xl font-semibold gap-2">
+                    <QrCode className="w-5 h-5" /> View My Passes
+                  </Button>
+                </Link>
+              </>
+            )}
+          </div>
+        )}
+
         {myCoHostInvite && (
           <div className="bg-primary/10 border border-primary/30 rounded-xl p-3 flex items-center justify-between gap-3">
             <div>
@@ -321,7 +370,7 @@ export default function EventDetails() {
         {event.description && (
           <div>
             <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5">About</p>
-            <p className="text-sm text-foreground/80 leading-relaxed">{event.description}</p>
+            <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-line">{event.description}</p>
           </div>
         )}
 
@@ -373,7 +422,7 @@ export default function EventDetails() {
             )}
 
             <div className="flex gap-2">
-              <Link to={`/event/${id}/edit`} className="flex-1">
+              <Link to={`/event/${id}/edit`} state={{ from: "event" }} className="flex-1">
                 <Button variant="outline" className="w-full h-12 rounded-xl gap-2 font-semibold">
                   <Edit className="w-4 h-4" /> Edit Event
                 </Button>
@@ -383,6 +432,11 @@ export default function EventDetails() {
               <Link to={`/event/${id}/guestlist`} className="flex-1">
                 <Button variant="outline" className="w-full h-12 rounded-xl gap-2 font-semibold">
                   <Users className="w-4 h-4" /> Guestlist
+                </Button>
+              </Link>
+              <Link to={`/event/${id}/door`} className="flex-1">
+                <Button variant="outline" className="w-full h-12 rounded-xl gap-2 font-semibold">
+                  <ClipboardList className="w-4 h-4" /> Door
                 </Button>
               </Link>
               <Button variant="outline" className="h-12 rounded-xl gap-2 font-semibold" onClick={handleShare}>
@@ -470,6 +524,7 @@ export default function EventDetails() {
                       <div key={t.id} className={`flex justify-between items-center text-sm ${soldOut ? "opacity-60" : ""}`}>
                         <div>
                           <p className={`font-medium ${soldOut ? "line-through" : ""}`}>{t.name}</p>
+                          {t.description && <p className="text-xs text-muted-foreground whitespace-pre-line break-words">{t.description}</p>}
                           {soldOut && <p className="text-xs text-muted-foreground">Sold out</p>}
                           {scheduled && <p className="text-xs text-amber-400">On sale {formatReleaseAt(t.release_at)}</p>}
                         </div>
@@ -489,36 +544,6 @@ export default function EventDetails() {
                 visibility={event.visibility}
                 unlocked={!!myEntry && ["approved", "checked_in"].includes(myEntry.status)}
               />
-            )}
-            {myEntry && myEntry.status !== "denied" && (
-              <div className="space-y-3">
-                <div className="bg-secondary/50 rounded-xl p-4 border border-border/50 text-center">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Your Status</p>
-                  <StatusBadge status={myEntry.status} size="lg" />
-                </div>
-                {(myEntry.status === "approved" || myEntry.status === "invited") && (
-                  <Link to={`/pass/${id}`}>
-                    <Button className="w-full h-14 rounded-xl font-bold text-base bg-primary hover:bg-primary/90 gap-2">
-                      <QrCode className="w-5 h-5" /> Open QR Pass
-                    </Button>
-                  </Link>
-                )}
-                {myEntry.status === "requested" && (
-                  <p className="text-sm text-muted-foreground text-center">The host will review your request.</p>
-                )}
-                {myEntry.status === "checked_in" && (
-                  <>
-                    <div className="bg-emerald-500/10 rounded-xl p-4 border border-emerald-500/20 text-center">
-                      <p className="text-sm text-emerald-400 font-medium">✓ You're checked in!</p>
-                    </div>
-                    <Link to={`/pass/${id}`}>
-                      <Button variant="outline" className="w-full h-12 rounded-xl font-semibold gap-2">
-                        <QrCode className="w-5 h-5" /> View My Passes
-                      </Button>
-                    </Link>
-                  </>
-                )}
-              </div>
             )}
           </div>
         )}

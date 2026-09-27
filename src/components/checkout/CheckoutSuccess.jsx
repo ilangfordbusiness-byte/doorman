@@ -5,11 +5,15 @@ import { api } from "@/api/data";
 import { Ticket, QrCode, CheckCircle2, Megaphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { trackPixel } from "@/lib/metaPixel";
 
 // Confirmation screen shown after a successful Stripe Checkout redirect.
 // Polls for the paid order (webhook may still be processing) then shows the
 // ticket details, promoter attribution, and a link to the guest's QR pass.
-export default function CheckoutSuccess({ eventId }) {
+// With an orderId (from ?order=, appended by createTicketCheckout) it waits
+// for that exact order; otherwise it falls back to the buyer's latest paid
+// order for the event.
+export default function CheckoutSuccess({ eventId, orderId = null }) {
   const [order, setOrder] = useState(null);
   const [event, setEvent] = useState(null);
   const [promoter, setPromoter] = useState(null);
@@ -29,12 +33,29 @@ export default function CheckoutSuccess({ eventId }) {
       const evts = await api.entities.Event.filter({ id: eventId }).catch(() => []);
       if (active) setEvent(evts[0] || null);
       for (let i = 0; i < 12; i++) {
-        const orders = await api.entities.TicketOrder
-          .filter({ event_id: eventId, guest_email: me.email, status: "paid" })
-          .catch(() => []);
-        const paid = orders.sort((a, b) => new Date(b.created_date) - new Date(a.created_date))[0];
+        let paid;
+        if (orderId) {
+          const orders = await api.entities.TicketOrder.filter({ id: orderId }).catch(() => []);
+          paid = orders[0]?.status === "paid" ? orders[0] : undefined;
+        } else {
+          const orders = await api.entities.TicketOrder
+            .filter({ event_id: eventId, guest_email: me.email, status: "paid" })
+            .catch(() => []);
+          paid = orders.sort((a, b) => new Date(b.created_date) - new Date(a.created_date))[0];
+        }
         if (paid) {
           if (active) { setOrder(paid); setPolling(false); }
+          // Browser-side Purchase for the organiser's pixel; eventID = order id
+          // matches the server-side Conversions API event so Meta dedups.
+          const pixel = evts[0]?.meta_pixel_id;
+          if (pixel) {
+            trackPixel(pixel, "Purchase", {
+              value: Number(paid.paid_amount || 0),
+              currency: String(paid.currency || evts[0]?.currency || "gbp").toUpperCase(),
+              content_ids: [paid.tier_id], content_type: "product",
+              num_items: paid.quantity || 1,
+            }, paid.id);
+          }
           if (paid.promoter_id) {
             const p = await api.entities.Promoter.filter({ id: paid.promoter_id }).catch(() => []);
             if (active) setPromoter(p[0] || null);
@@ -47,7 +68,7 @@ export default function CheckoutSuccess({ eventId }) {
     }
     poll();
     return () => { active = false; };
-  }, [eventId]);
+  }, [eventId, orderId]);
 
   const cur = String(event?.currency || "gbp").toLowerCase();
   const sym = currencySymbol(cur);

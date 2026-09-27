@@ -11,6 +11,8 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import Avatar from "@/components/Avatar";
 import ProfilePictureEditor from "@/components/ProfilePictureEditor";
 import BusinessTeamSection from "@/components/BusinessTeamSection";
+import MetaTrackingSection from "@/components/business/MetaTrackingSection";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { ArrowLeft, Camera, Loader2 } from "lucide-react";
 
 // Edits an existing BusinessAccount's name, email, and picture (square crop
@@ -21,7 +23,11 @@ export default function EditBusinessAccount() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { toast } = useToast();
+  const { data: me } = useCurrentUser();
+  const myId = /** @type {{ id?: string } | undefined} */ (me)?.id ?? null;
   const [loading, setLoading] = useState(true);
+  const [ownerId, setOwnerId] = useState(null);
+  const [ownerEmail, setOwnerEmail] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [picture, setPicture] = useState("");
@@ -40,6 +46,8 @@ export default function EditBusinessAccount() {
       const list = await api.entities.BusinessAccount.filter({ id });
       if (!list.length) { navigate(-1); return; }
       const b = list[0];
+      setOwnerId(b.owner_id || null);
+      setOwnerEmail(b.owner_email || "");
       setName(b.business_name || "");
       setEmail(b.business_email || "");
       setPicture(b.business_picture || "");
@@ -136,7 +144,11 @@ export default function EditBusinessAccount() {
       </Button>
 
       <div className="bg-card rounded-2xl border border-border p-6 mt-4">
-        <BusinessTeamSection businessId={id} />
+        <BusinessTeamSection businessId={id} ownerEmail={ownerEmail} isOwner={!!myId && myId === ownerId} />
+      </div>
+
+      <div className="bg-card rounded-2xl border border-border p-6 mt-4">
+        <MetaTrackingSection businessId={id} />
       </div>
 
       <p className="text-xs text-muted-foreground mt-4 text-center">

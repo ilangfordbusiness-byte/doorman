@@ -3,19 +3,26 @@ import { useState, useEffect } from "react";
 import { tierRemaining } from "@/lib/tiers";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { api } from "@/api/data";
-import { ArrowLeft, TrendingUp, Ticket, Tag, Percent, Wallet, Megaphone } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowLeft, TrendingUp, Ticket, Tag, Percent, Wallet, Megaphone, Download } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast";
+import { cn } from "@/lib/utils";
 import HomeButton from "@/components/HomeButton";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { buildEventExportCsv } from "@/lib/eventExport";
+import { downloadCsv, slugForFilename } from "@/lib/csv";
 
 export default function EventAnalytics() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [event, setEvent] = useState(null);
   const [tiers, setTiers] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [allOrders, setAllOrders] = useState([]);
   const [promos, setPromos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => { load(); }, [id]);
 
@@ -32,12 +39,33 @@ export default function EventAnalytics() {
       if (events[0].host_email !== me.email) return navigate(`/event/${id}`);
       setEvent(events[0]);
       setTiers(t);
+      setAllOrders(o);
       setOrders(o.filter((x) => x.status === "paid"));
       setPromos(p);
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  }
+
+  // Everything on this page plus the guestlist and promoter tables, as one CSV
+  // built client-side from data the host can already read via the api layer.
+  async function exportCsv() {
+    setExporting(true);
+    try {
+      const [promoters, guests] = await Promise.all([
+        api.entities.Promoter.filter({ event_id: id }),
+        api.entities.GuestlistEntry.filter({ event_id: id }, "-created_date"),
+      ]);
+      const csv = buildEventExportCsv({ event, tiers, orders: allOrders, promos, promoters, guests });
+      const day = new Date().toISOString().slice(0, 10);
+      downloadCsv(`${slugForFilename(event.title)}-export-${day}.csv`, csv);
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Export failed", description: e?.message, variant: "destructive" });
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -88,11 +116,21 @@ export default function EventAnalytics() {
       </div>
       <p className="text-sm text-muted-foreground mb-5">{event.title}</p>
 
-      <Link to={`/event/${id}/promoters`} className="block mb-5">
-        <Button variant="outline" className="w-full h-11 rounded-xl gap-2 font-semibold">
-          <Megaphone className="w-4 h-4" /> Promoters & Commissions
-        </Button>
-      </Link>
+      <div className="grid grid-cols-2 gap-3 mb-5">
+        <Link to={`/event/${id}/promoters`} className="block">
+          <Button variant="outline" className="w-full h-11 rounded-xl gap-2 font-semibold">
+            <Megaphone className="w-4 h-4" /> Promoters
+          </Button>
+        </Link>
+        <button
+          type="button"
+          className={cn(buttonVariants({ variant: "outline" }), "w-full h-11 rounded-xl gap-2 font-semibold")}
+          onClick={exportCsv}
+          disabled={exporting}
+        >
+          <Download className="w-4 h-4" /> {exporting ? "Exporting..." : "Export CSV"}
+        </button>
+      </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-3 mb-5">

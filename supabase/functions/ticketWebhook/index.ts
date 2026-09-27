@@ -4,6 +4,7 @@
 // verify_jwt=false — authentication is the Stripe signature.
 import { json, serviceClient } from '../_shared/db.ts';
 import { sendTicketConfirmationEmail } from '../_shared/tickets.ts';
+import { sendMetaPurchase } from '../_shared/meta.ts';
 
 async function verifyStripeSignature(rawBody: string, sigHeader: string, secret: string) {
   const parts = (sigHeader || '').split(',').map((p) => p.trim());
@@ -138,12 +139,16 @@ Deno.serve(async (req) => {
     }
 
     // Ticket email (all QRs in one email) — non-blocking.
+    const { data: event } = await svc.from('events').select('*').eq('id', order.event_id).single();
     try {
-      const { data: event } = await svc.from('events').select('*').eq('id', order.event_id).single();
       if (event) await sendTicketConfirmationEmail(svc, entries, event, tier?.name ?? null);
     } catch (e) {
       console.log('ticketWebhook email send error', e instanceof Error ? e.message : String(e));
     }
+
+    // Organiser ad attribution: server-side Purchase to the business's Meta
+    // pixel (Conversions API), if it has one configured. Never throws.
+    if (event) await sendMetaPurchase(svc, order, event);
 
     return json({ received: true });
   } catch (error) {

@@ -43,6 +43,11 @@ declare
   v_id uuid;
   v_text text;
   v_count int;
+  v_ts timestamptz;
+  v_biz uuid;
+  v_member uuid;
+  v_biz_event uuid;
+  v_json jsonb;
 begin
   -- ---- seed users (as postgres; trigger creates profiles) ----
   insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
@@ -84,6 +89,50 @@ begin
     values (alice, 'Secret Afters', '2026-09-02', '02:00', 'draft')
     returning id into v_draft;
   perform pg_temp.ok('host can create events');
+
+  -- ---- published_at (weekly new-events digest) ----
+  begin
+    execute format('select published_at from public.events where id = %L', v_event);
+    raise exception 'FAIL: published_at readable by client' using errcode = 'assert_failure';
+  exception when insufficient_privilege then
+    perform pg_temp.ok('published_at hidden from clients (column grant)');
+  end;
+
+  execute 'reset role';
+  if (select published_at from public.events where id = v_event) is null then
+    raise exception 'FAIL: inserting a published event did not stamp published_at';
+  end if;
+  if (select published_at from public.events where id = v_draft) is not null then
+    raise exception 'FAIL: draft event has published_at';
+  end if;
+  perform pg_temp.ok('published_at stamped on publish, null for drafts');
+
+  perform pg_temp.impersonate(alice, 'alice@test.dev');
+  insert into public.events (host_id, title, date, start_time, status)
+    values (alice, 'Digest Probe', '2026-09-03', '20:00', 'draft')
+    returning id into v_id;
+  update public.events set status = 'published' where id = v_id;
+  execute 'reset role';
+  select published_at into v_ts from public.events where id = v_id;
+  if v_ts is null then
+    raise exception 'FAIL: publishing a draft did not stamp published_at';
+  end if;
+  perform pg_temp.impersonate(alice, 'alice@test.dev');
+  update public.events set status = 'draft' where id = v_id;
+  update public.events set status = 'published' where id = v_id;
+  execute 'reset role';
+  if (select published_at from public.events where id = v_id) is distinct from v_ts then
+    raise exception 'FAIL: republishing changed published_at (event would be "new" twice)';
+  end if;
+  delete from public.events where id = v_id;
+  perform pg_temp.ok('published_at set once on first publish, kept on republish');
+
+  if not exists (select 1 from cron.job where jobname = 'send-new-events-digest'
+                   and schedule = '0 16 * * 4') then
+    raise exception 'FAIL: send-new-events-digest cron job not scheduled for Thursdays';
+  end if;
+  perform pg_temp.ok('weekly new-events digest scheduled (Thursday 16:00 UTC / 5pm BST)');
+  perform pg_temp.impersonate(alice, 'alice@test.dev');
 
   begin
     execute format('select invite_code from public.events where id = %L', v_event);
@@ -203,6 +252,16 @@ begin
 
   update public.profiles set avatar_prompt_dismissed_at = now() where id = bob;
   perform pg_temp.ok('user can dismiss own avatar prompt');
+
+  update public.profiles set location = 'London, UK' where id = bob;
+  perform pg_temp.ok('user can set own profile location');
+
+  begin
+    update public.profiles set location = repeat('x', 101) where id = bob;
+    raise exception 'FAIL: user set a 101-char location' using errcode = 'assert_failure';
+  exception when check_violation then
+    perform pg_temp.ok('profile location is capped at 100 chars (check constraint)');
+  end;
 
   -- stripe_account_country / stripe_default_currency are facts copied from
   -- Stripe by the service role; a client must never be able to set them.
@@ -478,6 +537,21 @@ begin
     perform pg_temp.ok('sold + reserved <= quantity is enforced by the database');
   end;
 
+  -- ---- optional tier description ----
+  begin
+    update public.ticket_tiers set description = repeat('x', 281) where id = v_id;
+    raise exception 'FAIL: over-long tier description accepted' using errcode = 'assert_failure';
+  exception when check_violation then
+    perform pg_temp.ok('tier descriptions are capped at 280 characters by the database');
+  end;
+  update public.ticket_tiers set description = 'Includes a welcome drink' where id = v_id;
+  perform pg_temp.impersonate(bob, 'bob@test.dev');
+  if (select description from public.ticket_tiers where id = v_id) is distinct from 'Includes a welcome drink' then
+    raise exception 'FAIL: guest cannot read the tier description' using errcode = 'assert_failure';
+  end if;
+  execute 'reset role';
+  perform pg_temp.ok('guests can read tier descriptions');
+
   -- ---- scheduled tier releases: no seat can be held before release_at ----
   insert into public.ticket_tiers (event_id, name, price_minor, quantity, release_at)
     values (v_event, 'Second release', 700, 5, now() + interval '1 hour') returning id into v_id;
@@ -502,6 +576,308 @@ begin
     raise exception 'FAIL: guest cannot read release_at' using errcode = 'assert_failure';
   end if;
   perform pg_temp.ok('guests can read a tier release time');
+
+  -- ---- Meta ads tracking: pixel public, token write-only ----
+  perform pg_temp.impersonate(alice, 'alice@test.dev');
+  insert into public.business_accounts (owner_id, business_email, business_name)
+    values (alice, 'biz@test.dev', 'Alice Events Ltd') returning id into v_id;
+  update public.business_accounts
+    set meta_pixel_id = '123456789012345', meta_capi_token = 'EAAB-secret-token',
+        meta_test_event_code = 'TEST123'
+    where id = v_id;
+  if (select meta_capi_token_set from public.business_accounts where id = v_id) is not true then
+    raise exception 'FAIL: meta_capi_token_set flag not readable/true after saving a token';
+  end if;
+  perform pg_temp.ok('business manager can save Meta pixel + token');
+
+  begin
+    execute format('select meta_capi_token from public.business_accounts where id = %L', v_id);
+    raise exception 'FAIL: meta_capi_token readable by client' using errcode = 'assert_failure';
+  exception when insufficient_privilege then
+    perform pg_temp.ok('meta_capi_token hidden from clients (column grant)');
+  end;
+
+  begin
+    update public.business_accounts set meta_pixel_id = 'not-a-pixel' where id = v_id;
+    raise exception 'FAIL: malformed pixel id accepted' using errcode = 'assert_failure';
+  exception when check_violation then
+    perform pg_temp.ok('pixel id must be numeric');
+  end;
+
+  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  update public.business_accounts set meta_capi_token = 'hijack' where id = v_id;
+  execute 'reset role';
+  if (select meta_capi_token from public.business_accounts where id = v_id) <> 'EAAB-secret-token' then
+    raise exception 'FAIL: stranger overwrote the Meta token';
+  end if;
+  perform pg_temp.ok('stranger cannot change another business''s Meta settings');
+
+  perform pg_temp.go_anon();
+  if (select meta_pixel_id from public.business_public where id = v_id) <> '123456789012345' then
+    raise exception 'FAIL: pixel id not visible via business_public';
+  end if;
+  perform pg_temp.ok('pixel id is readable by anon via business_public');
+
+  perform pg_temp.impersonate(alice, 'alice@test.dev');
+  begin
+    perform * from public.ticket_order_tracking;
+    raise exception 'FAIL: ticket_order_tracking readable by client' using errcode = 'assert_failure';
+  exception when insufficient_privilege then
+    perform pg_temp.ok('ticket_order_tracking (browser match keys) is service-role only');
+  end;
+
+  -- -------------------------------------------------------------------------
+  -- Push devices (iOS APNs tokens): writes only via register_push_device,
+  -- which re-homes a token to whoever is signed in; reads/deletes own rows.
+  -- -------------------------------------------------------------------------
+  perform pg_temp.impersonate(bob, 'bob@test.dev');
+  perform public.register_push_device(repeat('ab', 32), 'ios', '1.0 (1)');
+  if (select count(*) from public.push_devices) <> 1 then
+    raise exception 'FAIL: bob cannot read back his own device';
+  end if;
+  perform pg_temp.ok('user registers a push device and reads it back');
+
+  begin
+    insert into public.push_devices (token, user_id) values (repeat('cd', 32), bob);
+    raise exception 'FAIL: direct insert into push_devices allowed' using errcode = 'assert_failure';
+  exception when insufficient_privilege then
+    perform pg_temp.ok('push_devices writes only via register_push_device');
+  end;
+
+  begin
+    perform public.register_push_device('not-a-token!', 'ios', null);
+    raise exception 'FAIL: malformed push token accepted' using errcode = 'assert_failure';
+  exception when raise_exception then
+    perform pg_temp.ok('malformed push token rejected');
+  end;
+
+  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  if (select count(*) from public.push_devices) <> 0 then
+    raise exception 'FAIL: stranger can see another user''s devices';
+  end if;
+  delete from public.push_devices where token = repeat('ab', 32);
+  execute 'reset role';
+  if (select user_id from public.push_devices where token = repeat('ab', 32)) <> bob then
+    raise exception 'FAIL: stranger deleted another user''s device';
+  end if;
+  perform pg_temp.ok('stranger cannot read or delete another user''s push device');
+
+  -- Same phone, new sign-in: the token moves to dave (and is lower-cased).
+  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  perform public.register_push_device(repeat('AB', 32), 'ios', '1.0 (2)');
+  execute 'reset role';
+  if (select count(*) from public.push_devices where token = repeat('ab', 32)) <> 1
+     or (select user_id from public.push_devices where token = repeat('ab', 32)) <> dave
+     or (select app_version from public.push_devices where token = repeat('ab', 32)) <> '1.0 (2)' then
+    raise exception 'FAIL: re-registering did not re-home the token';
+  end if;
+  perform pg_temp.ok('re-registering a token re-homes it to the signed-in user');
+
+  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  delete from public.push_devices where token = repeat('ab', 32);
+  execute 'reset role';
+  if (select count(*) from public.push_devices) <> 0 then
+    raise exception 'FAIL: owner could not remove own device';
+  end if;
+  perform pg_temp.ok('owner removes own push device (logout)');
+
+  perform pg_temp.go_anon();
+  begin
+    perform public.register_push_device(repeat('ef', 32), 'ios', null);
+    raise exception 'FAIL: anon registered a push device' using errcode = 'assert_failure';
+  exception when insufficient_privilege then
+    perform pg_temp.ok('anon cannot register a push device');
+  end;
+
+  -- Service path (deleteAccount, dead-token cleanup) manages rows directly.
+  execute 'reset role';
+  insert into public.push_devices (token, user_id) values (repeat('ef', 32), bob);
+  delete from public.push_devices where user_id = bob;
+  if (select count(*) from public.push_devices) <> 0 then
+    raise exception 'FAIL: service path could not delete devices by user';
+  end if;
+  perform pg_temp.ok('service role manages push devices (deleteAccount cleanup)');
+
+  -- ---- email_unsubscribes: service-only opt-out list ----
+  execute 'reset role';
+  insert into public.email_unsubscribes (email, source) values ('Opt.Out@Test.dev', 'page');
+  begin
+    insert into public.email_unsubscribes (email) values ('opt.out@test.dev');
+    raise exception 'FAIL: case-variant duplicate accepted' using errcode = 'assert_failure';
+  exception when unique_violation then
+    perform pg_temp.ok('email_unsubscribes key is case-insensitive');
+  end;
+  begin
+    insert into public.email_unsubscribes (email, source) values ('x@test.dev', 'sms');
+    raise exception 'FAIL: unknown source accepted' using errcode = 'assert_failure';
+  exception when check_violation then
+    perform pg_temp.ok('email_unsubscribes rejects unknown sources');
+  end;
+
+  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  begin
+    perform count(*) from public.email_unsubscribes;
+    raise exception 'FAIL: authenticated can read the opt-out list' using errcode = 'assert_failure';
+  exception when insufficient_privilege then
+    perform pg_temp.ok('authenticated cannot read email_unsubscribes');
+  end;
+  begin
+    insert into public.email_unsubscribes (email) values ('bob@test.dev');
+    raise exception 'FAIL: authenticated can opt someone out' using errcode = 'assert_failure';
+  exception when insufficient_privilege then
+    perform pg_temp.ok('authenticated cannot write email_unsubscribes');
+  end;
+  begin
+    delete from public.email_unsubscribes where email = 'opt.out@test.dev';
+    raise exception 'FAIL: authenticated can lift an opt-out' using errcode = 'assert_failure';
+  exception when insufficient_privilege then
+    perform pg_temp.ok('authenticated cannot delete from email_unsubscribes');
+  end;
+
+  perform pg_temp.go_anon();
+  begin
+    perform count(*) from public.email_unsubscribes;
+    raise exception 'FAIL: anon can read the opt-out list' using errcode = 'assert_failure';
+  exception when insufficient_privilege then
+    perform pg_temp.ok('anon cannot read email_unsubscribes');
+  end;
+
+  -- Service path (unsubscribeEmail resubscribe) lifts the opt-out.
+  execute 'reset role';
+  if (select count(*) from public.email_unsubscribes where email = 'OPT.OUT@test.dev') <> 1 then
+    raise exception 'FAIL: service role cannot look up an opt-out case-insensitively';
+  end if;
+  delete from public.email_unsubscribes where email = 'opt.out@test.dev';
+  if (select count(*) from public.email_unsubscribes) <> 0 then
+    raise exception 'FAIL: service role could not lift the opt-out';
+  end if;
+  perform pg_temp.ok('service role records and lifts opt-outs (unsubscribeEmail)');
+
+  -- ---- business members: owner-only management, member access, invites ----
+  perform pg_temp.impersonate(alice, 'alice@test.dev');
+  insert into public.business_accounts (owner_id, business_email, business_name)
+    values (alice, 'team@test.dev', 'Team Events Ltd') returning id into v_biz;
+
+  -- owner invites bob (existing user) and a stranger with no account yet
+  insert into public.business_members (business_id, email, user_id, status)
+    values (v_biz, 'bob@test.dev', bob, 'pending') returning id into v_member;
+  insert into public.business_members (business_id, email, status)
+    values (v_biz, 'newbie@test.dev', 'pending');
+  perform pg_temp.ok('owner can invite business members');
+
+  -- pending invitee sees the invite (own row + notifications) but not the business
+  perform pg_temp.impersonate(bob, 'bob@test.dev');
+  select count(*) into v_count from public.business_members where business_id = v_biz;
+  if v_count <> 1 then
+    raise exception 'FAIL: pending invitee sees % member rows, expected only their own', v_count;
+  end if;
+  v_json := public.get_notifications();
+  if (v_json -> 'counts' ->> 'businessInvite')::int <> 1
+     or (v_json -> 'businessInvites' -> 0 ->> 'business_id')::uuid <> v_biz then
+    raise exception 'FAIL: pending business invite missing from get_notifications';
+  end if;
+  select count(*) into v_count from public.business_accounts where id = v_biz;
+  if v_count <> 0 then
+    raise exception 'FAIL: pending invitee can read the business account';
+  end if;
+  perform pg_temp.ok('pending invitee sees their invite but not the business');
+
+  begin
+    insert into public.events (host_id, business_id, title, date, start_time, status)
+      values (bob, v_biz, 'Not Mine', '2026-10-01', '20:00', 'draft');
+    raise exception 'FAIL: non-member created an event under a business' using errcode = 'assert_failure';
+  exception when insufficient_privilege then
+    perform pg_temp.ok('non-member cannot create events under a business');
+  end;
+
+  -- accept (the acceptBusinessMember edge function does this with the service role)
+  execute 'reset role';
+  update public.business_members set status = 'accepted' where id = v_member;
+
+  perform pg_temp.impersonate(bob, 'bob@test.dev');
+  select count(*) into v_count from public.business_accounts where id = v_biz;
+  if v_count <> 1 then
+    raise exception 'FAIL: accepted member cannot read the business account';
+  end if;
+  update public.business_accounts set description = 'Run by the team' where id = v_biz;
+  execute 'reset role';
+  if (select description from public.business_accounts where id = v_biz) <> 'Run by the team' then
+    raise exception 'FAIL: accepted member could not edit the business';
+  end if;
+  perform pg_temp.ok('accepted member can read + edit the business account');
+
+  perform pg_temp.impersonate(bob, 'bob@test.dev');
+  insert into public.events (host_id, business_id, title, date, start_time, status)
+    values (bob, v_biz, 'Team Night', '2026-10-02', '21:00', 'published')
+    returning id into v_biz_event;
+  select count(*) into v_count from public.business_members where business_id = v_biz;
+  if v_count <> 2 then
+    raise exception 'FAIL: accepted member sees % team rows, expected 2', v_count;
+  end if;
+  perform pg_temp.ok('accepted member can create business events and see the team');
+
+  -- the owner manages any event under the business, even one a member created
+  perform pg_temp.impersonate(alice, 'alice@test.dev');
+  update public.events set title = 'Team Night (renamed)' where id = v_biz_event;
+  execute 'reset role';
+  if (select title from public.events where id = v_biz_event) <> 'Team Night (renamed)' then
+    raise exception 'FAIL: owner could not edit a member-created business event';
+  end if;
+  perform pg_temp.ok('owner manages events created by team members');
+
+  -- members cannot manage the team
+  perform pg_temp.impersonate(bob, 'bob@test.dev');
+  begin
+    insert into public.business_members (business_id, email, user_id, status)
+      values (v_biz, 'dave@test.dev', dave, 'pending');
+    raise exception 'FAIL: member invited another member' using errcode = 'assert_failure';
+  exception when insufficient_privilege then
+    perform pg_temp.ok('member cannot invite other members (owner only)');
+  end;
+  delete from public.business_members where business_id = v_biz and email = 'newbie@test.dev';
+  update public.business_members set status = 'declined' where business_id = v_biz and email = 'newbie@test.dev';
+  execute 'reset role';
+  if (select status from public.business_members where business_id = v_biz and email = 'newbie@test.dev') is distinct from 'pending' then
+    raise exception 'FAIL: member changed or removed another member''s row';
+  end if;
+  perform pg_temp.ok('member cannot remove or edit other members (owner only)');
+
+  -- strangers see nothing
+  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  select count(*) into v_count from public.business_members where business_id = v_biz;
+  if v_count <> 0 then
+    raise exception 'FAIL: stranger can see business members';
+  end if;
+  delete from public.business_members where id = v_member;
+  execute 'reset role';
+  if not exists (select 1 from public.business_members where id = v_member) then
+    raise exception 'FAIL: stranger removed a business member';
+  end if;
+  perform pg_temp.ok('stranger cannot see or remove business members');
+
+  -- signing up with the invited email links the pending row
+  insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
+                          email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
+                          created_at, updated_at)
+  values ('00000000-0000-0000-0000-000000000000',
+          '88888888-8888-8888-8888-888888888888', 'authenticated', 'authenticated',
+          'newbie@test.dev', '', now(), '{}',
+          json_build_object('full_name', 'New Member')::jsonb, now(), now());
+  if (select user_id from public.business_members where business_id = v_biz and email = 'newbie@test.dev')
+     is distinct from '88888888-8888-8888-8888-888888888888'::uuid then
+    raise exception 'FAIL: signup trigger did not link the pending business invite';
+  end if;
+  perform pg_temp.ok('signup trigger links pending business invites by email');
+
+  -- owner removes a member; their access ends
+  perform pg_temp.impersonate(alice, 'alice@test.dev');
+  delete from public.business_members where id = v_member;
+  perform pg_temp.impersonate(bob, 'bob@test.dev');
+  select count(*) into v_count from public.business_accounts where id = v_biz;
+  if v_count <> 0 then
+    raise exception 'FAIL: removed member can still read the business account';
+  end if;
+  perform pg_temp.ok('owner can remove members and their access ends');
 
   execute 'reset role';
   raise notice '';

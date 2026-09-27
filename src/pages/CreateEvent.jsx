@@ -97,18 +97,19 @@ export default function CreateEvent({ business = null }) {
   }
 
   const [tiers, setTiers] = useState([]);
-  const [newTier, setNewTier] = useState({ name: "", price: "", quantity: "", release_at: "" });
+  const [newTier, setNewTier] = useState({ name: "", description: "", price: "", quantity: "", release_at: "" });
 
   function addTier() {
     if (!newTier.name || newTier.price === "" || newTier.quantity === "") return;
     setTiers((prev) => [...prev, {
       name: newTier.name,
+      description: newTier.description.trim(),
       price: Number(newTier.price),
       quantity: Number(newTier.quantity),
       // Optional scheduled release (ISO); null = on sale the moment it exists.
       release_at: localInputToReleaseAt(newTier.release_at),
     }]);
-    setNewTier({ name: "", price: "", quantity: "", release_at: "" });
+    setNewTier({ name: "", description: "", price: "", quantity: "", release_at: "" });
   }
 
   function removeTier(i) {
@@ -166,6 +167,7 @@ export default function CreateEvent({ business = null }) {
           await api.entities.TicketTier.create({
             event_id: event.id,
             name: t.name,
+            description: t.description || null,
             price: t.price,
             quantity: t.quantity,
             sold: 0,
@@ -197,8 +199,14 @@ export default function CreateEvent({ business = null }) {
         } catch {}
       }
 
+      // Confirmation email to the host. Fire-and-forget: a failed send must
+      // never block or fail event creation.
+      api.functions.invoke("notifyEventCreated", { event_id: event.id }).catch(() => {});
+
       toast({ title: status === "published" ? "Event published!" : "Draft saved" });
-      navigate(`/event/${event.id}`);
+      // Replace the form in history so the back arrow on the new event leads to
+      // where the host started (hub/home), not back into an empty create form.
+      navigate(`/event/${event.id}`, { replace: true });
     } catch (e) {
       setError(e?.message || "Something went wrong while saving your event. Please try again.");
       setSaving(false);
@@ -486,6 +494,7 @@ export default function CreateEvent({ business = null }) {
                       <div key={i} className="flex items-center gap-2 bg-secondary/40 rounded-lg px-3 py-2 border border-border/50">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{t.name}</p>
+                          {t.description && <p className="text-[11px] text-muted-foreground whitespace-pre-line break-words">{t.description}</p>}
                           <p className="text-[11px] text-muted-foreground">
                             {currencySymbol(form.currency)}{Number(t.price).toFixed(2)} · {t.quantity} tickets
                             {t.release_at && <span className="text-amber-400"> · On sale {formatReleaseAt(t.release_at)}</span>}
@@ -506,6 +515,9 @@ export default function CreateEvent({ business = null }) {
                     <Plus className="w-4 h-4" />
                   </Button>
                 </div>
+                <textarea placeholder="Description (optional) — e.g. Includes a welcome drink" value={newTier.description}
+                  onChange={(e) => setNewTier((s) => ({ ...s, description: e.target.value }))} maxLength={280} rows={2}
+                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:text-sm resize-none mt-2 bg-secondary/50" />
                 <div className="flex items-center gap-2 mt-2">
                   <Clock className="w-4 h-4 text-muted-foreground shrink-0" />
                   <input type="datetime-local" value={newTier.release_at} onChange={(e) => setNewTier((s) => ({ ...s, release_at: e.target.value }))}

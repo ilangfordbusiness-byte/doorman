@@ -1,8 +1,10 @@
 import { currencySymbol } from "@/lib/money";
 import { useState, useEffect } from "react";
 import { tierRemaining, tierScheduled, formatReleaseAt } from "@/lib/tiers";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { api } from "@/api/data";
+import { isNative, openInAppBrowser } from "@/lib/native";
+import NativeCheckoutWait from "@/components/checkout/NativeCheckoutWait";
 import { ArrowLeft, CreditCard, Tag, Loader2, AlertCircle, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -14,6 +16,7 @@ import { getStoredRef, captureRef, getLinkDomain, getPromoterByCode, computeProm
 import { bookingFee } from "@/lib/fees";
 import CheckoutSuccess from "@/components/checkout/CheckoutSuccess";
 import CheckoutCancelled from "@/components/checkout/CheckoutCancelled";
+import { loadPixel, trackPixel, metaMatchKeys } from "@/lib/metaPixel";
 
 // Standalone checkout page at /event/:id/checkout (and /checkout/:id).
 // Guests must be logged into a DoorMan account before buying — if not, they're
@@ -23,9 +26,15 @@ export default function TicketCheckout() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const params = new URLSearchParams(window.location.search);
+  // From the router (not window.location) so the iOS app's deep-link
+  // navigation back to ?payment=… re-renders this page in place.
+  const { search } = useLocation();
+  const params = new URLSearchParams(search);
   const payment = params.get("payment");
   const ref = params.get("ref");
+  const orderParam = params.get("order");
+  // iOS: the order we opened in the Stripe sheet, while we wait for it to pay.
+  const [pendingOrder, setPendingOrder] = useState(null);
 
   const [authed, setAuthed] = useState(false);
   const [event, setEvent] = useState(null);
@@ -54,15 +63,19 @@ export default function TicketCheckout() {
   useEffect(() => {
     if (ref && payment !== "success") captureRef(id, ref).catch(() => {});
     // Backed out of Stripe: free the seats this checkout was holding.
-    const cancelledOrder = params.get("order");
-    if (payment === "cancelled" && cancelledOrder) {
-      api.functions.invoke("cancelTicketCheckout", { order_id: cancelledOrder }).catch(() => {});
+    if (payment === "cancelled" && orderParam) {
+      api.functions.invoke("cancelTicketCheckout", { order_id: orderParam }).catch(() => {});
     }
-  }, [id]);
+  }, [id, payment, orderParam]);
 
   useEffect(() => {
     if (authed) load();
   }, [authed]);
+
+  // Organiser ad tracking: the business's own Meta Pixel on its checkout.
+  useEffect(() => {
+    if (event?.meta_pixel_id && !payment) loadPixel(event.meta_pixel_id);
+  }, [event?.meta_pixel_id]);
 
   async function load() {
     try {
@@ -113,17 +126,38 @@ export default function TicketCheckout() {
     setPaying(true);
     try {
       const promoterCode = getStoredRef(id);
-      const base = `${getLinkDomain()}/event/${id}/checkout`;
+      const path = `/event/${id}/checkout`;
+      const base = `${getLinkDomain()}${path}`;
       const refPart = promoterCode ? `&ref=${promoterCode}` : "";
+      // iOS: Stripe runs in a browser sheet that cannot land on the app's own
+      // origin, so it redirects to /native/return on the public site, which
+      // hands the user back through the doorman:// scheme with `to` = the
+      // in-app path (the server appends order=<id>).
+      const native = isNative();
+      const returnFor = (status) =>
+        `${getLinkDomain()}/native/return?status=${status}&to=${encodeURIComponent(`${path}?payment=${status}${refPart}`)}`;
+      if (event.meta_pixel_id) {
+        trackPixel(event.meta_pixel_id, "InitiateCheckout", {
+          value: totalDue, currency: cur.toUpperCase(),
+          content_ids: [tier.id], content_type: "product", num_items: 1,
+        });
+      }
       const res = await api.functions.invoke("createTicketCheckout", {
         tier_id: tier.id,
         promo_code: promo ? promoInput.trim() : null,
         promoter_code: promoterCode || null,
-        success_url: `${base}?payment=success${refPart}`,
-        cancel_url: `${base}?payment=cancelled${refPart}`,
+        success_url: native ? returnFor("success") : `${base}?payment=success${refPart}`,
+        cancel_url: native ? returnFor("cancelled") : `${base}?payment=cancelled${refPart}`,
+        // Browser match keys for the server-side Purchase (ignored unless the
+        // event's business has Meta tracking configured).
+        tracking: event.meta_pixel_id ? metaMatchKeys() : null,
       });
-      if (res.data?.url) window.location.href = res.data.url;
-      else throw new Error(res.data?.error || "Failed to start checkout");
+      if (!res.data?.url) throw new Error(res.data?.error || "Failed to start checkout");
+      if (native) {
+        setPendingOrder(res.data.order_id);
+        setPaying(false);
+      }
+      await openInAppBrowser(res.data.url);
     } catch (e) {
       toast({ title: e.message || "Checkout failed", variant: "destructive" });
       setPaying(false);
@@ -132,8 +166,18 @@ export default function TicketCheckout() {
 
   // Confirmation screens render once the auth check has settled.
   if (!authed) return <LoadingSpinner fullScreen />;
-  if (payment === "success") return <CheckoutSuccess eventId={id} />;
+  if (payment === "success") return <CheckoutSuccess eventId={id} orderId={orderParam} />;
   if (payment === "cancelled") return <CheckoutCancelled eventId={id} />;
+  if (pendingOrder) {
+    const refQ = getStoredRef(id) ? `&ref=${getStoredRef(id)}` : "";
+    return (
+      <NativeCheckoutWait
+        orderId={pendingOrder}
+        onPaid={() => { setPendingOrder(null); navigate(`/event/${id}/checkout?payment=success&order=${pendingOrder}${refQ}`, { replace: true }); }}
+        onCancelled={() => { setPendingOrder(null); navigate(`/event/${id}/checkout?payment=cancelled&order=${pendingOrder}${refQ}`, { replace: true }); }}
+      />
+    );
+  }
   if (loading) return <LoadingSpinner fullScreen />;
   if (loadError) return (
     <div className="max-w-lg mx-auto px-4 pt-20 text-center">
@@ -197,6 +241,7 @@ export default function TicketCheckout() {
               <div className="flex justify-between items-center">
                 <div>
                   <p className={`text-sm font-semibold ${soldOut ? "line-through" : ""}`}>{t.name}</p>
+                  {t.description && <p className="text-xs text-muted-foreground whitespace-pre-line break-words">{t.description}</p>}
                   {soldOut && <p className="text-xs text-muted-foreground">Sold out</p>}
                   {scheduled && <p className="text-xs text-amber-400">On sale {formatReleaseAt(t.release_at)}</p>}
                 </div>

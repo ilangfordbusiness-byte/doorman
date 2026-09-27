@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 import PhonePrompt from "../components/PhonePrompt";
 import { api } from "@/api/data";
-import { ArrowLeft, ScanLine, Calendar, MapPin, Clock, UserCheck, Ticket } from "lucide-react";
+import { ArrowLeft, ScanLine, Calendar, MapPin, Clock, UserCheck, Ticket, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import HomeButton from "@/components/HomeButton";
 import LoadingSpinner from "../components/LoadingSpinner";
@@ -223,6 +223,13 @@ export default function StaffHub() {
                         )}
                       </div>
                     </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); navigate(`/event/${event.id}/door`); }}
+                      className="flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg hover:bg-emerald-500/10 transition-colors flex-shrink-0"
+                    >
+                      <ClipboardList className="w-5 h-5 text-emerald-400" />
+                      <span className="text-[9px] text-emerald-400 uppercase tracking-wider font-semibold">List</span>
+                    </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); setQrEvent(event); }}
                       className="flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg hover:bg-amber-500/10 transition-colors flex-shrink-0"

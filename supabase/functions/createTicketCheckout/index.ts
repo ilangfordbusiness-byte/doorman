@@ -6,14 +6,8 @@ import {
   promoterDiscountAvailable,
 } from '../_shared/tickets.ts';
 import { PAYOUT_SETUP_ERROR, resolvePayoutAccount } from '../_shared/connect.ts';
-
-function allowedOrigins(req: Request): string[] {
-  const extra = (Deno.env.get('ALLOWED_ORIGINS') || '').split(',').map((s) => s.trim()).filter(Boolean);
-  const origin = req.headers.get('origin');
-  const list = [Deno.env.get('APP_ORIGIN') || 'https://thedoorman.app', ...extra];
-  if (origin && list.includes(origin)) return [origin, ...list];
-  return list;
-}
+import { metaConfigForEvent } from '../_shared/meta.ts';
+import { allowedOrigins, safeRedirect, withParam } from '../_shared/origins.ts';
 
 Deno.serve(async (req) => {
   const pre = preflight(req);
@@ -23,8 +17,10 @@ Deno.serve(async (req) => {
     const user = await getCaller(req, svc);
     if (!user) return json({ error: 'Unauthorized' }, 401);
 
-    const { tier_id, promo_code, promoter_code, quantity = 1, success_url, cancel_url } =
-      await req.json();
+    const {
+      tier_id, promo_code, promoter_code, quantity = 1, success_url, cancel_url,
+      tracking = null,
+    } = await req.json();
     if (!tier_id) return json({ error: 'A ticket tier is required' }, 400);
     const qty = Math.max(1, Math.round(Number(quantity) || 1));
 
@@ -164,24 +160,45 @@ Deno.serve(async (req) => {
     // From here on a failure cancels the order, which releases the hold.
     const abandon = () => svc.rpc('cancel_pending_ticket_order', { p_order: order.id });
 
+    // Organiser ad attribution: keep the browser match keys (Meta cookies,
+    // IP, user agent) for the server-side Purchase in ticketWebhook — only
+    // when the event's business actually has a Meta pixel + token set up, so
+    // nothing is collected for everyone else. Best effort.
+    try {
+      if (await metaConfigForEvent(svc, event)) {
+        const t = tracking && typeof tracking === 'object' ? tracking : {};
+        const str = (v: unknown, max: number) => (typeof v === 'string' && v ? v.slice(0, max) : null);
+        const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim()
+          || req.headers.get('cf-connecting-ip') || null;
+        const { error } = await svc.from('ticket_order_tracking').insert({
+          order_id: order.id,
+          fbp: str(t.fbp, 200),
+          fbc: str(t.fbc, 500),
+          client_ip: ip,
+          client_user_agent: str(req.headers.get('user-agent'), 500),
+          event_source_url: str(t.source_url, 500),
+        });
+        if (error) console.log('ticket_order_tracking insert error', error.message);
+      }
+    } catch (e) {
+      console.log('ticket_order_tracking error', e instanceof Error ? e.message : String(e));
+    }
+
     const stripeKey = Deno.env.get('STRIPE_TEST_SECRET_KEY') || Deno.env.get('STRIPE_SECRET_KEY');
     if (!stripeKey) { await abandon(); return json({ error: 'Stripe is not configured' }, 500); }
 
-    // Redirects restricted to known origins (open-redirect guard).
+    // Redirects restricted to known origins (open-redirect guard). Both carry
+    // the order id: the success page shows that order rather than guessing
+    // the buyer's latest, and the cancel page frees its held seats straight
+    // away via cancelTicketCheckout.
     const origins = allowedOrigins(req);
-    const safeRedirect = (url: string | undefined, fallback: string) => {
-      if (!url) return fallback;
-      try {
-        return origins.includes(new URL(url).origin) ? url : fallback;
-      } catch {
-        return fallback;
-      }
-    };
     const base = origins[0];
-    const successUrl = safeRedirect(success_url, `${base}/event/${tier.event_id}?payment=success`);
-    // The cancel page frees the held seats straight away via cancelTicketCheckout.
-    const cancelBase = safeRedirect(cancel_url, `${base}/event/${tier.event_id}?payment=cancelled`);
-    const cancelUrl = `${cancelBase}${cancelBase.includes('?') ? '&' : '?'}order=${order.id}`;
+    const successUrl = withParam(
+      safeRedirect(origins, success_url, `${base}/event/${tier.event_id}?payment=success`), 'order', order.id,
+    );
+    const cancelUrl = withParam(
+      safeRedirect(origins, cancel_url, `${base}/event/${tier.event_id}?payment=cancelled`), 'order', order.id,
+    );
 
     const params = new URLSearchParams();
     // Opt out of Managed Payments (on by default for new Stripe accounts): it
