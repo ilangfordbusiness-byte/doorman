@@ -552,6 +552,78 @@ begin
     perform pg_temp.ok('ticket_order_tracking (browser match keys) is service-role only');
   end;
 
+  -- -------------------------------------------------------------------------
+  -- Push devices (iOS APNs tokens): writes only via register_push_device,
+  -- which re-homes a token to whoever is signed in; reads/deletes own rows.
+  -- -------------------------------------------------------------------------
+  perform pg_temp.impersonate(bob, 'bob@test.dev');
+  perform public.register_push_device(repeat('ab', 32), 'ios', '1.0 (1)');
+  if (select count(*) from public.push_devices) <> 1 then
+    raise exception 'FAIL: bob cannot read back his own device';
+  end if;
+  perform pg_temp.ok('user registers a push device and reads it back');
+
+  begin
+    insert into public.push_devices (token, user_id) values (repeat('cd', 32), bob);
+    raise exception 'FAIL: direct insert into push_devices allowed' using errcode = 'assert_failure';
+  exception when insufficient_privilege then
+    perform pg_temp.ok('push_devices writes only via register_push_device');
+  end;
+
+  begin
+    perform public.register_push_device('not-a-token!', 'ios', null);
+    raise exception 'FAIL: malformed push token accepted' using errcode = 'assert_failure';
+  exception when raise_exception then
+    perform pg_temp.ok('malformed push token rejected');
+  end;
+
+  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  if (select count(*) from public.push_devices) <> 0 then
+    raise exception 'FAIL: stranger can see another user''s devices';
+  end if;
+  delete from public.push_devices where token = repeat('ab', 32);
+  execute 'reset role';
+  if (select user_id from public.push_devices where token = repeat('ab', 32)) <> bob then
+    raise exception 'FAIL: stranger deleted another user''s device';
+  end if;
+  perform pg_temp.ok('stranger cannot read or delete another user''s push device');
+
+  -- Same phone, new sign-in: the token moves to dave (and is lower-cased).
+  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  perform public.register_push_device(repeat('AB', 32), 'ios', '1.0 (2)');
+  execute 'reset role';
+  if (select count(*) from public.push_devices where token = repeat('ab', 32)) <> 1
+     or (select user_id from public.push_devices where token = repeat('ab', 32)) <> dave
+     or (select app_version from public.push_devices where token = repeat('ab', 32)) <> '1.0 (2)' then
+    raise exception 'FAIL: re-registering did not re-home the token';
+  end if;
+  perform pg_temp.ok('re-registering a token re-homes it to the signed-in user');
+
+  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  delete from public.push_devices where token = repeat('ab', 32);
+  execute 'reset role';
+  if (select count(*) from public.push_devices) <> 0 then
+    raise exception 'FAIL: owner could not remove own device';
+  end if;
+  perform pg_temp.ok('owner removes own push device (logout)');
+
+  perform pg_temp.go_anon();
+  begin
+    perform public.register_push_device(repeat('ef', 32), 'ios', null);
+    raise exception 'FAIL: anon registered a push device' using errcode = 'assert_failure';
+  exception when insufficient_privilege then
+    perform pg_temp.ok('anon cannot register a push device');
+  end;
+
+  -- Service path (deleteAccount, dead-token cleanup) manages rows directly.
+  execute 'reset role';
+  insert into public.push_devices (token, user_id) values (repeat('ef', 32), bob);
+  delete from public.push_devices where user_id = bob;
+  if (select count(*) from public.push_devices) <> 0 then
+    raise exception 'FAIL: service path could not delete devices by user';
+  end if;
+  perform pg_temp.ok('service role manages push devices (deleteAccount cleanup)');
+
   execute 'reset role';
   raise notice '';
   raise notice 'ALL % CHECKS PASSED', currval('pg_temp.t_pass');

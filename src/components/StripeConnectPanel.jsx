@@ -1,6 +1,8 @@
 import { currencySymbol } from "@/lib/money";
 import { useState, useEffect } from "react";
 import { api } from "@/api/data";
+import { isNative, openInAppBrowser, onBrowserFinished } from "@/lib/native";
+import { getLinkDomain } from "@/lib/appUrl";
 import { CreditCard, Wallet, ExternalLink, CheckCircle2, AlertCircle, Loader2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -35,6 +37,14 @@ export function CountryPicker({ value, onChange, disabled }) {
   );
 }
 
+// iOS: Stripe's hosted pages open in a browser sheet that cannot return to the
+// app's own origin, so they come back via /native/return on the public site.
+function stripeReturnUrl() {
+  return isNative()
+    ? `${getLinkDomain()}/native/return?to=${encodeURIComponent("/profile")}`
+    : undefined;
+}
+
 export default function StripeConnectPanel() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -62,6 +72,8 @@ export default function StripeConnectPanel() {
   }
 
   useEffect(() => { load(); }, []);
+  // iOS: refresh the status once the Stripe sheet is dismissed.
+  useEffect(() => onBrowserFinished(() => load()), []);
 
   async function handleConnect() {
     if (inIframe()) {
@@ -70,9 +82,9 @@ export default function StripeConnectPanel() {
     }
     setBusy(true);
     try {
-      const res = await api.functions.invoke("stripeConnect", { action: "onboard", country: accountCountry });
+      const res = await api.functions.invoke("stripeConnect", { action: "onboard", return_url: stripeReturnUrl(), country: accountCountry });
       if (res.data?.url) {
-        window.location.href = res.data.url;
+        await openInAppBrowser(res.data.url);
       } else if (res.data?.error) {
         throw new Error(res.data.error);
       }
@@ -93,8 +105,8 @@ export default function StripeConnectPanel() {
     }
     setBusy(true);
     try {
-      const res = await api.functions.invoke("stripeConnect", { action: "dashboard_link" });
-      if (res.data?.url) window.location.href = res.data.url;
+      const res = await api.functions.invoke("stripeConnect", { action: "dashboard_link", return_url: stripeReturnUrl() });
+      if (res.data?.url) await openInAppBrowser(res.data.url);
       else if (res.data?.error) throw new Error(res.data.error);
     } catch (e) {
       toast({ title: "Couldn't open Stripe dashboard", description: e?.message, variant: "destructive" });
@@ -138,7 +150,7 @@ export default function StripeConnectPanel() {
             <Button
               variant="outline"
               className="w-full rounded-xl gap-2"
-              onClick={() => window.open("https://dashboard.stripe.com/register", "_blank", "noopener,noreferrer")}
+              onClick={() => openInAppBrowser("https://dashboard.stripe.com/register")}
             >
               <UserPlus className="w-4 h-4" /> Sign up to create one
             </Button>
