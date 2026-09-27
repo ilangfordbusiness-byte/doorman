@@ -105,7 +105,8 @@ dev.sh               One-command local stack
 | `/invite/:code` | InvitePage | invitee |
 | `/pass/:id` | GuestPass (QR) | guest |
 | `/scanner` | DoormanScanner | host, co-host, staff |
-| `/business/*` | Business account pages | business owners |
+| `/business/*` | Business account pages | business owners and team members |
+| `/business/:id/invite` | BusinessInvite (accept/decline a team invite) | invitee |
 | `/admin` | Admin | super-admin |
 | `/privacy`, `/reset-password`, `/auth/confirm`, `/unsubscribe` | public pages (auth email links land on `/auth/confirm`; email footers link to `/unsubscribe`) | no session needed |
 
@@ -117,7 +118,9 @@ Money and side effects live here: `createTicketCheckout`, `ticketWebhook`
 `acceptTicketTransfer`), `validateQR` (door check-in), `sendTicketEmail`,
 notifications (`notifyEventCreated`, `notifyEventUpdate`, `notifyChatMessage`,
 `sendEventReminders`), `unsubscribeEmail` (email opt-out, HMAC-token auth),
-`autoCheckoutGuests` (cron), `acceptCoHost`, `validatePromoCode`,
+`autoCheckoutGuests` (cron), `acceptCoHost`, business team invites
+(`inviteBusinessMember` emails the invite, owner-only; `acceptBusinessMember`),
+`validatePromoCode`,
 `manageTicketCatalog`, `deleteAccount`, and admin (`adminUsers`, `adminEvents`).
 
 Webhook and cron functions are `verify_jwt = false` and authenticate with the

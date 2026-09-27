@@ -277,7 +277,9 @@ export default function Profile() {
                   <Avatar src={b.business_picture} name={b.business_name} size="w-9 h-9" textClass="text-sm" className="flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold truncate">{b.business_name}</p>
-                    <p className="text-[10px] text-muted-foreground truncate">{b.business_email}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">
+                      {b.owner_id === user?.id ? "Owner" : "Team member"} · {b.business_email}
+                    </p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                 </button>
