@@ -7,14 +7,7 @@ import {
 } from '../_shared/tickets.ts';
 import { PAYOUT_SETUP_ERROR, resolvePayoutAccount } from '../_shared/connect.ts';
 import { metaConfigForEvent } from '../_shared/meta.ts';
-
-function allowedOrigins(req: Request): string[] {
-  const extra = (Deno.env.get('ALLOWED_ORIGINS') || '').split(',').map((s) => s.trim()).filter(Boolean);
-  const origin = req.headers.get('origin');
-  const list = [Deno.env.get('APP_ORIGIN') || 'https://thedoorman.app', ...extra];
-  if (origin && list.includes(origin)) return [origin, ...list];
-  return list;
-}
+import { allowedOrigins, safeRedirect, withParam } from '../_shared/origins.ts';
 
 Deno.serve(async (req) => {
   const pre = preflight(req);
@@ -189,21 +182,18 @@ Deno.serve(async (req) => {
     const stripeKey = Deno.env.get('STRIPE_TEST_SECRET_KEY') || Deno.env.get('STRIPE_SECRET_KEY');
     if (!stripeKey) { await abandon(); return json({ error: 'Stripe is not configured' }, 500); }
 
-    // Redirects restricted to known origins (open-redirect guard).
+    // Redirects restricted to known origins (open-redirect guard). Both carry
+    // the order id: the success page shows that order rather than guessing
+    // the buyer's latest, and the cancel page frees its held seats straight
+    // away via cancelTicketCheckout.
     const origins = allowedOrigins(req);
-    const safeRedirect = (url: string | undefined, fallback: string) => {
-      if (!url) return fallback;
-      try {
-        return origins.includes(new URL(url).origin) ? url : fallback;
-      } catch {
-        return fallback;
-      }
-    };
     const base = origins[0];
-    const successUrl = safeRedirect(success_url, `${base}/event/${tier.event_id}?payment=success`);
-    // The cancel page frees the held seats straight away via cancelTicketCheckout.
-    const cancelBase = safeRedirect(cancel_url, `${base}/event/${tier.event_id}?payment=cancelled`);
-    const cancelUrl = `${cancelBase}${cancelBase.includes('?') ? '&' : '?'}order=${order.id}`;
+    const successUrl = withParam(
+      safeRedirect(origins, success_url, `${base}/event/${tier.event_id}?payment=success`), 'order', order.id,
+    );
+    const cancelUrl = withParam(
+      safeRedirect(origins, cancel_url, `${base}/event/${tier.event_id}?payment=cancelled`), 'order', order.id,
+    );
 
     const params = new URLSearchParams();
     // Opt out of Managed Payments (on by default for new Stripe accounts): it

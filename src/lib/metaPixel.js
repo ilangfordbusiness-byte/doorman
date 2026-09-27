@@ -4,6 +4,8 @@
 // (trackSingle) so two businesses' pixels in one browser session never
 // cross-fire. The server-side Purchase (Conversions API, ticketWebhook)
 // shares the order id as eventID so Meta deduplicates the pair.
+import { isNative } from "@/lib/native";
+import { appBaseUrl } from "@/lib/appUrl";
 
 const initialised = new Set();
 /** @type {any} */
@@ -31,6 +33,10 @@ function ensureScript() {
 export function loadPixel(pixelId) {
   const id = String(pixelId || "").trim();
   if (!/^\d{5,20}$/.test(id) || initialised.has(id)) return;
+  // No browser pixel inside the iOS app: loading Meta's script there would
+  // require the App Tracking Transparency prompt. Purchases still reach Meta
+  // through the server-side Conversions API from ticketWebhook.
+  if (isNative()) return;
   try {
     ensureScript();
     w.fbq("init", id);
@@ -102,7 +108,7 @@ export function metaMatchKeys() {
     return {
       fbp: readCookie("_fbp"),
       fbc,
-      source_url: window.location.origin + window.location.pathname,
+      source_url: appBaseUrl() + window.location.pathname,
     };
   } catch {
     return { fbp: null, fbc: null, source_url: null };

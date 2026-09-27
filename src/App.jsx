@@ -2,8 +2,11 @@ import { Toaster } from "@/components/ui/toaster"
 import { Analytics } from '@vercel/analytics/react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
-import { lazy, Suspense } from 'react';
+import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from 'react-router-dom';
+import { lazy, Suspense, useEffect } from 'react';
+import { isNative, hideSplash } from '@/lib/native';
+import { useDeepLinks } from '@/hooks/useDeepLinks';
+import { usePushRegistration } from '@/hooks/usePushRegistration';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
@@ -12,6 +15,7 @@ import ImpersonationBanner from './components/ImpersonationBanner';
 import Login from './pages/Login';
 import Privacy from './pages/Privacy';
 import AuthConfirm from './pages/AuthConfirm';
+import NativeReturn from './pages/NativeReturn';
 import { stashRefFromUrl } from '@/lib/promoterRef';
 
 // Capture a promoter ?ref= before the auth gate decides what to render, so
@@ -60,15 +64,30 @@ const PageLoader = () => (
 );
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+  const { isLoadingAuth, isLoadingPublicSettings, authError } = useAuth();
+  // Router location (not window.location) so deep links that navigate a
+  // running iOS app to a public page re-render this gate.
+  const { pathname } = useLocation();
+  // iOS: OAuth callbacks, universal links and doorman:// links. No-op on web.
+  useDeepLinks();
+  // iOS: register this phone for push once signed in; route notification taps.
+  usePushRegistration();
+  // iOS: keep the splash up until we know whether there is a session.
+  useEffect(() => {
+    if (!isLoadingAuth) hideSplash();
+  }, [isLoadingAuth]);
 
   // Public pages, reachable with no session (Google's consent screen links here).
-  if (window.location.pathname === '/privacy') {
+  if (pathname === '/privacy') {
     return <Privacy />;
   }
   // Auth email links land here with a token hash; there is no session yet.
-  if (window.location.pathname === '/auth/confirm') {
+  if (pathname === '/auth/confirm') {
     return <AuthConfirm />;
+  }
+  // Stripe redirects the iOS app's browser sheet here; it hands back to the app.
+  if (pathname === '/native/return') {
+    return <NativeReturn />;
   }
 
   // Show loading spinner while checking app public settings or auth
@@ -139,7 +158,8 @@ function App() {
           <AuthenticatedApp />
         </Router>
         <Toaster />
-        <Analytics />
+        {/* Vercel analytics only exists for the web deployment. */}
+        {!isNative() && <Analytics />}
       </QueryClientProvider>
     </AuthProvider>
   )

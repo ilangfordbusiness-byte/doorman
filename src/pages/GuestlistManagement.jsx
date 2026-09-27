@@ -1,14 +1,21 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/api/data";
-import { ArrowLeft, Search, UserPlus } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowLeft, Search, UserPlus, Download } from "lucide-react";
+import { buildGuestlistCsv } from "@/lib/eventExport";
+import { downloadCsv, slugForFilename } from "@/lib/csv";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import GuestCard from "../components/GuestCard";
 import LoadingSpinner from "../components/LoadingSpinner";
 import Avatar from "../components/Avatar";
@@ -31,6 +38,9 @@ export default function GuestlistManagement() {
   const [friends, setFriends] = useState([]);
   const [me, setMe] = useState(null);
   const [viewProfile, setViewProfile] = useState(null);
+  // Guest whose pass is about to be revoked; set by the X button, cleared by the confirm dialog.
+  const [revokeTarget, setRevokeTarget] = useState(null);
+  const [revoking, setRevoking] = useState(false);
   const { data: profiles } = useProfiles(guests.map((g) => g.guest_email).filter(Boolean));
 
   useEffect(() => {
@@ -79,6 +89,20 @@ export default function GuestlistManagement() {
       api.functions.invoke("sendTicketEmail", { entry_id: guest.id }).catch(() => {});
     }
     loadData();
+  }
+
+  // Revoking kills a working pass, so it only fires after the host confirms in the dialog.
+  async function confirmRevoke() {
+    if (!revokeTarget || revoking) return;
+    setRevoking(true);
+    try {
+      await updateStatus(revokeTarget, "revoked");
+      setRevokeTarget(null);
+    } catch (e) {
+      toast({ title: e?.message || "Could not revoke pass", variant: "destructive" });
+    } finally {
+      setRevoking(false);
+    }
   }
 
   // Check a guest in (or undo) by name via the atomic, authorized validateQR path.
@@ -152,6 +176,11 @@ export default function GuestlistManagement() {
     loadData();
   }
 
+  function exportCsv() {
+    const day = new Date().toISOString().slice(0, 10);
+    downloadCsv(`${slugForFilename(event?.title)}-guestlist-${day}.csv`, buildGuestlistCsv({ guests }));
+  }
+
   const filtered = guests.filter((g) => {
     const q = search.toLowerCase();
     // Digits-only match lets "07700" find a stored "+447700…".
@@ -184,6 +213,16 @@ export default function GuestlistManagement() {
           <h1 className="font-heading font-bold text-lg">Guestlist</h1>
           <p className="text-xs text-muted-foreground">{event?.title} · {guests.length} guests</p>
         </div>
+        <button
+          type="button"
+          className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "rounded-full")}
+          onClick={exportCsv}
+          disabled={guests.length === 0}
+          aria-label="Export guestlist as CSV"
+          title="Export CSV"
+        >
+          <Download className="w-4 h-4" />
+        </button>
         <Dialog open={addOpen} onOpenChange={setAddOpen}>
           <DialogTrigger asChild>
             <Button size="sm" className="rounded-full gap-1.5 bg-primary hover:bg-primary/90">
@@ -311,7 +350,7 @@ export default function GuestlistManagement() {
                 picture={profiles?.[g.guest_email?.toLowerCase()]?.picture}
                 onViewProfile={setViewProfile}
                 onCheckIn={(g) => checkIn(g)}
-                onDeny={(g) => updateStatus(g, "revoked")}
+                onDeny={(g) => setRevokeTarget(g)}
                 showActions={true}
               />
             ))
@@ -365,6 +404,30 @@ export default function GuestlistManagement() {
           )}
         </TabsContent>
       </Tabs>
+
+      <AlertDialog open={!!revokeTarget} onOpenChange={(open) => { if (!open && !revoking) setRevokeTarget(null); }}>
+        <AlertDialogContent className="bg-card border-border max-w-sm rounded-xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-heading">
+              Revoke {revokeTarget?.guest_name || revokeTarget?.guest_email || "this guest"}'s pass?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Their QR pass will stop working at the door and they will see it as
+              revoked. You can re-approve them later from the Other tab.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={revoking}>Keep pass</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={revoking}
+              onClick={(e) => { e.preventDefault(); confirmRevoke(); }}
+            >
+              {revoking ? "Revoking..." : "Revoke pass"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {viewProfile && (
         <FriendProfile

@@ -35,3 +35,10 @@ DEPLOYMENT.md
 
 # load-test fixtures and results (contain session tokens)
 loadtest/out/
+
+# iOS shell (Capacitor): generated/build artefacts; ios/.gitignore covers the rest
+ios/App/App/public
+ios/App/App/capacitor.config.json
+ios/App/App/config.xml
+ios/DerivedData
+*.xcuserstate

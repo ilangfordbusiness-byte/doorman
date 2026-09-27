@@ -2,6 +2,7 @@
 // emails the recipient. The ticket itself moves in acceptTicketTransfer.
 import { getCaller, json, preflight, serviceClient } from '../_shared/db.ts';
 import { appOrigin, escapeHtml, sendEmail } from '../_shared/email.ts';
+import { sendPushToUsers } from '../_shared/push.ts';
 
 function buildTransferEmailHtml(senderName: string, eventTitle: string, recipientName: string) {
   const s = escapeHtml(senderName);
@@ -90,6 +91,17 @@ Deno.serve(async (req) => {
       html: buildTransferEmailHtml(senderName, eventTitle, recipient_name || recipient),
     });
     if (!emailResult.sent) console.log('initiateTicketTransfer email error', emailResult.error);
+
+    // Recipient already has an account: push them too (the Transfers tab is
+    // on the guest hub, where the email also points).
+    if (recipientProfile?.id) {
+      await sendPushToUsers(svc, [recipientProfile.id], {
+        title: `${user.full_name || 'Someone'} sent you a ticket`,
+        body: eventTitle,
+        url: '/guest',
+        threadId: `transfer-${transfer.id}`,
+      });
+    }
 
     return json({ ok: true, transfer });
   } catch (error) {

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { api } from "@/api/data";
+import { toAppPath } from "@/lib/appUrl";
 import { Button } from "@/components/ui/button";
 
 // Landing page for auth email links (sign-up confirmation, password reset,
@@ -22,23 +24,20 @@ function readParams(search) {
   };
 }
 
-// Only ever redirect within this origin.
+// Only ever redirect within the app: the current origin or the public site
+// (auth emails always carry the site URL, which the iOS app also handles).
 function safeNext(next) {
-  if (!next) return "/";
-  try {
-    const url = new URL(next, window.location.origin);
-    if (url.origin !== window.location.origin) return "/";
-    return url.pathname + url.search + url.hash;
-  } catch {
-    return "/";
-  }
+  return toAppPath(next) || "/";
 }
 
 export default function AuthConfirm() {
   const [error, setError] = useState("");
+  // Read from the router, not window.location, so a deep link that arrives
+  // while the app is already running still triggers the verification.
+  const { search } = useLocation();
 
   useEffect(() => {
-    const { type, tokenHash, next } = readParams(window.location.search);
+    const { type, tokenHash, next } = readParams(search);
     if (!TYPES.has(type) || !tokenHash) {
       setError("This link is missing its code. Open the email again and use the button in it.");
       return;
@@ -54,7 +53,7 @@ export default function AuthConfirm() {
           ? "This link has expired or was already used. Sign in, or request a new one."
           : msg || "Could not confirm this link.");
       });
-  }, []);
+  }, [search]);
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-background px-6">

@@ -5,6 +5,11 @@
 // speaks the new ones (cover_image_url, host_id, price_minor, joins).
 import { supabase } from "./client";
 import { normalizePhone } from "@/lib/phone";
+import { appBaseUrl } from "@/lib/appUrl";
+import {
+  isNative, openInAppBrowser, appleAuthorize, NATIVE_AUTH_CALLBACK,
+} from "@/lib/native";
+import { getStoredPushToken, setStoredPushToken, clearStoredPushToken } from "@/lib/pushToken";
 
 // ---------------------------------------------------------------------------
 // Session + lookups
@@ -829,12 +834,60 @@ const auth = {
     }
     return auth.me();
   },
+  // Google OAuth. On the web this is a full-page round trip back to
+  // `redirectTo`. In the iOS app Google refuses to run inside a WebView, so
+  // the consent screen opens in a Safari sheet and Supabase redirects to the
+  // app's doorman://auth/callback scheme; useDeepLinks finishes the sign-in
+  // with completeOAuthCallback().
   async signInWithGoogle(redirectTo) {
+    if (isNative()) {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: NATIVE_AUTH_CALLBACK, skipBrowserRedirect: true },
+      });
+      throwOn(error);
+      await openInAppBrowser(data.url);
+      return;
+    }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: redirectTo || window.location.origin },
     });
     throwOn(error);
+  },
+  // Second half of the native OAuth flow: swap the one-time PKCE code from
+  // the callback URL for a session. Provider errors arrive on the same URL.
+  async completeOAuthCallback(url) {
+    const params = new URL(url).searchParams;
+    if (params.get("error")) {
+      throw new Error(
+        (params.get("error_description") || "Sign-in failed. Please try again.").replace(/\+/g, " "),
+      );
+    }
+    const code = params.get("code");
+    if (!code) throw new Error("Sign-in did not complete. Please try again.");
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    throwOn(error);
+  },
+  // Native Sign in with Apple (iOS app only). Apple hands back an identity
+  // token bound to a nonce; Supabase verifies both. Apple only includes the
+  // name on the first authorisation, so store it when we get it — the
+  // onboarding gate asks otherwise.
+  async signInWithApple() {
+    const c = await appleAuthorize();
+    const { error } = await supabase.auth.signInWithIdToken({
+      provider: "apple",
+      token: c.identityToken,
+      nonce: c.rawNonce,
+    });
+    throwOn(error);
+    const fullName = `${c.givenName} ${c.familyName}`.trim();
+    if (fullName) {
+      try {
+        const me = await auth.me();
+        if (!me?.full_name?.trim()) await auth.updateMe({ full_name: fullName });
+      } catch { /* best effort; PhoneSetupGate collects the name otherwise */ }
+    }
   },
   async signInWithPassword(email, password) {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -855,8 +908,10 @@ const auth = {
           instagram: extra.instagram || undefined,
         },
         // Return to the page the user signed up from (e.g. an event page with
-        // a promoter ?ref=), not the bare homepage.
-        emailRedirectTo: window.location.href,
+        // a promoter ?ref=), not the bare homepage. Built on the public site
+        // origin: in the iOS app the WebView origin is not a real URL, and a
+        // universal link to the site brings the user back into the app.
+        emailRedirectTo: appBaseUrl() + window.location.pathname + window.location.search,
       },
     });
     throwOn(error);
@@ -877,7 +932,7 @@ const auth = {
   async resetPassword(email) {
     const { error } = await supabase.auth.resetPasswordForEmail(
       String(email).trim().toLowerCase(),
-      { redirectTo: `${window.location.origin}/reset-password` },
+      { redirectTo: `${appBaseUrl()}/reset-password` },
     );
     throwOn(error);
   },
@@ -894,6 +949,9 @@ const auth = {
     throwOn(error);
   },
   async logout() {
+    // Stop this phone's pushes for the account first: the delete needs the
+    // session that signOut is about to drop.
+    await push.unregisterCurrent();
     await supabase.auth.signOut();
     window.location.assign("/");
   },
@@ -1195,4 +1253,35 @@ const businesses = {
   },
 };
 
-export const api = { entities, auth, functions, integrations, admin, businesses };
+// ---------------------------------------------------------------------------
+// Push devices (iOS app). Registration goes through the register_push_device
+// RPC because a token must move to whoever is signed in on the phone now,
+// which RLS cannot express; removal is a plain delete of the caller's own row.
+// ---------------------------------------------------------------------------
+const push = {
+  async register(token, platform = "ios", appVersion = null) {
+    const { error } = await supabase.rpc("register_push_device", {
+      p_token: token, p_platform: platform, p_app_version: appVersion,
+    });
+    throwOn(error);
+    setStoredPushToken(token);
+  },
+  async unregister(token) {
+    const { error } = await supabase.from("push_devices").delete().eq("token", token);
+    throwOn(error);
+    clearStoredPushToken();
+  },
+  // Best effort, used by logout: never throws.
+  async unregisterCurrent() {
+    const token = getStoredPushToken();
+    if (!token) return;
+    try {
+      await push.unregister(token);
+    } catch (e) {
+      console.warn("push unregister failed", e);
+      clearStoredPushToken();
+    }
+  },
+};
+
+export const api = { entities, auth, functions, integrations, admin, businesses, push };

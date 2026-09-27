@@ -195,8 +195,14 @@ export default function CreateEvent({ business = null }) {
         } catch {}
       }
 
+      // Confirmation email to the host. Fire-and-forget: a failed send must
+      // never block or fail event creation.
+      api.functions.invoke("notifyEventCreated", { event_id: event.id }).catch(() => {});
+
       toast({ title: status === "published" ? "Event published!" : "Draft saved" });
-      navigate(`/event/${event.id}`);
+      // Replace the form in history so the back arrow on the new event leads to
+      // where the host started (hub/home), not back into an empty create form.
+      navigate(`/event/${event.id}`, { replace: true });
     } catch (e) {
       setError(e?.message || "Something went wrong while saving your event. Please try again.");
       setSaving(false);
