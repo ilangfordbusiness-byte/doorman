@@ -39,7 +39,8 @@ create index if not exists events_published_at_idx on public.events (published_a
   where status = 'published';
 
 -- ---------------------------------------------------------------------------
--- Cron: Thursdays at 09:00 UTC (same hour as the daily reminders).
+-- Cron: Thursdays at 16:00 UTC, which is 5pm BST. pg_cron runs in UTC, so
+-- during GMT (late Oct to late Mar) this lands at 4pm London time.
 -- ---------------------------------------------------------------------------
 do $$
 begin
@@ -47,5 +48,5 @@ begin
 exception when others then null;
 end $$;
 
-select cron.schedule('send-new-events-digest', '0 9 * * 4',
+select cron.schedule('send-new-events-digest', '0 16 * * 4',
   $$select public.invoke_edge_function('sendNewEventsDigest', '{}'::jsonb)$$);

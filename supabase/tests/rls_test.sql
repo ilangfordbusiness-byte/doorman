@@ -124,10 +124,10 @@ begin
   perform pg_temp.ok('published_at set once on first publish, kept on republish');
 
   if not exists (select 1 from cron.job where jobname = 'send-new-events-digest'
-                   and schedule = '0 9 * * 4') then
+                   and schedule = '0 16 * * 4') then
     raise exception 'FAIL: send-new-events-digest cron job not scheduled for Thursdays';
   end if;
-  perform pg_temp.ok('weekly new-events digest scheduled (Thursday 09:00 UTC)');
+  perform pg_temp.ok('weekly new-events digest scheduled (Thursday 16:00 UTC / 5pm BST)');
   perform pg_temp.impersonate(alice, 'alice@test.dev');
 
   begin
