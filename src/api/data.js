@@ -326,6 +326,7 @@ const ENTITIES = {
       sales_status: r.sales_status,
       sort_order: r.sort_order,
       hide_remaining: r.hide_remaining,
+      release_at: r.release_at, // null = on sale now; ISO timestamp = scheduled
     }),
     // Writes must go through the manageTicketCatalog edge function (RLS blocks
     // direct client writes to tiers).
@@ -339,6 +340,7 @@ const ENTITIES = {
         quantity: obj.quantity,
         sort_order: obj.sort_order ?? 0,
         hide_remaining: obj.hide_remaining ?? false,
+        release_at: obj.release_at ?? null,
       });
       return ENTITIES.TicketTier.toApp(data.tier);
     },
@@ -347,6 +349,7 @@ const ENTITIES = {
         action: "update_tier",
         id,
         hide_remaining: obj.hide_remaining,
+        ...("release_at" in obj ? { release_at: obj.release_at } : {}),
         ...("description" in obj ? { description: obj.description } : {}),
       });
       return ENTITIES.TicketTier.toApp(data.tier);

@@ -3,7 +3,8 @@ import CoverPicker from "../components/CoverPicker";
 import CoverPhotoUpload from "../components/CoverPhotoUpload";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/data";
-import { ArrowLeft, Eye, Plus, Ticket, Megaphone, Trash2, CreditCard, AtSign, Info } from "lucide-react";
+import { ArrowLeft, Eye, Plus, Ticket, Megaphone, Trash2, CreditCard, AtSign, Info, Clock } from "lucide-react";
+import { formatReleaseAt, localInputToReleaseAt } from "@/lib/tiers";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -96,7 +97,7 @@ export default function CreateEvent({ business = null }) {
   }
 
   const [tiers, setTiers] = useState([]);
-  const [newTier, setNewTier] = useState({ name: "", description: "", price: "", quantity: "" });
+  const [newTier, setNewTier] = useState({ name: "", description: "", price: "", quantity: "", release_at: "" });
 
   function addTier() {
     if (!newTier.name || newTier.price === "" || newTier.quantity === "") return;
@@ -105,8 +106,10 @@ export default function CreateEvent({ business = null }) {
       description: newTier.description.trim(),
       price: Number(newTier.price),
       quantity: Number(newTier.quantity),
+      // Optional scheduled release (ISO); null = on sale the moment it exists.
+      release_at: localInputToReleaseAt(newTier.release_at),
     }]);
-    setNewTier({ name: "", description: "", price: "", quantity: "" });
+    setNewTier({ name: "", description: "", price: "", quantity: "", release_at: "" });
   }
 
   function removeTier(i) {
@@ -170,6 +173,7 @@ export default function CreateEvent({ business = null }) {
             sold: 0,
             sales_status: "open",
             sort_order: 0,
+            release_at: t.release_at ?? null,
           });
         } catch {}
       }
@@ -491,7 +495,10 @@ export default function CreateEvent({ business = null }) {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{t.name}</p>
                           {t.description && <p className="text-[11px] text-muted-foreground whitespace-pre-line break-words">{t.description}</p>}
-                          <p className="text-[11px] text-muted-foreground">{currencySymbol(form.currency)}{Number(t.price).toFixed(2)} · {t.quantity} tickets</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {currencySymbol(form.currency)}{Number(t.price).toFixed(2)} · {t.quantity} tickets
+                            {t.release_at && <span className="text-amber-400"> · On sale {formatReleaseAt(t.release_at)}</span>}
+                          </p>
                         </div>
                         <button onClick={() => removeTier(i)} className="text-muted-foreground hover:text-destructive p-1 flex-shrink-0">
                           <Trash2 className="w-4 h-4" />
@@ -511,6 +518,13 @@ export default function CreateEvent({ business = null }) {
                 <textarea placeholder="Description (optional) — e.g. Includes a welcome drink" value={newTier.description}
                   onChange={(e) => setNewTier((s) => ({ ...s, description: e.target.value }))} maxLength={280} rows={2}
                   className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:text-sm resize-none mt-2 bg-secondary/50" />
+                <div className="flex items-center gap-2 mt-2">
+                  <Clock className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <input type="datetime-local" value={newTier.release_at} onChange={(e) => setNewTier((s) => ({ ...s, release_at: e.target.value }))}
+                    className="flex h-10 w-full rounded-md border border-input bg-secondary/50 px-3 py-1 text-base shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:text-sm"
+                    aria-label="Schedule release (optional)" />
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">Optional: schedule when this tier goes on sale (your local time). Leave empty to sell as soon as you publish.</p>
               </div>
               {/* Booking fee — who pays the platform fee */}
               <div>
