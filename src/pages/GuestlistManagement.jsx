@@ -176,9 +176,13 @@ export default function GuestlistManagement() {
     loadData();
   }
 
-  function exportCsv() {
+  async function exportCsv() {
     const day = new Date().toISOString().slice(0, 10);
-    downloadCsv(`${slugForFilename(event?.title)}-guestlist-${day}.csv`, buildGuestlistCsv({ guests }));
+    try {
+      await downloadCsv(`${slugForFilename(event?.title)}-guestlist-${day}.csv`, buildGuestlistCsv({ guests }));
+    } catch (e) {
+      toast({ title: "Export failed", description: e?.message, variant: "destructive" });
+    }
   }
 
   const filtered = guests.filter((g) => {

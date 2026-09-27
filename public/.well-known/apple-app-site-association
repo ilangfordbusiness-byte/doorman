@@ -9,6 +9,7 @@
           { "/": "/pass/*" },
           { "/": "/promoter/*" },
           { "/": "/b/*" },
+          { "/": "/business/*/invite" },
           { "/": "/guest" },
           { "/": "/profile" },
           { "/": "/auth/confirm" },
