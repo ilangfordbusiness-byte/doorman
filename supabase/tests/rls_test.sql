@@ -624,6 +624,61 @@ begin
   end if;
   perform pg_temp.ok('service role manages push devices (deleteAccount cleanup)');
 
+  -- ---- email_unsubscribes: service-only opt-out list ----
+  execute 'reset role';
+  insert into public.email_unsubscribes (email, source) values ('Opt.Out@Test.dev', 'page');
+  begin
+    insert into public.email_unsubscribes (email) values ('opt.out@test.dev');
+    raise exception 'FAIL: case-variant duplicate accepted' using errcode = 'assert_failure';
+  exception when unique_violation then
+    perform pg_temp.ok('email_unsubscribes key is case-insensitive');
+  end;
+  begin
+    insert into public.email_unsubscribes (email, source) values ('x@test.dev', 'sms');
+    raise exception 'FAIL: unknown source accepted' using errcode = 'assert_failure';
+  exception when check_violation then
+    perform pg_temp.ok('email_unsubscribes rejects unknown sources');
+  end;
+
+  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  begin
+    perform count(*) from public.email_unsubscribes;
+    raise exception 'FAIL: authenticated can read the opt-out list' using errcode = 'assert_failure';
+  exception when insufficient_privilege then
+    perform pg_temp.ok('authenticated cannot read email_unsubscribes');
+  end;
+  begin
+    insert into public.email_unsubscribes (email) values ('bob@test.dev');
+    raise exception 'FAIL: authenticated can opt someone out' using errcode = 'assert_failure';
+  exception when insufficient_privilege then
+    perform pg_temp.ok('authenticated cannot write email_unsubscribes');
+  end;
+  begin
+    delete from public.email_unsubscribes where email = 'opt.out@test.dev';
+    raise exception 'FAIL: authenticated can lift an opt-out' using errcode = 'assert_failure';
+  exception when insufficient_privilege then
+    perform pg_temp.ok('authenticated cannot delete from email_unsubscribes');
+  end;
+
+  perform pg_temp.go_anon();
+  begin
+    perform count(*) from public.email_unsubscribes;
+    raise exception 'FAIL: anon can read the opt-out list' using errcode = 'assert_failure';
+  exception when insufficient_privilege then
+    perform pg_temp.ok('anon cannot read email_unsubscribes');
+  end;
+
+  -- Service path (unsubscribeEmail resubscribe) lifts the opt-out.
+  execute 'reset role';
+  if (select count(*) from public.email_unsubscribes where email = 'OPT.OUT@test.dev') <> 1 then
+    raise exception 'FAIL: service role cannot look up an opt-out case-insensitively';
+  end if;
+  delete from public.email_unsubscribes where email = 'opt.out@test.dev';
+  if (select count(*) from public.email_unsubscribes) <> 0 then
+    raise exception 'FAIL: service role could not lift the opt-out';
+  end if;
+  perform pg_temp.ok('service role records and lifts opt-outs (unsubscribeEmail)');
+
   execute 'reset role';
   raise notice '';
   raise notice 'ALL % CHECKS PASSED', currval('pg_temp.t_pass');

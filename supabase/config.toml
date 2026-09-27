@@ -455,6 +455,9 @@ verify_jwt = false
 [functions.sendEventReminders]
 verify_jwt = false
 
+[functions.unsubscribeEmail]
+verify_jwt = false
+
 [functions.autoCheckoutGuests]
 verify_jwt = false
 

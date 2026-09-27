@@ -2,7 +2,7 @@
 // All amounts are integer minor units end to end (the schema stores minor units,
 // so the old toMinor/toMajor conversions on stored values are gone).
 import { SupabaseClient } from 'npm:@supabase/supabase-js@2';
-import { appOrigin, escapeHtml, formatEventDateLong, formatTimeRange, sendEmail } from './email.ts';
+import { appOrigin, emailFooter, escapeHtml, formatEventDateLong, formatTimeRange, sendEmail } from './email.ts';
 
 // Platform cut per ticket sold: 45p + 4% of the (post-discount) ticket price.
 export const PLATFORM_FEE_FIXED_MINOR = 45; // 0.45 in minor units
@@ -118,7 +118,7 @@ export function buildTicketEmailHtml(entryOrEntries: any, event: any, tierName?:
       <a href="${passLink}" style="display:inline-block;background:#7c3aed;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:14px 28px;border-radius:12px;">View My Ticket</a>
     </div>
     <p style="margin:0;text-align:center;font-size:11px;color:#5a5a7a;">Or visit <a href="${passLink}" style="color:#7c3aed;">${escapeHtml(appOrigin().replace(/^https?:\/\//, ''))}</a> — log in with the email you used to purchase.</p>
-    <p style="margin:24px 0 0;text-align:center;font-size:10px;color:#3a3a4a;">Powered by DoorMan</p>
+    ${emailFooter()}
   </div>
 </body>
 </html>`;

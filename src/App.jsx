@@ -15,6 +15,7 @@ import ImpersonationBanner from './components/ImpersonationBanner';
 import Login from './pages/Login';
 import Privacy from './pages/Privacy';
 import AuthConfirm from './pages/AuthConfirm';
+import Unsubscribe from './pages/Unsubscribe';
 import NativeReturn from './pages/NativeReturn';
 import { stashRefFromUrl } from '@/lib/promoterRef';
 
@@ -84,6 +85,10 @@ const AuthenticatedApp = () => {
   // Auth email links land here with a token hash; there is no session yet.
   if (pathname === '/auth/confirm') {
     return <AuthConfirm />;
+  }
+  // The "Unsubscribe" link in every email lands here; the link carries its own token.
+  if (pathname === '/unsubscribe') {
+    return <Unsubscribe />;
   }
   // Stripe redirects the iOS app's browser sheet here; it hands back to the app.
   if (pathname === '/native/return') {
