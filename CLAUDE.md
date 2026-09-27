@@ -50,12 +50,22 @@ src/
   components/        Feature components (EventCard, GuestCard, EventChat, ...)
     ui/              shadcn/ui primitives (generated; do not hand-edit casually)
     business/, checkout/, home/   Feature-grouped components
-  hooks/             React hooks (useCurrentUser, useNotifications, useStripeStatus, ...)
+  hooks/             React hooks (useCurrentUser, useNotifications, useStripeStatus,
+                     useDeepLinks for iOS URL handling, ...)
   lib/               AuthContext, fees, phone normalization, impersonation,
                      promoter ref capture, react-query client, cn() helper
+    native.js        THE Capacitor choke point: the only file importing @capacitor/*
+                     (isNative, in-app browser, deep-link listeners, Apple sign-in,
+                     splash/status bar). Every export is a no-op or web fallback.
+    appUrl.js        getLinkDomain/appBaseUrl/toAppPath: URLs that must never be
+                     capacitor://localhost (auth emails, Stripe returns, share links)
   utils/index.ts     createPageUrl helper
   App.jsx            Router, auth gate, lazy-loaded routes
   main.jsx           Entry point
+
+capacitor.config.ts  iOS shell config (bundle id com.thedoorman.app, webDir dist)
+ios/                 Generated Xcode project (SPM plugins). Commit it; build output,
+                     copied web assets and generated configs are gitignored.
 
 supabase/
   migrations/        Ordered SQL migrations: schema, RLS, RPCs, storage,
@@ -95,9 +105,10 @@ dev.sh               One-command local stack
 | `/invite/:code` | InvitePage | invitee |
 | `/pass/:id` | GuestPass (QR) | guest |
 | `/scanner` | DoormanScanner | host, co-host, staff |
-| `/business/*` | Business account pages | business owners |
+| `/business/*` | Business account pages | business owners and team members |
+| `/business/:id/invite` | BusinessInvite (accept/decline a team invite) | invitee |
 | `/admin` | Admin | super-admin |
-| `/privacy`, `/reset-password`, `/auth/confirm` | public pages (auth email links land on `/auth/confirm`) | no session needed |
+| `/privacy`, `/reset-password`, `/auth/confirm`, `/unsubscribe` | public pages (auth email links land on `/auth/confirm`; email footers link to `/unsubscribe`) | no session needed |
 
 ### Edge functions
 
@@ -105,12 +116,23 @@ Money and side effects live here: `createTicketCheckout`, `ticketWebhook`
 (Stripe, exactly-once fulfilment), `refundTicket`, `stripeConnect`,
 `payPromoterCommissions`, ticket transfers (`initiateTicketTransfer`,
 `acceptTicketTransfer`), `validateQR` (door check-in), `sendTicketEmail`,
-notifications (`notifyEventUpdate`, `notifyChatMessage`, `sendEventReminders`),
-`autoCheckoutGuests` (cron), `acceptCoHost`, `validatePromoCode`,
+notifications (`notifyEventCreated`, `notifyEventUpdate`, `notifyChatMessage`,
+`sendEventReminders`, `sendNewEventsDigest` weekly on Thursdays),
+`unsubscribeEmail` (email opt-out, HMAC-token auth),
+`autoCheckoutGuests` (cron), `acceptCoHost`, business team invites
+(`inviteBusinessMember` emails the invite, owner-only; `acceptBusinessMember`),
+`validatePromoCode`,
 `manageTicketCatalog`, `deleteAccount`, and admin (`adminUsers`, `adminEvents`).
 
 Webhook and cron functions are `verify_jwt = false` and authenticate with the
 Stripe signature or the `AUTOMATION_SECRET` header instead of a user JWT.
+`unsubscribeEmail` is also `verify_jwt = false`: the signed token in the email
+link is its authentication, so it works for guests with no account.
+
+All outbound email goes through `sendEmail` in `_shared/email.ts`, which fills
+the footer slot with a per-recipient unsubscribe link and, for `bulk` sends
+(event updates, reminders, chat, digests), skips addresses in
+`email_unsubscribes`. Transactional email (tickets, transfers) is never `bulk`.
 
 ## Working in this codebase
 
@@ -134,6 +156,10 @@ in Mailpit at http://127.0.0.1:54324.
 
 - **Pages never call Supabase directly.** Go through `api` from `src/api/data.js`.
   Do not import `supabase` from `client.js` outside `src/api` and `src/lib`.
+- **Pages never import `@capacitor/*` directly.** Go through `src/lib/native.js`,
+  which falls back to browser APIs on the web. Anything that leaves the app and
+  comes back (auth emails, Stripe, OAuth) builds its URL with `appBaseUrl()`
+  from `src/lib/appUrl.js`, never `window.location.origin`.
 - **Business logic goes in edge functions.** SQL functions only for hot
   aggregation reads, atomic counters, or tiny privileged lookups.
 - **Integrity lives in the database.** Constraints, unique indexes, RLS.

@@ -187,10 +187,15 @@ export default function EventDetails() {
   }
 
   async function handleShare() {
-    const url = `${getLinkDomain()}/invite/${event.invite_code}`;
+    // Public events share the event page itself (recipients can scroll down and
+    // buy a ticket). Private events aren't reachable without an invite, so they
+    // keep the invite link. No promotional text — just the title + link.
+    const url = event.is_public
+      ? `${getLinkDomain()}/event/${event.id}`
+      : `${getLinkDomain()}/invite/${event.invite_code}`;
     try {
       if (navigator.share) {
-        await navigator.share({ title: event.title, text: `You're invited to ${event.title}!`, url });
+        await navigator.share({ title: event.title, url });
         return;
       }
     } catch {
@@ -417,7 +422,7 @@ export default function EventDetails() {
 
             {/* Host actions: one uniform grid so every button shares the same width, height and spacing */}
             <div className="grid grid-cols-2 gap-3">
-              <Link to={`/event/${id}/edit`} className="min-w-0">
+              <Link to={`/event/${id}/edit`} state={{ from: "event" }} className="min-w-0">
                 <Button variant="outline" className={HOST_ACTION_BUTTON}>
                   <Edit className="w-4 h-4" /> Edit Event
                 </Button>
