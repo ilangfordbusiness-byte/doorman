@@ -107,7 +107,7 @@ dev.sh               One-command local stack
 | `/scanner` | DoormanScanner | host, co-host, staff |
 | `/business/*` | Business account pages | business owners |
 | `/admin` | Admin | super-admin |
-| `/privacy`, `/reset-password`, `/auth/confirm` | public pages (auth email links land on `/auth/confirm`) | no session needed |
+| `/privacy`, `/reset-password`, `/auth/confirm`, `/unsubscribe` | public pages (auth email links land on `/auth/confirm`; email footers link to `/unsubscribe`) | no session needed |
 
 ### Edge functions
 
@@ -116,12 +116,19 @@ Money and side effects live here: `createTicketCheckout`, `ticketWebhook`
 `payPromoterCommissions`, ticket transfers (`initiateTicketTransfer`,
 `acceptTicketTransfer`), `validateQR` (door check-in), `sendTicketEmail`,
 notifications (`notifyEventCreated`, `notifyEventUpdate`, `notifyChatMessage`,
-`sendEventReminders`),
+`sendEventReminders`), `unsubscribeEmail` (email opt-out, HMAC-token auth),
 `autoCheckoutGuests` (cron), `acceptCoHost`, `validatePromoCode`,
 `manageTicketCatalog`, `deleteAccount`, and admin (`adminUsers`, `adminEvents`).
 
 Webhook and cron functions are `verify_jwt = false` and authenticate with the
 Stripe signature or the `AUTOMATION_SECRET` header instead of a user JWT.
+`unsubscribeEmail` is also `verify_jwt = false`: the signed token in the email
+link is its authentication, so it works for guests with no account.
+
+All outbound email goes through `sendEmail` in `_shared/email.ts`, which fills
+the footer slot with a per-recipient unsubscribe link and, for `bulk` sends
+(event updates, reminders, chat, digests), skips addresses in
+`email_unsubscribes`. Transactional email (tickets, transfers) is never `bulk`.
 
 ## Working in this codebase
 

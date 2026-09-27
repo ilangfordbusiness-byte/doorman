@@ -1,7 +1,7 @@
 // Start a ticket transfer to a friend: creates the pending transfer row and
 // emails the recipient. The ticket itself moves in acceptTicketTransfer.
 import { getCaller, json, preflight, serviceClient } from '../_shared/db.ts';
-import { appOrigin, escapeHtml, sendEmail } from '../_shared/email.ts';
+import { appOrigin, emailFooter, escapeHtml, sendEmail } from '../_shared/email.ts';
 import { sendPushToUsers } from '../_shared/push.ts';
 
 function buildTransferEmailHtml(senderName: string, eventTitle: string, recipientName: string) {
@@ -25,7 +25,7 @@ function buildTransferEmailHtml(senderName: string, eventTitle: string, recipien
       <a href="${link}" style="display:inline-block;background:#7c3aed;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:14px 28px;border-radius:12px;">View &amp; Accept Transfer</a>
     </div>
     <p style="margin:0;text-align:center;font-size:11px;color:#7a7a9a;line-height:1.6;">Open the DoorMan app and check your <strong>Transfers</strong> tab. If you don't have an account yet, sign up first, then accept the transfer once logged in.</p>
-    <p style="margin:24px 0 0;text-align:center;font-size:10px;color:#3a3a4a;">Powered by DoorMan</p>
+    ${emailFooter()}
   </div>
 </body>
 </html>`;
