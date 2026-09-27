@@ -15,6 +15,7 @@ import ImpersonationBanner from './components/ImpersonationBanner';
 import Login from './pages/Login';
 import Privacy from './pages/Privacy';
 import AuthConfirm from './pages/AuthConfirm';
+import Unsubscribe from './pages/Unsubscribe';
 import NativeReturn from './pages/NativeReturn';
 import { stashRefFromUrl } from '@/lib/promoterRef';
 
@@ -46,6 +47,7 @@ const BusinessLayout = lazy(() => import('./components/BusinessLayout'));
 const BusinessCreateEvent = lazy(() => import('./pages/business/BusinessCreateEvent'));
 const BusinessPastEvents = lazy(() => import('./pages/business/BusinessPastEvents'));
 const EditBusinessAccount = lazy(() => import('./pages/business/EditBusinessAccount'));
+const BusinessInvite = lazy(() => import('./pages/business/BusinessInvite'));
 const Admin = lazy(() => import('./pages/Admin'));
 
 const PageLoader = () => (
@@ -84,6 +86,10 @@ const AuthenticatedApp = () => {
   // Auth email links land here with a token hash; there is no session yet.
   if (pathname === '/auth/confirm') {
     return <AuthConfirm />;
+  }
+  // The "Unsubscribe" link in every email lands here; the link carries its own token.
+  if (pathname === '/unsubscribe') {
+    return <Unsubscribe />;
   }
   // Stripe redirects the iOS app's browser sheet here; it hands back to the app.
   if (pathname === '/native/return') {
@@ -131,6 +137,7 @@ const AuthenticatedApp = () => {
         <Route path="/invite/:code" element={<InvitePage />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/b/:id" element={<PublicBusiness />} />
+        <Route path="/business/:id/invite" element={<BusinessInvite />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
