@@ -461,5 +461,8 @@ verify_jwt = false
 [functions.autoCheckoutGuests]
 verify_jwt = false
 
+[functions.sendNewEventsDigest]
+verify_jwt = false
+
 [functions.payPromoterCommissions]
 verify_jwt = false

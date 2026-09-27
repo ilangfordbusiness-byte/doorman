@@ -117,7 +117,8 @@ Money and side effects live here: `createTicketCheckout`, `ticketWebhook`
 `payPromoterCommissions`, ticket transfers (`initiateTicketTransfer`,
 `acceptTicketTransfer`), `validateQR` (door check-in), `sendTicketEmail`,
 notifications (`notifyEventCreated`, `notifyEventUpdate`, `notifyChatMessage`,
-`sendEventReminders`), `unsubscribeEmail` (email opt-out, HMAC-token auth),
+`sendEventReminders`, `sendNewEventsDigest` weekly on Thursdays),
+`unsubscribeEmail` (email opt-out, HMAC-token auth),
 `autoCheckoutGuests` (cron), `acceptCoHost`, business team invites
 (`inviteBusinessMember` emails the invite, owner-only; `acceptBusinessMember`),
 `validatePromoCode`,
