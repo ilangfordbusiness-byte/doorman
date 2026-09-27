@@ -149,32 +149,12 @@ export default function ActivityFeed({
   const pendingReqs = requests.slice(0, 3);
   const feedRows = items.filter((it) => it !== friendGoing); // don't repeat the featured one
 
-  const nothing =
-    !feedLoading && !feedError && pendingReqs.length === 0 && transfers.length === 0 &&
-    suggestions.length === 0 && !featured && feedRows.length === 0;
+  // When the rest of the tab is bare too, the empty feed card also offers the CTAs.
+  const tabOtherwiseEmpty =
+    pendingReqs.length === 0 && transfers.length === 0 && suggestions.length === 0 && !featured;
 
   if (feedLoading && items.length === 0 && !transfers.length && !suggestions.length && !upcoming.length) {
     return <LoadingSpinner />;
-  }
-
-  if (nothing) {
-    return (
-      <div className="py-12 text-center">
-        <Sparkles className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-        <p className="text-sm font-semibold mb-1">No activity yet</p>
-        <p className="text-sm text-muted-foreground mb-4 max-w-xs mx-auto">
-          Add friends and explore events to see what everyone&apos;s up to.
-        </p>
-        <div className="flex gap-2 justify-center">
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={onFindFriends}>
-            <Users className="w-4 h-4" /> Find friends
-          </Button>
-          <Button size="sm" className="gap-1.5" onClick={() => navigate("/guest?tab=discover")}>
-            <Compass className="w-4 h-4" /> Discover events
-          </Button>
-        </div>
-      </div>
-    );
   }
 
   return (
@@ -309,15 +289,10 @@ export default function ActivityFeed({
       )}
 
       {/* Recent activity feed */}
-      {(feedRows.length > 0 || feedError) && (
+      {!feedLoading && (
         <>
           <SectionHeader icon={Sparkles} title="Recent activity" />
-          {feedError ? (
-            <div className="bg-secondary/40 rounded-xl px-4 py-4 border border-border/50 flex items-center justify-between gap-3">
-              <p className="text-sm text-muted-foreground">Couldn&apos;t load recent activity.</p>
-              <Button variant="outline" size="sm" onClick={() => loadFeed(0, true)}>Retry</Button>
-            </div>
-          ) : (
+          {feedRows.length > 0 ? (
             <div className="space-y-2">
               {feedRows.map((it, i) => (
                 <ActivityFeedRow key={i} item={it} onOpenProfile={onOpenProfile} onGoToEvent={(id) => navigate(`/event/${id}`)} />
@@ -328,6 +303,29 @@ export default function ActivityFeed({
                     {loadingMore ? <><Loader2 className="w-4 h-4 animate-spin" /> Loading…</> : "Load more"}
                   </Button>
                 </div>
+              )}
+            </div>
+          ) : (
+            <div className="bg-secondary/40 rounded-2xl border border-border/50 px-4 py-8 text-center">
+              <Sparkles className="w-7 h-7 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm font-semibold mb-1">Nothing to report, just yet…</p>
+              <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+                When your friends grab tickets or throw events, it&apos;ll show up right here.
+              </p>
+              {(tabOtherwiseEmpty || feedError) && (
+                <div className="flex gap-2 justify-center mt-4">
+                  <Button variant="outline" size="sm" className="gap-1.5" onClick={onFindFriends}>
+                    <Users className="w-4 h-4" /> Find friends
+                  </Button>
+                  <Button size="sm" className="gap-1.5" onClick={() => navigate("/guest?tab=discover")}>
+                    <Compass className="w-4 h-4" /> Discover events
+                  </Button>
+                </div>
+              )}
+              {feedError && (
+                <button onClick={() => loadFeed(0, true)} className="text-xs text-muted-foreground hover:text-foreground mt-3 underline">
+                  Tap to refresh
+                </button>
               )}
             </div>
           )}
