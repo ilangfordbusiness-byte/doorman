@@ -179,7 +179,10 @@ export default function Friends() {
         <>
           {tab === "activity" && (
             <ActivityFeed
-              requestsCount={requests.length}
+              sentSet={sentSet}
+              requests={requests}
+              onRespond={respond}
+              onSendRequest={sendRequest}
               onOpenProfile={(u) => setViewingSuggestion(u)}
               onGoToRequests={() => setTab("requests")}
               onFindFriends={() => setTab("suggestions")}
