@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
           html: brandedEmail({
             kicker: 'New This Week',
             title: events.length === 1 ? 'A new event just dropped' : `${events.length} new events posted`,
-            subtitle: `${user.full_name ? `Hi ${user.full_name}, here` : 'Here'} are the events posted on DoorMan in the last ${WINDOW_DAYS} days.`,
+            subtitle: `${user.full_name ? `Hi ${user.full_name}, these` : 'These'} are recently posted events that we think you'd enjoy.`,
             bodyHtml,
             buttons: [{ label: 'Browse all events', href: `${appOrigin()}/guest?tab=discover` }],
             footnote: 'You get this once a week, only when new events have been posted.',
