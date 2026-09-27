@@ -790,11 +790,11 @@ begin
                           email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
                           created_at, updated_at)
   values ('00000000-0000-0000-0000-000000000000',
-          '77777777-7777-7777-7777-777777777777', 'authenticated', 'authenticated',
+          '88888888-8888-8888-8888-888888888888', 'authenticated', 'authenticated',
           'newbie@test.dev', '', now(), '{}',
           json_build_object('full_name', 'New Member')::jsonb, now(), now());
   if (select user_id from public.business_members where business_id = v_biz and email = 'newbie@test.dev')
-     is distinct from '77777777-7777-7777-7777-777777777777'::uuid then
+     is distinct from '88888888-8888-8888-8888-888888888888'::uuid then
     raise exception 'FAIL: signup trigger did not link the pending business invite';
   end if;
   perform pg_temp.ok('signup trigger links pending business invites by email');
