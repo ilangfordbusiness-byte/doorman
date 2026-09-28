@@ -48,8 +48,23 @@ Deno.serve(async (req) => {
     const { data: evt } = await svc.from('events').select('id, host_id, business_id')
       .eq('id', eventId).single();
     if (!evt) return json({ error: 'Event not found' }, 404);
-    if (evt.host_id !== user.id) {
-      return json({ error: 'Only the event host can manage the ticket catalog' }, 403);
+    // The host, or — for a business event — the business owner or an accepted
+    // team member, may manage the ticket catalog (full host parity).
+    let allowed = evt.host_id === user.id;
+    if (!allowed && evt.business_id) {
+      const { data: biz } = await svc.from('business_accounts')
+        .select('owner_id').eq('id', evt.business_id).maybeSingle();
+      allowed = biz?.owner_id === user.id;
+      if (!allowed) {
+        const { count } = await svc.from('business_members')
+          .select('id', { count: 'exact', head: true })
+          .eq('business_id', evt.business_id).eq('status', 'accepted')
+          .or(`user_id.eq.${user.id},email.eq.${user.email}`);
+        allowed = (count ?? 0) > 0;
+      }
+    }
+    if (!allowed) {
+      return json({ error: 'Only the event host or business team can manage the ticket catalog' }, 403);
     }
 
     if (action === 'create_tier') {

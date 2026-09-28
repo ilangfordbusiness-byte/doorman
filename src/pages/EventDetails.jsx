@@ -44,7 +44,7 @@ async function loadEvent(id, me) {
   if (!events.length) return { notFound: true };
   let evt = events[0];
 
-  if (!evt.staff_code && evt.host_email === me.email) {
+  if (!evt.staff_code && evt.can_manage) {
     const code = String(Math.floor(1000 + Math.random() * 9000));
     await api.entities.Event.update(id, { staff_code: code });
     evt = { ...evt, staff_code: code };
@@ -122,7 +122,7 @@ export default function EventDetails() {
   const coHosts = event ? (Array.isArray(event.co_hosts) ? event.co_hosts : []) : [];
   const acceptedCoHosts = coHosts.filter((c) => c.status === "accepted");
   const isCoHost = user && coHosts.some((c) => c.email === user.email && c.status === "accepted");
-  const canManage = isHost || isCoHost;
+  const canManage = event?.can_manage || isHost || isCoHost;
   const myCoHostInvite = user ? coHosts.find((c) => c.email === user.email && c.status === "pending") : null;
 
   async function handleAcceptCoHost() {
@@ -398,7 +398,7 @@ export default function EventDetails() {
         {/* Host Dashboard */}
         {canManage && (
           <div className="space-y-4">
-            <h2 className="font-heading font-bold text-lg">{isHost ? "Event Dashboard" : "Co-Host Dashboard"}</h2>
+            <h2 className="font-heading font-bold text-lg">{isHost || event?.host_is_business ? "Event Dashboard" : "Co-Host Dashboard"}</h2>
             <div className="grid grid-cols-4 gap-2">
               <StatCard label="Total" value={stats.total} />
               <StatCard label="Invited" value={stats.invited} color="text-blue-400" />

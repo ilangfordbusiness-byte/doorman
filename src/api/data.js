@@ -186,15 +186,21 @@ const ENTITIES = {
       const { data: myEmailRow } = await supabase
         .from("profiles").select("email").eq("id", me).maybeSingle();
       const myEmail = myEmailRow?.email?.toLowerCase();
+      // Businesses I manage (owned or accepted member) — RLS on business_accounts
+      // returns exactly those. A manager of an event's business gets full host
+      // parity, so treat those events as manageable too.
+      const { data: myBiz } = await supabase.from("business_accounts").select("id");
+      const myBizIds = new Set((myBiz ?? []).map((b) => b.id));
       return Promise.all(rows.map(async (ev) => {
-        const isManager = ev.host_id === me ||
-          (ev.co_host_emails ?? []).some((e) => e.toLowerCase() === myEmail);
-        if (!isManager) return ev;
+        const isManager = ev.host_id === me
+          || (ev.co_host_emails ?? []).some((e) => e.toLowerCase() === myEmail)
+          || (ev.business_id && myBizIds.has(ev.business_id));
+        if (!isManager) return { ...ev, can_manage: false };
         const { data, error } = await supabase.rpc("get_event_private", {
           p_event_id: ev.id,
         });
-        if (error || !data?.length) return ev;
-        return { ...ev, ...data[0] };
+        const priv = (error || !data?.length) ? {} : data[0];
+        return { ...ev, ...priv, can_manage: true };
       }));
     },
   },
