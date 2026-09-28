@@ -104,6 +104,9 @@ export default function Profile() {
     toast({ title: "Photo updated" });
   }
 
+  // Optional fields that can be cleared back to empty.
+  const CLEARABLE = ["location", "bio", "booking_email", "music_link", "genres"];
+
   function startEdit(field) {
     setEditing(field);
     setEditValue(
@@ -111,18 +114,19 @@ export default function Profile() {
         : field === "phone" ? user?.phone || ""
         : field === "snapchat" ? user?.snapchat || ""
         : field === "location" ? user?.location || ""
+        : ["bio", "booking_email", "music_link", "genres"].includes(field) ? user?.[field] || ""
         : user?.instagram || "",
     );
   }
 
   async function saveEdit() {
-    // Location is the one optional field that can be cleared again.
-    if (!editValue.trim() && editing !== "location") return;
+    if (!editValue.trim() && !CLEARABLE.includes(editing)) return;
     setSaving(true);
     const update = editing === "name" ? { full_name: editValue.trim() }
       : editing === "phone" ? { phone: normalizePhone(editValue) }
       : editing === "snapchat" ? { snapchat: editValue.trim().replace(/^@/, "") }
       : editing === "location" ? { location: editValue.trim() || null }
+      : ["bio", "booking_email", "music_link", "genres"].includes(editing) ? { [editing]: editValue.trim() || null }
       : { instagram: editValue.trim().replace(/^@/, "") };
     await api.auth.updateMe(update);
     setUser((prev) => ({ ...prev, ...update }));
@@ -480,6 +484,76 @@ export default function Profile() {
             </button>
           )}
         </div>
+      </div>
+
+      {/* Performer / DJ */}
+      <div className="bg-card rounded-2xl border border-border overflow-hidden mb-4">
+        <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between">
+          <p className="font-heading font-semibold text-sm flex items-center gap-2"><Disc3 className="w-4 h-4" /> Performer / DJ</p>
+          {user?.id && <Link to={`/dj/${user.id}`} className="text-xs text-primary font-medium hover:underline">View my DJ page</Link>}
+        </div>
+
+        {/* Bio */}
+        <div className="px-4 py-3.5 border-b border-border/50">
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs text-muted-foreground">Bio</p>
+            {editing !== "bio" && (
+              <button onClick={() => startEdit("bio")} className="text-muted-foreground hover:text-foreground"><Pencil className="w-4 h-4" /></button>
+            )}
+          </div>
+          {editing === "bio" ? (
+            <div className="space-y-2">
+              <textarea
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                maxLength={300}
+                rows={3}
+                autoFocus
+                placeholder="A short bio for your DJ profile"
+                className="w-full rounded-lg border border-border bg-secondary/50 px-3 py-2 text-sm resize-none placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              />
+              <div className="flex gap-2">
+                <Button size="sm" className="rounded-lg" onClick={saveEdit} disabled={saving}>Save</Button>
+                <Button size="sm" variant="outline" className="rounded-lg" onClick={() => setEditing(null)}>Cancel</Button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm whitespace-pre-line">{user?.bio || <span className="text-muted-foreground">Add a short bio</span>}</p>
+          )}
+        </div>
+
+        {[
+          { key: "booking_email", label: "Booking email", placeholder: "booking@email.com" },
+          { key: "music_link", label: "Music link", placeholder: "SoundCloud / Spotify URL" },
+          { key: "genres", label: "Genres", placeholder: "House, Techno, Disco" },
+        ].map((f) => (
+          <div key={f.key} className="px-4 py-3.5 border-b border-border/50 last:border-b-0">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-muted-foreground mb-0.5">{f.label}</p>
+                {editing === f.key ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      placeholder={f.placeholder}
+                      autoFocus
+                      onKeyDown={(e) => e.key === "Enter" && saveEdit()}
+                      className="flex h-8 flex-1 rounded-lg border border-border bg-secondary/50 px-3 py-1 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    />
+                    <button onClick={saveEdit} disabled={saving} className="text-emerald-400 hover:text-emerald-300"><Check className="w-4 h-4" /></button>
+                    <button onClick={() => setEditing(null)} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+                  </div>
+                ) : (
+                  <p className="text-sm font-medium truncate">{user?.[f.key] || <span className="text-muted-foreground">Add {f.label.toLowerCase()}</span>}</p>
+                )}
+              </div>
+              {editing !== f.key && (
+                <button onClick={() => startEdit(f.key)} className="text-muted-foreground hover:text-foreground"><Pencil className="w-4 h-4" /></button>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
 
       <PromoterAccountSection email={user?.email} />

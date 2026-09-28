@@ -22,7 +22,7 @@ import { useStripeStatus } from "@/hooks/useStripeStatus";
 import { useBusinessStripeStatus } from "@/hooks/useBusinessStripeStatus";
 import {
   ArrowLeft, Calendar, Clock, MapPin, Shirt, Users, Share2,
-  QrCode, Edit, Check, Plus, X, BarChart3, Megaphone, Instagram, ClipboardList
+  QrCode, Edit, Check, Plus, X, BarChart3, Megaphone, Instagram, ClipboardList, Disc3, ChevronRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -33,6 +33,7 @@ import UserAvatar from "../components/UserAvatar";
 import Avatar from "../components/Avatar";
 import HostProfileModal from "../components/HostProfileModal";
 import CoHostsSection from "../components/CoHostsSection";
+import LineupSection from "../components/LineupSection";
 import EventJoinActions from "../components/EventJoinActions";
 import moment from "moment";
 import { captureRef, getLinkDomain, discountLabel, promoterDiscountActive } from "@/lib/promoterRef";
@@ -402,6 +403,38 @@ export default function EventDetails() {
           </div>
         )}
 
+        {Array.isArray(event.dj_lineup) && event.dj_lineup.length > 0 && (
+          <div>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <Disc3 className="w-3.5 h-3.5" /> Lineup
+            </p>
+            <div className="space-y-2">
+              {event.dj_lineup.map((d) => {
+                const inner = (
+                  <>
+                    <Avatar src={d.picture} name={d.name} size="w-9 h-9" textClass="text-xs" className="flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate">{d.name}</p>
+                      {d.set_time && <p className="text-[11px] text-muted-foreground truncate">{d.set_time}</p>}
+                    </div>
+                    {d.user_id && <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />}
+                  </>
+                );
+                return d.user_id ? (
+                  <button key={d.id} onClick={() => navigate(`/dj/${d.user_id}`)}
+                    className="w-full flex items-center gap-3 bg-secondary/40 rounded-xl px-3 py-2.5 border border-border/50 text-left hover:border-primary/30 transition-colors active:scale-[0.99]">
+                    {inner}
+                  </button>
+                ) : (
+                  <div key={d.id} className="flex items-center gap-3 bg-secondary/40 rounded-xl px-3 py-2.5 border border-border/50">
+                    {inner}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {event.entry_notes && (
           <div className="bg-accent/10 rounded-xl p-3 border border-accent/20">
             <p className="text-xs text-accent uppercase tracking-wider font-semibold mb-1">Entry Notes</p>
@@ -502,6 +535,7 @@ export default function EventDetails() {
 
             {/* Co-Hosts */}
             <CoHostsSection event={event} onUpdated={() => queryClient.invalidateQueries(["event", id])} />
+            <LineupSection event={event} onUpdated={() => queryClient.invalidateQueries(["event", id])} />
 
             {/* Staff Management */}
             <div>
