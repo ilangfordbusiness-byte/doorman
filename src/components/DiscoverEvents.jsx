@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import moment from "moment";
 import { Link } from "react-router-dom";
 import { api } from "@/api/data";
 import { Search, Sparkles } from "lucide-react";
@@ -12,7 +13,12 @@ export default function DiscoverEvents() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    api.entities.Event.filter({ status: "published" }, "-date")
+    // Only today-or-later events are discoverable; an event later today (or one
+    // that runs past midnight) still counts as on, matching EventCard's "Past"
+    // badge and the home dashboard RPC. Filtering server-side keeps the list
+    // correct for any future paging. Soonest first now that nothing is past.
+    const today = moment().format("YYYY-MM-DD");
+    api.entities.Event.filter({ status: "published", date: { $gte: today } }, "date")
       .then((data) => setEvents(data.filter((e) => e.is_public || e.discoverable)))
       .catch((e) => console.error(e))
       .finally(() => setLoading(false));
