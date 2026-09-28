@@ -18,6 +18,8 @@ import { shareUrl } from "@/lib/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { tierSoldOut, tierScheduled, nextTierRelease, formatReleaseAt } from "@/lib/tiers";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useStripeStatus } from "@/hooks/useStripeStatus";
+import { useBusinessStripeStatus } from "@/hooks/useBusinessStripeStatus";
 import {
   ArrowLeft, Calendar, Clock, MapPin, Shirt, Users, Share2,
   QrCode, Edit, Check, Plus, X, BarChart3, Megaphone, Instagram, ClipboardList
@@ -117,6 +119,33 @@ export default function EventDetails() {
   const [refStatus, setRefStatus] = useState(null);
   const [showHostModal, setShowHostModal] = useState(false);
   const [accepting, setAccepting] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+
+  // Publishing a paid event needs payouts-enabled Stripe on the right account
+  // (the business's for a business event, else the host's) — same rule as create.
+  const { active: personalStripeActive } = useStripeStatus();
+  const { active: bizStripeActive } = useBusinessStripeStatus(event?.business_id);
+  const stripeActive = event?.business_id ? bizStripeActive : personalStripeActive;
+
+  async function handlePublish() {
+    if (event.is_paid && !stripeActive) {
+      toast({
+        title: "Connect Stripe to publish a paid event",
+        description: "Finish payouts setup under Payouts & Earnings, then publish.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setPublishing(true);
+    try {
+      await api.entities.Event.update(id, { status: "published" });
+      queryClient.invalidateQueries({ queryKey: ["event", id] });
+      toast({ title: "Event published!", description: event.is_public ? "It's now public and discoverable." : "It's live — share the link to invite people." });
+    } catch (e) {
+      toast({ title: e?.message || "Couldn't publish", variant: "destructive" });
+    }
+    setPublishing(false);
+  }
 
   const isHost = user && event && event.host_email === user.email;
   const coHosts = event ? (Array.isArray(event.co_hosts) ? event.co_hosts : []) : [];
@@ -399,6 +428,21 @@ export default function EventDetails() {
         {canManage && (
           <div className="space-y-4">
             <h2 className="font-heading font-bold text-lg">{isHost || event?.host_is_business ? "Event Dashboard" : "Co-Host Dashboard"}</h2>
+
+            {event.status === "draft" && (
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
+                <p className="text-sm font-semibold mb-1">This event is a draft</p>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Only you can see it. Publish it to go live — {event.is_public ? "it'll be public and show in Discover." : "it'll be private, shareable by link."} You can switch between private and public any time in Edit.
+                </p>
+                {event.is_paid && !stripeActive && (
+                  <p className="text-xs text-amber-300/90 mb-3">Paid event: connect Stripe under Payouts &amp; Earnings before publishing.</p>
+                )}
+                <Button className="w-full h-11 rounded-xl gap-2 font-semibold" disabled={publishing} onClick={handlePublish}>
+                  {publishing ? "Publishing…" : <>Publish event</>}
+                </Button>
+              </div>
+            )}
             <div className="grid grid-cols-4 gap-2">
               <StatCard label="Total" value={stats.total} />
               <StatCard label="Invited" value={stats.invited} color="text-blue-400" />
