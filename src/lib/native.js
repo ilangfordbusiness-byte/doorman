@@ -8,6 +8,7 @@ import { SignInWithApple } from "@capacitor-community/apple-sign-in";
 import { PushNotifications } from "@capacitor/push-notifications";
 import { Haptics, NotificationType } from "@capacitor/haptics";
 import { Share } from "@capacitor/share";
+import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
 
 // The one module that talks to Capacitor. Pages, hooks and the data layer
 // import from here and never from @capacitor/* directly — the same rule that
@@ -205,7 +206,7 @@ export async function hapticError() {
 
 // Native share sheet; on the web the Web Share API, else copy to clipboard.
 // Resolves to 'shared' | 'copied' | 'failed'.
-export async function shareUrl({ title, text, url }) {
+export async function shareUrl({ title, text = undefined, url }) {
   try {
     if (isNative()) {
       await Share.share({ title, text, url, dialogTitle: title });
@@ -219,6 +220,48 @@ export async function shareUrl({ title, text, url }) {
     return "copied";
   } catch {
     return "failed";
+  }
+}
+
+// Hand the user a text file (CSV exports). On the web this is an ordinary
+// download; a WKWebView ignores <a download>, so the native shell writes the
+// file to the app's cache and opens the share sheet (Save to Files, AirDrop,
+// Mail). Resolves to 'shared' | 'downloaded' | 'cancelled' | 'failed'.
+export async function exportTextFile({ filename, text, mimeType = "text/plain" }) {
+  if (!isNative()) {
+    try {
+      const blob = new Blob([text], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      return "downloaded";
+    } catch {
+      return "failed";
+    }
+  }
+  let uri;
+  try {
+    ({ uri } = await Filesystem.writeFile({
+      path: `exports/${filename}`,
+      data: text,
+      directory: Directory.Cache,
+      encoding: Encoding.UTF8,
+      recursive: true,
+    }));
+  } catch {
+    return "failed";
+  }
+  try {
+    await Share.share({ title: filename, files: [uri], dialogTitle: filename });
+    return "shared";
+  } catch (e) {
+    // The plugin rejects when the user dismisses the sheet.
+    return /cancel/i.test(String(e?.message || e)) ? "cancelled" : "failed";
   }
 }
 

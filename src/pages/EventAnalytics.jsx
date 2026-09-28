@@ -60,7 +60,7 @@ export default function EventAnalytics() {
       ]);
       const csv = buildEventExportCsv({ event, tiers, orders: allOrders, promos, promoters, guests });
       const day = new Date().toISOString().slice(0, 10);
-      downloadCsv(`${slugForFilename(event.title)}-export-${day}.csv`, csv);
+      await downloadCsv(`${slugForFilename(event.title)}-export-${day}.csv`, csv);
     } catch (e) {
       console.error(e);
       toast({ title: "Export failed", description: e?.message, variant: "destructive" });

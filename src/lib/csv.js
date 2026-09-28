@@ -1,3 +1,5 @@
+import { exportTextFile } from "@/lib/native";
+
 // CSV building and download for host exports. Rows are arrays of cells; a
 // cell may be a string, number, boolean, Date, null or undefined.
 
@@ -21,18 +23,18 @@ export function toCsv(rows) {
   return rows.map((row) => row.map(csvEscape).join(",")).join("\r\n") + "\r\n";
 }
 
-// Trigger a browser download of `text` as a UTF-8 CSV (BOM so Excel opens it
-// with the right encoding).
-export function downloadCsv(filename, text) {
-  const blob = new Blob(["﻿", text], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+// Hand `text` to the user as a UTF-8 CSV (BOM so Excel opens it with the
+// right encoding): a download on the web, the share sheet in the iOS app.
+// Resolves to the outcome from exportTextFile; throws only if the file could
+// not be produced at all.
+export async function downloadCsv(filename, text) {
+  const result = await exportTextFile({
+    filename,
+    text: `\uFEFF${text}`,
+    mimeType: "text/csv;charset=utf-8",
+  });
+  if (result === "failed") throw new Error("Could not save the CSV file.");
+  return result;
 }
 
 // "My Big Night!" -> "my-big-night"

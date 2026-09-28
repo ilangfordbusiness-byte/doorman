@@ -14,6 +14,7 @@ function getCoverStyle(cover_image) {
 }
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { api } from "@/api/data";
+import { shareUrl } from "@/lib/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { tierSoldOut, tierScheduled, nextTierRelease, formatReleaseAt } from "@/lib/tiers";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -197,15 +198,10 @@ export default function EventDetails() {
     const url = event.is_public
       ? `${getLinkDomain()}/event/${event.id}`
       : `${getLinkDomain()}/invite/${event.invite_code}`;
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: event.title, url });
-        return;
-      }
-    } catch {
-      // Fall through to clipboard
-    }
-    navigator.clipboard.writeText(url);
+    // Native share sheet in the iOS app, Web Share API elsewhere, clipboard
+    // as the last resort (see shareUrl).
+    const result = await shareUrl({ title: event.title, url });
+    if (result !== "copied") return;
     setCopied(true);
     toast({ title: "Link copied!" });
     setTimeout(() => setCopied(false), 2000);
