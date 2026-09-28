@@ -790,9 +790,17 @@ begin
     perform pg_temp.ok('non-member cannot create events under a business');
   end;
 
-  -- accept (the acceptBusinessMember edge function does this with the service role)
+  -- invite + accept: the inviteBusinessMember / acceptBusinessMember edge
+  -- functions do this with the service role, which bypasses RLS but still
+  -- needs the table grant (missing until 20260927170000).
   execute 'reset role';
+  execute 'set role service_role';
+  insert into public.business_members (business_id, email, status)
+    values (v_biz, 'ghost@test.dev', 'pending');
   update public.business_members set status = 'accepted' where id = v_member;
+  delete from public.business_members where business_id = v_biz and email = 'ghost@test.dev';
+  execute 'reset role';
+  perform pg_temp.ok('service role can invite and accept business members (edge functions)');
 
   perform pg_temp.impersonate(bob, 'bob@test.dev');
   select count(*) into v_count from public.business_accounts where id = v_biz;
