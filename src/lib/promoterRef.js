@@ -16,7 +16,16 @@ export function stashRefFromUrl(href = window.location.href) {
     const url = new URL(href, window.location.origin);
     const code = url.searchParams.get("ref");
     const m = url.pathname.match(/^\/event\/([0-9a-f-]{36})$/i);
-    if (code && m) localStorage.setItem(`promoter_ref_${m[1]}`, code.trim());
+    if (code && m) {
+      localStorage.setItem(`promoter_ref_${m[1]}`, code.trim());
+      // Count the click here — at first load, before auth — so clicks from
+      // logged-out visitors register too (the event page is behind the login
+      // gate, so EventDetails/captureRef would otherwise only run after sign-in,
+      // missing anyone who bounces at the login screen). resolve_promoter_ref is
+      // granted to anon, and captureRef dedupes per browser session, so this
+      // never double-counts with the later EventDetails call.
+      captureRef(m[1], code.trim()).catch(() => {});
+    }
   } catch {
     /* storage or URL unavailable */
   }
