@@ -28,7 +28,6 @@ export default function EventAnalytics() {
 
   async function load() {
     try {
-      const me = await api.auth.me();
       const [events, t, o, p] = await Promise.all([
         api.entities.Event.filter({ id }),
         api.entities.TicketTier.filter({ event_id: id }),
@@ -36,7 +35,7 @@ export default function EventAnalytics() {
         api.entities.PromoCode.filter({ event_id: id }),
       ]);
       if (!events.length) return navigate("/");
-      if (events[0].host_email !== me.email) return navigate(`/event/${id}`);
+      if (!events[0].can_manage) return navigate(`/event/${id}`);
       setEvent(events[0]);
       setTiers(t);
       setAllOrders(o);

@@ -37,13 +37,12 @@ export default function PromoterPanel() {
 
   async function load() {
     try {
-      const me = await api.auth.me();
       const [events, proms] = await Promise.all([
         api.entities.Event.filter({ id }),
         api.entities.Promoter.filter({ event_id: id }),
       ]);
       if (!events.length) return navigate("/");
-      if (events[0].host_email !== me.email) return navigate(`/event/${id}`);
+      if (!events[0].can_manage) return navigate(`/event/${id}`);
       setEvent(events[0]);
       setPromoters(proms.sort((a, b) => Number(b.tickets_sold || 0) - Number(a.tickets_sold || 0)));
     } catch (e) {

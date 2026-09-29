@@ -70,12 +70,11 @@ export default function EditEvent() {
 
   async function loadEvent() {
     try {
-      const me = await api.auth.me();
       const events = await api.entities.Event.filter({ id });
       if (!events.length) return navigate("/");
       const evt = events[0];
-      const coHostEmails = Array.isArray(evt.co_host_emails) ? evt.co_host_emails : [];
-      if (evt.host_email !== me.email && !coHostEmails.includes(me.email)) return navigate(`/event/${id}`);
+      // Host, accepted co-hosts, business managers (owner + team) and admins.
+      if (!evt.can_manage) return navigate(`/event/${id}`);
 
       setOriginal(evt);
 
