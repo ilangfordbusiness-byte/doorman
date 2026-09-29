@@ -24,7 +24,7 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
   const [newTier, setNewTier] = useState({ name: "", description: "", price: "", quantity: "", release_at: "" });
   const [newPromo, setNewPromo] = useState({ code: "", discount_percent: "", max_uses: "" });
   const [editing, setEditing] = useState(null); // tier id whose name/description is being edited
-  const [editValue, setEditValue] = useState({ name: "", description: "" });
+  const [editValue, setEditValue] = useState({ name: "", description: "", quantity: "" });
   const [scheduling, setScheduling] = useState(null); // tier id whose release is being edited
   const [scheduleValue, setScheduleValue] = useState(""); // datetime-local, browser zone
 
@@ -133,17 +133,28 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
 
   function startEdit(t) {
     setEditing(t.id);
-    setEditValue({ name: t.name, description: t.description || "" });
+    setEditValue({ name: t.name, description: t.description || "", quantity: String(t.quantity ?? "") });
   }
 
   async function saveEdit(t) {
     const name = editValue.name.trim();
     const description = editValue.description.trim();
+    const committed = Number(t.sold || 0) + Number(t.reserved || 0);
+    const qty = editValue.quantity === "" ? null : Number(editValue.quantity);
     setEditing(null);
     if (!name) return;
+    if (qty !== null && (!Number.isInteger(qty) || qty < 0)) {
+      toast({ title: "Quantity must be a whole number", variant: "destructive" });
+      return;
+    }
+    if (qty !== null && qty < committed) {
+      toast({ title: `Quantity can't be below ${committed}`, description: "That many are already sold or in checkout.", variant: "destructive" });
+      return;
+    }
     const patch = {};
     if (name !== t.name) patch.name = name;
     if (description !== (t.description || "")) patch.description = description || null;
+    if (qty !== null && qty !== Number(t.quantity)) patch.quantity = qty;
     if (Object.keys(patch).length === 0) return;
     try {
       const res = await api.functions.invoke("manageTicketCatalog", {
@@ -237,6 +248,16 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
                     onKeyDown={(e) => { if (e.key === "Escape") setEditing(null); }}
                     placeholder="Description (optional) — e.g. Includes a welcome drink" maxLength={280} rows={2}
                     className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:text-sm resize-none" />
+                  <div className="flex items-center gap-2">
+                    <Input type="number" min={Number(t.sold || 0) + Number(t.reserved || 0)} inputMode="numeric"
+                      value={editValue.quantity}
+                      onChange={(e) => setEditValue((s) => ({ ...s, quantity: e.target.value }))}
+                      onKeyDown={(e) => { if (e.key === "Enter") saveEdit(t); if (e.key === "Escape") setEditing(null); }}
+                      placeholder="Total quantity" className="h-8 text-sm w-32" />
+                    <span className="text-[11px] text-muted-foreground">
+                      Total tickets{(Number(t.sold || 0) + Number(t.reserved || 0)) > 0 ? ` · min ${Number(t.sold || 0) + Number(t.reserved || 0)} (sold/held)` : ""}
+                    </span>
+                  </div>
                 </div>
               ) : (
                 <>

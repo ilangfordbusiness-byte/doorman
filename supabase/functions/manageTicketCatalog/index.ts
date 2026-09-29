@@ -128,6 +128,27 @@ Deno.serve(async (req) => {
         }
         patch.sales_status = body.sales_status;
       }
+      if ('quantity' in body) {
+        // Hosts can resize a live tier. It can never drop below what's already
+        // committed (sold + reserved) — the DB constraint (sold + reserved <=
+        // quantity) would reject it and it would mean overselling.
+        const qty = Number(body.quantity);
+        if (!Number.isInteger(qty) || qty < 0) {
+          return json({ error: 'Quantity must be a whole number of 0 or more' }, 400);
+        }
+        const { data: cur } = await svc.from('ticket_tiers')
+          .select('sold, reserved, sales_status').eq('id', body.id).eq('event_id', eventId).single();
+        const committed = Number(cur?.sold ?? 0) + Number(cur?.reserved ?? 0);
+        if (qty < committed) {
+          return json({ error: `Can't set below ${committed} — that many are already sold or in checkout.` }, 400);
+        }
+        patch.quantity = qty;
+        // Adding capacity to an auto- sold-out tier reopens it (mirrors the
+        // refund auto-reopen); a manual 'closed' end is left untouched.
+        if (!('sales_status' in body) && cur?.sales_status === 'sold_out' && qty > committed) {
+          patch.sales_status = 'open';
+        }
+      }
       if (Object.keys(patch).length === 0) return json({ error: 'Nothing to update' }, 400);
       const { data: tier, error } = await svc.from('ticket_tiers')
         .update(patch)
