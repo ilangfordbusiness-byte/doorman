@@ -62,8 +62,20 @@ const ENTITIES = {
       visibility, created_at, updated_at,
       host:profiles!events_host_id_fkey(${PROFILE_JOIN}),
       co_host_rows:event_co_hosts(id, email, status, user_id,
+        profile:profiles(full_name, avatar_url)),
+      dj_rows:event_dj_lineup(id, dj_user_id, dj_name, set_time, sort_order,
         profile:profiles(full_name, avatar_url))`,
     toApp(r) {
+      const djLineup = (r.dj_rows ?? [])
+        .map((d) => ({
+          id: d.id,
+          user_id: d.dj_user_id,
+          name: d.profile?.full_name || d.dj_name,
+          picture: d.profile?.avatar_url || "",
+          set_time: d.set_time || "",
+          sort_order: d.sort_order ?? 0,
+        }))
+        .sort((a, b) => a.sort_order - b.sort_order);
       const coHosts = (r.co_host_rows ?? []).map((c) => ({
         email: c.email,
         name: c.profile?.full_name || c.email,
@@ -104,6 +116,7 @@ const ENTITIES = {
         host_is_business: false,
         co_hosts: coHosts,
         co_host_emails: coHosts.filter((c) => c.status === "accepted").map((c) => c.email),
+        dj_lineup: djLineup,
       };
     },
     async fromApp(obj, isCreate) {
@@ -128,27 +141,45 @@ const ENTITIES = {
     },
     // co_hosts array updates are synced to the event_co_hosts table.
     async afterWrite(eventId, obj) {
-      if (!("co_hosts" in obj)) return;
-      const wanted = (obj.co_hosts ?? []).filter((c) => c?.email);
-      const { data: existing } = await supabase
-        .from("event_co_hosts").select("id, email").eq("event_id", eventId);
-      const wantedEmails = new Set(wanted.map((c) => c.email.toLowerCase()));
-      const existingByEmail = new Map(
-        (existing ?? []).map((c) => [c.email.toLowerCase(), c]),
-      );
-      const toDelete = (existing ?? []).filter((c) => !wantedEmails.has(c.email.toLowerCase()));
-      if (toDelete.length) {
-        await supabase.from("event_co_hosts").delete()
-          .in("id", toDelete.map((c) => c.id));
+      if ("co_hosts" in obj) {
+        const wanted = (obj.co_hosts ?? []).filter((c) => c?.email);
+        const { data: existing } = await supabase
+          .from("event_co_hosts").select("id, email").eq("event_id", eventId);
+        const wantedEmails = new Set(wanted.map((c) => c.email.toLowerCase()));
+        const existingByEmail = new Map(
+          (existing ?? []).map((c) => [c.email.toLowerCase(), c]),
+        );
+        const toDelete = (existing ?? []).filter((c) => !wantedEmails.has(c.email.toLowerCase()));
+        if (toDelete.length) {
+          await supabase.from("event_co_hosts").delete()
+            .in("id", toDelete.map((c) => c.id));
+        }
+        for (const c of wanted) {
+          if (!existingByEmail.has(c.email.toLowerCase())) {
+            await supabase.from("event_co_hosts").insert({
+              event_id: eventId,
+              email: c.email.toLowerCase(),
+              user_id: await resolveUserId(c.email),
+              status: c.status || "pending",
+            });
+          }
+        }
       }
-      for (const c of wanted) {
-        if (!existingByEmail.has(c.email.toLowerCase())) {
-          await supabase.from("event_co_hosts").insert({
-            event_id: eventId,
-            email: c.email.toLowerCase(),
-            user_id: await resolveUserId(c.email),
-            status: c.status || "pending",
-          });
+      // DJ lineup: small ordered list, replace-all (clears then re-inserts in
+      // array order) so add/remove/reorder/edit all sync in one shot.
+      if ("dj_lineup" in obj) {
+        const wanted = (obj.dj_lineup ?? []).filter((d) => (d?.name || "").trim());
+        await supabase.from("event_dj_lineup").delete().eq("event_id", eventId);
+        if (wanted.length) {
+          await supabase.from("event_dj_lineup").insert(
+            wanted.map((d, i) => ({
+              event_id: eventId,
+              dj_user_id: d.user_id || null,
+              dj_name: d.name.trim(),
+              set_time: (d.set_time || "").trim() || null,
+              sort_order: i,
+            })),
+          );
         }
       }
     },
@@ -739,7 +770,7 @@ const entities = Object.fromEntries(
 // Auth (old surface: me / updateMe / logout / redirectToLogin)
 // ---------------------------------------------------------------------------
 const PROFILE_COLS =
-  "id, email, full_name, phone, instagram, snapchat, location, avatar_url, avatar_prompt_dismissed_at, role, stripe_onboarding_status, stripe_account_country, stripe_default_currency, active_business_id, created_at";
+  "id, email, full_name, phone, instagram, snapchat, location, bio, booking_email, music_link, genres, avatar_url, avatar_prompt_dismissed_at, role, stripe_onboarding_status, stripe_account_country, stripe_default_currency, active_business_id, created_at";
 
 function profileToUser(p) {
   return {
@@ -750,6 +781,10 @@ function profileToUser(p) {
     instagram: p.instagram,
     snapchat: p.snapchat,
     location: p.location,
+    bio: p.bio,
+    booking_email: p.booking_email,
+    music_link: p.music_link,
+    genres: p.genres,
     profile_picture: p.avatar_url,
     avatar_prompt_dismissed_at: p.avatar_prompt_dismissed_at,
     role: p.role,
@@ -829,13 +864,18 @@ const auth = {
     const id = await uid();
     if (!id) throw new Error("Not authenticated");
     const patch = {};
-    for (const k of ["full_name", "phone", "instagram", "snapchat", "location", "active_business_id", "avatar_prompt_dismissed_at"]) {
+    for (const k of ["full_name", "phone", "instagram", "snapchat", "location", "bio", "booking_email", "music_link", "genres", "active_business_id", "avatar_prompt_dismissed_at"]) {
       if (k in fields) patch[k] = fields[k];
     }
     if (patch.active_business_id === "") patch.active_business_id = null;
     // Location is optional and clearable: store an empty value as null so the
     // DB length check (1..100 chars) doesn't reject a cleared field.
     if ("location" in patch) patch.location = String(patch.location ?? "").trim().slice(0, 100) || null;
+    // Performer/DJ fields — all optional and clearable; bio is length-checked (<=300).
+    if ("bio" in patch) patch.bio = String(patch.bio ?? "").trim().slice(0, 300) || null;
+    for (const k of ["booking_email", "music_link", "genres"]) {
+      if (k in patch) patch[k] = String(patch[k] ?? "").trim() || null;
+    }
     if (patch.phone) patch.phone = normalizePhone(patch.phone);
     if ("profile_picture" in fields) patch.avatar_url = fields.profile_picture;
     if (Object.keys(patch).length) {
@@ -1306,4 +1346,37 @@ const push = {
   },
 };
 
-export const api = { entities, auth, functions, integrations, admin, businesses, push };
+// ---------------------------------------------------------------------------
+// DJ profiles: a performer-centric view of any profile — their bio/links plus
+// the public events they're in the lineup for (upcoming + past = a résumé).
+// ---------------------------------------------------------------------------
+const djs = {
+  async getProfile(id) {
+    if (!id) return null;
+    const { data: p, error } = await supabase
+      .from("profiles").select(PROFILE_COLS).eq("id", id).maybeSingle();
+    throwOn(error);
+    if (!p) return null;
+    const profile = profileToUser(p);
+
+    const { data: rows } = await supabase
+      .from("event_dj_lineup")
+      .select("set_time, event:events(id, title, cover_image_url, date, venue_name, is_public, status)")
+      .eq("dj_user_id", id);
+    // Only public, published events belong on a public résumé — never leak a
+    // private event a DJ happened to play.
+    const events = (rows ?? [])
+      .map((r) => r.event)
+      .filter((e) => e && e.is_public && e.status === "published")
+      .map((e) => ({
+        id: e.id, title: e.title, cover_image: e.cover_image_url,
+        date: e.date, venue_name: e.venue_name, status: e.status,
+      }));
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const upcoming = events.filter((e) => e.date >= todayStr).sort((a, b) => a.date.localeCompare(b.date));
+    const past = events.filter((e) => e.date < todayStr).sort((a, b) => b.date.localeCompare(a.date));
+    return { profile, upcoming, past, setsPlayed: past.length };
+  },
+};
+
+export const api = { entities, auth, functions, integrations, admin, businesses, push, djs };
