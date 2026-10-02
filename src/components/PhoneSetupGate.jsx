@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { api } from "@/api/data";
-import { User, Phone, Instagram, Camera, ChevronRight } from "lucide-react";
+import { User, Phone, Instagram, Camera, ChevronRight, Image } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import PhoneInput from "@/components/PhoneInput";
@@ -12,19 +12,19 @@ import { normalizePhone } from "@/lib/phone";
 // sign-ups supply name/phone/instagram at signup (so they only see the avatar
 // step); Google sign-ins are walked through whichever fields they're missing.
 // The avatar lives here (not on the signup form) because uploading it needs a
-// session. The picture step alone can be skipped with "Later", which stamps
-// profiles.avatar_prompt_dismissed_at so it never shows again on any device;
-// a picture can still be added from /profile.
+// session. The picture step can be skipped with a faint "Skip for now", which
+// stamps profiles.avatar_prompt_dismissed_at — but that only SNOOZES it for a
+// week: any user still without a picture is nudged again on their next visit
+// after 7 days. A picture can still be added any time from /profile.
 const ORDER = ["name", "phone", "instagram", "avatar"];
 
-// A profile picture is required for accounts created on/after this date; older
-// accounts are grandfathered (never prompted for one). Bump this if the deploy
-// slips. Name/phone/instagram are always required regardless.
-const AVATAR_REQUIRED_FROM = new Date("2026-08-31T00:00:00Z");
+// Re-ask users without a profile picture about once a week (on app open).
+const AVATAR_SNOOZE_MS = 7 * 24 * 60 * 60 * 1000;
 function avatarRequired(me) {
   if (!me || me.profile_picture) return false;              // already has a picture
-  if (me.avatar_prompt_dismissed_at) return false;          // tapped "Later" before
-  return !!me.created_date && new Date(me.created_date) >= AVATAR_REQUIRED_FROM;
+  const snoozed = me.avatar_prompt_dismissed_at;            // last "Skip for now"
+  if (snoozed && Date.now() - new Date(snoozed).getTime() < AVATAR_SNOOZE_MS) return false;
+  return true;                                              // no picture, not snoozed this week
 }
 
 function firstMissing(me, includeAvatar) {
@@ -48,6 +48,7 @@ export default function PhoneSetupGate({ children }) {
   const [saving, setSaving] = useState(false);
   const [includeAvatar, setIncludeAvatar] = useState(false);
   const fileRef = useRef(null);
+  const cameraRef = useRef(null);
 
   useEffect(() => {
     api.auth.me().then((me) => {
@@ -201,18 +202,24 @@ export default function PhoneSetupGate({ children }) {
   // avatar
   return shell(
     <Camera className="w-6 h-6 text-primary" />, "bg-primary/15",
-    "Add a profile picture", "Put a face to your name — this shows on guestlists and to your friends.",
+    "Add a profile picture", "Put a face to your name — people recognise you on guestlists and your friends can find you. It only takes a second.",
     <>
       <input ref={fileRef} type="file" accept="image/*" className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) setPhotoFile(f); e.target.value = ""; }} />
+      <input ref={cameraRef} type="file" accept="image/*" capture="user" className="hidden"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) setPhotoFile(f); e.target.value = ""; }} />
       <Button className="w-full h-12 rounded-xl font-semibold text-base gap-2" onClick={() => fileRef.current?.click()}
         disabled={saving}>
-        {saving ? "Saving..." : "Choose a photo"} {!saving && <ChevronRight className="w-4 h-4" />}
+        <Image className="w-4 h-4" /> {saving ? "Saving..." : "Choose from photos"}
       </Button>
-      <Button variant="ghost" className="w-full h-12 rounded-xl font-semibold text-base mt-2 text-muted-foreground"
-        onClick={dismissAvatar} disabled={saving}>
-        Later
+      <Button variant="outline" className="w-full h-12 rounded-xl font-semibold text-base gap-2 mt-2"
+        onClick={() => cameraRef.current?.click()} disabled={saving}>
+        <Camera className="w-4 h-4" /> Take a photo
       </Button>
+      <button onClick={dismissAvatar} disabled={saving}
+        className="block mx-auto mt-4 text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors">
+        Skip for now
+      </button>
       {photoFile && (
         <ProfilePictureEditor file={photoFile} onSave={saveAvatar} onClose={() => setPhotoFile(null)} />
       )}
