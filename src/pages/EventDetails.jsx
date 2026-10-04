@@ -413,7 +413,10 @@ export default function EventDetails() {
                 const inner = (
                   <>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold truncate">{d.name}</p>
+                      <p
+                        className="font-mono uppercase tracking-wider text-sm font-semibold text-cyan-100 break-words"
+                        style={{ textShadow: "0 0 6px hsl(180 100% 50% / 0.75), 0 0 14px hsl(180 100% 50% / 0.45)" }}
+                      >{d.name}</p>
                       {d.set_time && <p className="text-[11px] text-muted-foreground truncate">{d.set_time}</p>}
                     </div>
                     {d.user_id && <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />}
