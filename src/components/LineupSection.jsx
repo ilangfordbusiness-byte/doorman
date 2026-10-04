@@ -4,6 +4,7 @@ import { Disc3, Plus, X, ChevronUp, ChevronDown, Clock, Mail, Pencil, Check } fr
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import Avatar from "./Avatar";
+import { LINEUP_STYLES, DEFAULT_LINEUP_STYLE } from "@/lib/lineupStyles";
 
 // Host editor for an event's DJ lineup. Optimistic client-array save (like
 // CoHostsSection) via Event.update(id, { dj_lineup }). A DJ can be linked to a
@@ -69,6 +70,15 @@ export default function LineupSection({ event, onUpdated }) {
     save(next);
   }
 
+  async function saveStyle(id) {
+    setSaving(true);
+    try {
+      await api.entities.Event.update(event.id, { lineup_style: id });
+      onUpdated?.();
+    } catch (e) { console.error(e); }
+    setSaving(false);
+  }
+
   function remove(i) { save(lineup.filter((_, idx) => idx !== i)); }
 
   function move(i, dir) {
@@ -122,6 +132,24 @@ export default function LineupSection({ event, onUpdated }) {
       <p className="text-xs text-muted-foreground mb-3">
         Add the DJs playing and their set times. Link a DoorMan account so their name opens their DJ profile, or just type a name.
       </p>
+
+      {/* Lineup name style */}
+      <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">Name style</p>
+      <div className="flex flex-wrap gap-2 mb-4">
+        {LINEUP_STYLES.map((s) => {
+          const selected = (event.lineup_style || DEFAULT_LINEUP_STYLE) === s.id;
+          return (
+            <button
+              key={s.id}
+              onClick={() => saveStyle(s.id)}
+              disabled={saving}
+              className={`px-3 py-1.5 rounded-lg border bg-secondary/40 transition-colors ${selected ? "border-primary ring-1 ring-primary" : "border-border/50 hover:border-primary/40"}`}
+            >
+              <span className={s.className} style={{ ...s.style, fontSize: 13 }}>{s.label}</span>
+            </button>
+          );
+        })}
+      </div>
 
       {lineup.length > 0 && (
         <div className="space-y-2 mb-3">
