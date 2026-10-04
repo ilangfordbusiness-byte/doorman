@@ -35,6 +35,7 @@ import HostProfileModal from "../components/HostProfileModal";
 import CoHostsSection from "../components/CoHostsSection";
 import LineupSection from "../components/LineupSection";
 import FitText from "../components/FitText";
+import { lineupStyle } from "@/lib/lineupStyles";
 import EventJoinActions from "../components/EventJoinActions";
 import moment from "moment";
 import { captureRef, getLinkDomain, discountLabel, promoterDiscountActive } from "@/lib/promoterRef";
@@ -416,8 +417,8 @@ export default function EventDetails() {
                     <div className="flex-1 min-w-0">
                       <FitText
                         text={d.name}
-                        className="font-mono uppercase font-bold text-cyan-100"
-                        style={{ textShadow: "0 0 6px hsl(180 100% 50% / 0.75), 0 0 16px hsl(180 100% 50% / 0.45)" }}
+                        className={lineupStyle(event.lineup_style).className}
+                        style={lineupStyle(event.lineup_style).style}
                       />
                       {d.set_time && <p className="text-[11px] text-muted-foreground truncate">{d.set_time}</p>}
                     </div>

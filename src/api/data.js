@@ -59,7 +59,7 @@ const ENTITIES = {
       end_time, timezone, venue_name, address, venue_lat, venue_lng, dress_code,
       description, entry_notes, instagram, is_public, discoverable, capacity,
       requests_open, plus_one_allowed, status, is_paid, currency, fee_mode,
-      visibility, created_at, updated_at,
+      visibility, lineup_style, created_at, updated_at,
       host:profiles!events_host_id_fkey(${PROFILE_JOIN}),
       co_host_rows:event_co_hosts(id, email, status, user_id,
         profile:profiles(full_name, avatar_url)),
@@ -108,6 +108,7 @@ const ENTITIES = {
         currency: r.currency,
         fee_mode: r.fee_mode,
         visibility: r.visibility,
+        lineup_style: r.lineup_style,
         business_id: r.business_id,
         host_id: r.host_id,
         host_email: r.host?.email ?? null,
@@ -126,7 +127,7 @@ const ENTITIES = {
         "dress_code", "description", "entry_notes", "host_notes", "instagram",
         "is_public", "discoverable", "capacity", "requests_open",
         "plus_one_allowed", "status", "is_paid", "currency", "fee_mode",
-        "visibility", "business_id",
+        "visibility", "business_id", "lineup_style",
       ];
       for (const k of copy) if (k in obj) out[k] = obj[k];
       // The legacy platform tolerated "" in typed columns; Postgres uuid/numeric/date do not.
