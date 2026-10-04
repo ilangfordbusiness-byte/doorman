@@ -1,15 +1,18 @@
 import { useState, useEffect, useRef } from "react";
 import { api } from "@/api/data";
-import { Disc3, Plus, X, ChevronUp, ChevronDown, Clock } from "lucide-react";
+import { Disc3, Plus, X, ChevronUp, ChevronDown, Clock, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast";
 import Avatar from "./Avatar";
 
 // Host editor for an event's DJ lineup. Optimistic client-array save (like
 // CoHostsSection) via Event.update(id, { dj_lineup }). A DJ can be linked to a
 // DoorMan account (search + pick → clickable profile) or a plain typed name.
 export default function LineupSection({ event, onUpdated }) {
+  const { toast } = useToast();
   const lineup = Array.isArray(event.dj_lineup) ? event.dj_lineup : [];
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [setTime, setSetTime] = useState("");
   const [linked, setLinked] = useState(null); // { user_id, picture } when picked from search
   const [results, setResults] = useState([]);
@@ -40,11 +43,27 @@ export default function LineupSection({ event, onUpdated }) {
     setSaving(false);
   }
 
-  function add() {
+  async function add() {
     const nm = name.trim();
     if (!nm) return;
-    const next = [...lineup, { user_id: linked?.user_id || null, name: nm, picture: linked?.picture || "", set_time: setTime.trim() }];
-    setName(""); setSetTime(""); setLinked(null); setResults([]);
+    const em = email.trim().toLowerCase();
+    let link = linked; // picked from the name-search dropdown
+    // If not already linked and an email was given, try to connect it to a
+    // DoorMan account so the DJ's name becomes clickable to their profile.
+    if (!link && em) {
+      setSaving(true);
+      try {
+        const profile = await api.auth.getProfile(em);
+        if (profile?.id) {
+          link = { user_id: profile.id, picture: profile.profile_picture || "" };
+        } else {
+          toast({ title: "No DoorMan account for that email", description: `${nm} added by name only.` });
+        }
+      } catch { /* fall through to unlinked */ }
+      setSaving(false);
+    }
+    const next = [...lineup, { user_id: link?.user_id || null, name: nm, picture: link?.picture || "", set_time: setTime.trim() }];
+    setName(""); setEmail(""); setSetTime(""); setLinked(null); setResults([]);
     save(next);
   }
 
@@ -95,8 +114,8 @@ export default function LineupSection({ event, onUpdated }) {
       )}
 
       <div className="relative" ref={boxRef}>
-        <div className="flex gap-2">
-          <div className="flex-1 relative">
+        <div className="space-y-2">
+          <div className="relative">
             <input
               value={name}
               onChange={(e) => { setName(e.target.value); setLinked(null); }}
@@ -115,21 +134,36 @@ export default function LineupSection({ event, onUpdated }) {
               </div>
             )}
           </div>
-          <div className="relative w-32">
-            <Clock className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+          <div className="relative">
+            <Mail className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
             <input
-              value={setTime}
-              onChange={(e) => setSetTime(e.target.value)}
-              placeholder="Set time"
-              onKeyDown={(e) => e.key === "Enter" && add()}
-              className="w-full h-10 pl-8 pr-2 text-sm bg-secondary/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Their DoorMan email (optional) — links their profile"
+              disabled={!!linked}
+              className="w-full h-10 pl-8 pr-3 text-sm bg-secondary/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
             />
           </div>
-          <Button size="sm" className="h-10 rounded-xl" onClick={add} disabled={saving || !name.trim()}>
-            <Plus className="w-4 h-4" />
-          </Button>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Clock className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+              <input
+                value={setTime}
+                onChange={(e) => setSetTime(e.target.value)}
+                placeholder="Set time"
+                onKeyDown={(e) => e.key === "Enter" && add()}
+                className="w-full h-10 pl-8 pr-2 text-sm bg-secondary/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+            </div>
+            <Button size="sm" className="h-10 rounded-xl gap-1.5" onClick={add} disabled={saving || !name.trim()}>
+              <Plus className="w-4 h-4" /> Add
+            </Button>
+          </div>
         </div>
-        {linked && <p className="text-[10px] text-primary mt-1">Will link to this DoorMan profile.</p>}
+        {linked
+          ? <p className="text-[10px] text-primary mt-1">Will link to the selected DoorMan profile.</p>
+          : email.trim() && <p className="text-[10px] text-muted-foreground mt-1">If this email has a DoorMan account, their profile will be linked.</p>}
       </div>
     </div>
   );
