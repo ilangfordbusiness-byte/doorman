@@ -414,7 +414,7 @@ export default function EventDetails() {
                   <>
                     <div className="flex-1 min-w-0">
                       <p
-                        className="font-mono uppercase tracking-wider text-sm font-semibold text-cyan-100 break-words"
+                        className="font-mono uppercase tracking-wider text-2xl font-bold text-cyan-100 break-words leading-tight"
                         style={{ textShadow: "0 0 6px hsl(180 100% 50% / 0.75), 0 0 14px hsl(180 100% 50% / 0.45)" }}
                       >{d.name}</p>
                       {d.set_time && <p className="text-[11px] text-muted-foreground truncate">{d.set_time}</p>}
