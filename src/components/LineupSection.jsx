@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { api } from "@/api/data";
-import { Disc3, Plus, X, ChevronUp, ChevronDown, Clock, Mail } from "lucide-react";
+import { Disc3, Plus, X, ChevronUp, ChevronDown, Clock, Mail, Pencil, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import Avatar from "./Avatar";
@@ -17,6 +17,8 @@ export default function LineupSection({ event, onUpdated }) {
   const [linked, setLinked] = useState(null); // { user_id, picture } when picked from search
   const [results, setResults] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [editIdx, setEditIdx] = useState(null); // lineup row being edited
+  const [editFields, setEditFields] = useState({ name: "", email: "", set_time: "" });
   const boxRef = useRef(null);
 
   const q = name.trim();
@@ -83,6 +85,35 @@ export default function LineupSection({ event, onUpdated }) {
     setResults([]);
   }
 
+  function startEditRow(i) {
+    const d = lineup[i];
+    setEditIdx(i);
+    setEditFields({ name: d.name || "", email: "", set_time: d.set_time || "" });
+  }
+
+  // Save an edited row. An entered email (re)links the DJ to that DoorMan
+  // account; blank keeps the row's existing link.
+  async function saveEditRow(i) {
+    const d = lineup[i];
+    const nm = editFields.name.trim() || d.name;
+    const em = editFields.email.trim().toLowerCase();
+    let user_id = d.user_id || null;
+    let picture = d.picture || "";
+    if (em) {
+      setSaving(true);
+      try {
+        const profile = await api.auth.getProfile(em);
+        if (profile?.id) { user_id = profile.id; picture = profile.profile_picture || ""; }
+        else { toast({ title: "No DoorMan account for that email", description: "Link left unchanged." }); }
+      } catch { /* keep existing link */ }
+      setSaving(false);
+    }
+    const next = lineup.map((row, idx) =>
+      idx === i ? { ...row, name: nm, set_time: editFields.set_time.trim(), user_id, picture } : row);
+    setEditIdx(null);
+    save(next);
+  }
+
   return (
     <div>
       <h3 className="font-heading font-semibold text-sm mb-3 flex items-center gap-2">
@@ -95,20 +126,55 @@ export default function LineupSection({ event, onUpdated }) {
       {lineup.length > 0 && (
         <div className="space-y-2 mb-3">
           {lineup.map((d, i) => (
+            editIdx === i ? (
+              <div key={d.id || i} className="bg-secondary/50 rounded-xl px-3 py-2.5 border border-border/50 space-y-2">
+                <input
+                  value={editFields.name}
+                  onChange={(e) => setEditFields((s) => ({ ...s, name: e.target.value }))}
+                  placeholder="DJ name"
+                  className="w-full h-9 px-3 text-sm bg-secondary/60 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+                <div className="relative">
+                  <Mail className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                  <input
+                    type="email"
+                    value={editFields.email}
+                    onChange={(e) => setEditFields((s) => ({ ...s, email: e.target.value }))}
+                    placeholder={d.user_id ? "Email to re-link (leave blank to keep)" : "Their DoorMan email — links their profile"}
+                    className="w-full h-9 pl-8 pr-3 text-sm bg-secondary/60 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Clock className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                    <input
+                      value={editFields.set_time}
+                      onChange={(e) => setEditFields((s) => ({ ...s, set_time: e.target.value }))}
+                      placeholder="Set time"
+                      className="w-full h-9 pl-8 pr-2 text-sm bg-secondary/60 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                  </div>
+                  <Button size="sm" className="h-9 rounded-lg" onClick={() => saveEditRow(i)} disabled={saving || !editFields.name.trim()}><Check className="w-4 h-4" /></Button>
+                  <Button size="sm" variant="ghost" className="h-9 rounded-lg" onClick={() => setEditIdx(null)} disabled={saving}><X className="w-4 h-4" /></Button>
+                </div>
+              </div>
+            ) : (
             <div key={d.id || i} className="flex items-center gap-2 bg-secondary/50 rounded-xl px-3 py-2 border border-border/50">
               <Avatar src={d.picture} name={d.name} size="w-8 h-8" textClass="text-xs" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{d.name}{d.user_id ? "" : ""}</p>
+                <p className="text-sm font-medium truncate">{d.name}</p>
                 <p className="text-[10px] text-muted-foreground truncate">
-                  {d.set_time || "No set time"}{d.user_id ? " · linked" : ""}
+                  {d.set_time || "No set time"}{d.user_id ? " · linked" : " · not linked"}
                 </p>
               </div>
               <div className="flex items-center gap-0.5 flex-shrink-0">
                 <button onClick={() => move(i, -1)} disabled={i === 0 || saving} className="text-muted-foreground hover:text-foreground disabled:opacity-30 p-1" aria-label="Move up"><ChevronUp className="w-4 h-4" /></button>
                 <button onClick={() => move(i, 1)} disabled={i === lineup.length - 1 || saving} className="text-muted-foreground hover:text-foreground disabled:opacity-30 p-1" aria-label="Move down"><ChevronDown className="w-4 h-4" /></button>
+                <button onClick={() => startEditRow(i)} disabled={saving} className="text-muted-foreground hover:text-foreground p-1" aria-label="Edit"><Pencil className="w-4 h-4" /></button>
                 <button onClick={() => remove(i)} disabled={saving} className="text-muted-foreground hover:text-destructive p-1" aria-label="Remove"><X className="w-4 h-4" /></button>
               </div>
             </div>
+            )
           ))}
         </div>
       )}
