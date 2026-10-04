@@ -12,19 +12,28 @@ import { normalizePhone } from "@/lib/phone";
 // sign-ups supply name/phone/instagram at signup (so they only see the avatar
 // step); Google sign-ins are walked through whichever fields they're missing.
 // The avatar lives here (not on the signup form) because uploading it needs a
-// session. The picture step can be skipped with a faint "Skip for now", which
-// stamps profiles.avatar_prompt_dismissed_at — but that only SNOOZES it for a
-// week: any user still without a picture is nudged again on their next visit
-// after 7 days. A picture can still be added any time from /profile.
+// session. Two regimes:
+//  - Accounts created on/after AVATAR_MANDATORY_FROM MUST add a picture to finish
+//    onboarding — the step has no skip and recurs every visit until they do.
+//  - Older accounts are reminded once a week: "Skip for now" stamps
+//    profiles.avatar_prompt_dismissed_at to SNOOZE the prompt for 7 days.
+// A picture can always be added/changed from /profile.
 const ORDER = ["name", "phone", "instagram", "avatar"];
 
-// Re-ask users without a profile picture about once a week (on app open).
+// New accounts from this date on must add a profile picture (no skip). Set to
+// the deploy date; older accounts get the weekly skippable reminder instead.
+const AVATAR_MANDATORY_FROM = new Date("2026-10-04T00:00:00Z");
 const AVATAR_SNOOZE_MS = 7 * 24 * 60 * 60 * 1000;
+
+function avatarMandatory(me) {
+  return !!me?.created_date && new Date(me.created_date) >= AVATAR_MANDATORY_FROM;
+}
 function avatarRequired(me) {
   if (!me || me.profile_picture) return false;              // already has a picture
+  if (avatarMandatory(me)) return true;                     // new account: must add, every visit
   const snoozed = me.avatar_prompt_dismissed_at;            // last "Skip for now"
   if (snoozed && Date.now() - new Date(snoozed).getTime() < AVATAR_SNOOZE_MS) return false;
-  return true;                                              // no picture, not snoozed this week
+  return true;                                              // older account: weekly reminder
 }
 
 function firstMissing(me, includeAvatar) {
@@ -47,6 +56,7 @@ export default function PhoneSetupGate({ children }) {
   const [photoFile, setPhotoFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [includeAvatar, setIncludeAvatar] = useState(false);
+  const [avatarMust, setAvatarMust] = useState(false); // new accounts: no skip
   const fileRef = useRef(null);
   const cameraRef = useRef(null);
 
@@ -57,6 +67,7 @@ export default function PhoneSetupGate({ children }) {
       setLastName(parts.slice(1).join(" ") || "");
       const wantAvatar = avatarRequired(me);
       setIncludeAvatar(wantAvatar);
+      setAvatarMust(avatarMandatory(me));
       const missing = ORDER.filter((s) => {
         if (s === "name") return firstMissing(me, wantAvatar) === "name";
         if (s === "phone") return !me?.phone;
@@ -216,10 +227,14 @@ export default function PhoneSetupGate({ children }) {
         onClick={() => cameraRef.current?.click()} disabled={saving}>
         <Camera className="w-4 h-4" /> Take a photo
       </Button>
-      <button onClick={dismissAvatar} disabled={saving}
-        className="block mx-auto mt-4 text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors">
-        Skip for now
-      </button>
+      {avatarMust ? (
+        <p className="text-center text-xs text-muted-foreground/70 mt-4">A profile picture is required to continue.</p>
+      ) : (
+        <button onClick={dismissAvatar} disabled={saving}
+          className="block mx-auto mt-4 text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors">
+          Skip for now
+        </button>
+      )}
       {photoFile && (
         <ProfilePictureEditor file={photoFile} onSave={saveAvatar} onClose={() => setPhotoFile(null)} />
       )}
