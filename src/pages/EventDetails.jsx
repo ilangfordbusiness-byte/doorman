@@ -412,7 +412,6 @@ export default function EventDetails() {
               {event.dj_lineup.map((d) => {
                 const inner = (
                   <>
-                    <Avatar src={d.picture} name={d.name} size="w-9 h-9" textClass="text-xs" className="flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold truncate">{d.name}</p>
                       {d.set_time && <p className="text-[11px] text-muted-foreground truncate">{d.set_time}</p>}
