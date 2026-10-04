@@ -34,6 +34,7 @@ import Avatar from "../components/Avatar";
 import HostProfileModal from "../components/HostProfileModal";
 import CoHostsSection from "../components/CoHostsSection";
 import LineupSection from "../components/LineupSection";
+import FitText from "../components/FitText";
 import EventJoinActions from "../components/EventJoinActions";
 import moment from "moment";
 import { captureRef, getLinkDomain, discountLabel, promoterDiscountActive } from "@/lib/promoterRef";
@@ -413,10 +414,11 @@ export default function EventDetails() {
                 const inner = (
                   <>
                     <div className="flex-1 min-w-0">
-                      <p
-                        className="font-mono uppercase tracking-wider text-2xl font-bold text-cyan-100 break-words leading-tight"
-                        style={{ textShadow: "0 0 6px hsl(180 100% 50% / 0.75), 0 0 14px hsl(180 100% 50% / 0.45)" }}
-                      >{d.name}</p>
+                      <FitText
+                        text={d.name}
+                        className="font-mono uppercase font-bold text-cyan-100"
+                        style={{ textShadow: "0 0 6px hsl(180 100% 50% / 0.75), 0 0 16px hsl(180 100% 50% / 0.45)" }}
+                      />
                       {d.set_time && <p className="text-[11px] text-muted-foreground truncate">{d.set_time}</p>}
                     </div>
                     {d.user_id && <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />}
