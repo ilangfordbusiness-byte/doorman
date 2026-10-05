@@ -101,21 +101,39 @@ function hasGh() {
   try { execFileSync('gh', ['--version'], { stdio: 'ignore' }); return true; } catch { return false; }
 }
 
-// Returns { state: 'OPEN' | 'MERGED' | 'CLOSED' }. Uses `gh` when installed; otherwise
-// the REST API via curl, which honours HTTPS_PROXY (the cloud sandbox's GitHub proxy
-// injects credentials for GH_TOKEN / GITHUB_TOKEN).
+// Returns { state: 'OPEN' | 'MERGED' | 'CLOSED' }.
+//
+// REST only, never `gh pr view`: every `gh pr ...` subcommand talks to
+// api.github.com/graphql, which the cloud sandbox's GitHub proxy does not allow
+// (only REST paths under api.github.com are reachable there). `gh api <path>` is a
+// plain REST call and uses whatever auth gh has (GH_TOKEN, or `gh auth login`
+// locally); when gh is missing or unauthenticated we fall back to curl, which
+// honours HTTPS_PROXY (the sandbox proxy injects credentials for the repo).
 function prState(url) {
-  if (hasGh()) {
-    const out = execFileSync('gh', ['pr', 'view', url, '--json', 'state,mergedAt,isDraft,url'], { encoding: 'utf8' });
-    return JSON.parse(out);
-  }
   const m = /github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/.exec(url);
   if (!m) throw new Error(`not a GitHub PR URL: ${url}`);
-  const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
-  const args = ['-sS', '--fail-with-body', '--max-time', '30', '-H', 'Accept: application/vnd.github+json'];
-  if (token) args.push('-H', `Authorization: Bearer ${token}`);
-  args.push(`https://api.github.com/repos/${m[1]}/${m[2]}/pulls/${m[3]}`);
-  const pr = JSON.parse(execFileSync('curl', args, { encoding: 'utf8' }));
+  const path = `repos/${m[1]}/${m[2]}/pulls/${m[3]}`;
+  let pr;
+  let ghErr;
+  if (hasGh()) {
+    try {
+      pr = JSON.parse(execFileSync('gh', ['api', path], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }));
+    } catch (err) {
+      ghErr = err;
+    }
+  }
+  if (!pr) {
+    const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
+    const args = ['-sS', '--fail-with-body', '--max-time', '30', '-H', 'Accept: application/vnd.github+json'];
+    if (token) args.push('-H', `Authorization: Bearer ${token}`);
+    args.push(`https://api.github.com/${path}`);
+    try {
+      pr = JSON.parse(execFileSync('curl', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }));
+    } catch (err) {
+      const first = (e) => String(e?.stderr || e?.message || e).trim().split('\n')[0];
+      throw new Error(ghErr ? `gh api: ${first(ghErr)}; curl: ${first(err)}` : first(err));
+    }
+  }
   return { url, isDraft: !!pr.draft, mergedAt: pr.merged_at, state: pr.merged_at ? 'MERGED' : pr.state === 'closed' ? 'CLOSED' : 'OPEN' };
 }
 
@@ -127,7 +145,7 @@ async function reconcile() {
     if (t.pr && (t.status === 'PR open' || t.status === 'In progress')) {
       let pr;
       try { pr = prState(t.pr); } catch (err) {
-        changes.push({ ...ref, note: `gh could not read ${t.pr}: ${String(err.message).split('\n')[0]}` });
+        changes.push({ ...ref, note: `could not read ${t.pr}: ${String(err.message).split('\n')[0]}` });
         continue;
       }
       if (pr.state === 'MERGED') {

@@ -2,6 +2,8 @@ You are the DoorMan task-sheet routine. You run hourly in a fresh cloud checkout
 
 The sheet is reached only through `node scripts/sheet-agent/sheet.mjs` (env SHEET_AGENT_URL and SHEET_AGENT_SECRET are already set). Do not try to read the spreadsheet any other way. Never print the secret. The CLI already retries the Apps Script's transient 404 / "unauthorised" replies and recovers a claim whose reply was lost; do not wrap it in your own retry loops.
 
+GitHub note: in this environment only GitHub's REST API is reachable; the GraphQL endpoint is blocked. Never run `gh pr ...`, `gh issue ...` or `gh repo ...` subcommands (they all use GraphQL and fail). Read or create pull requests with `gh api repos/ilangfordbusiness-byte/doorman/pulls[/<number>]` or the GitHub MCP tools instead.
+
 Other runs of this routine may overlap with you. The Status column is the lock: only ever change a Status that you set in this run. Never blank or overwrite another run's "In progress", however odd its timestamp looks.
 
 ## Step 0 — check GitHub write access
@@ -39,7 +41,7 @@ Rules:
 4. Before committing: `npm run lint` and `npm run build` must pass. `npm run typecheck` has pre-existing errors on main; run it before and after your change and do not increase the error count. You cannot run the SQL suites here; CI runs them on the PR. If you add a migration or change RLS, extend supabase/tests accordingly and say in the PR that the suites ran in CI only.
 5. Commit with a conventional-commit title scoped by feature area (feat(...)/fix(...)/chore(...)). End the commit message with:
    Co-Authored-By: Claude <noreply@anthropic.com>
-6. Push the branch and open a ready-for-review PR against main. Use `gh pr create` if `gh` is installed; otherwise use the GitHub MCP tool `create_pull_request` (owner ilangfordbusiness-byte, repo doorman, base main, head <your branch>, draft false). The body must have: a one-paragraph "What this does" (or "Problem" for a bug), "Changes" grouped by module, a "Verification" section listing exactly which checks you ran and which you could not, and a final line `Source: task sheet, <tab> row <row>`.
+6. Push the branch and open a ready-for-review PR against main. Only GitHub's REST API is reachable here (GraphQL is blocked), so never use `gh pr create`. Write the body to a file and run `gh api -X POST repos/ilangfordbusiness-byte/doorman/pulls -f title="<title>" -f head="<your branch>" -f base=main -F body=@pr-body.md -F draft=false` and take `html_url` from the reply; if `gh` is missing or unauthenticated, use the GitHub MCP tool `create_pull_request` (owner ilangfordbusiness-byte, repo doorman, base main, head <your branch>, draft false). Do not commit the body file. The body must have: a one-paragraph "What this does" (or "Problem" for a bug), "Changes" grouped by module, a "Verification" section listing exactly which checks you ran and which you could not, and a final line `Source: task sheet, <tab> row <row>`.
 7. Return, as your last line, exactly one of:
    PR: <url>
    NEEDS_HUMAN: <one or two sentences: what is unclear or why this is not a code change, phrased as a question to the team>
