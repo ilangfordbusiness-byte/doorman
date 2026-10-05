@@ -8,7 +8,7 @@ the sheet's **Done?** is ticked only after the routine sees the PR merged.
 ```text
 Google Sheet ──(Apps Script web app, Code.gs)──► sheet.mjs ──► routine prompt
       ▲                                                            │
-      └── Status / PR / Agent notes / Done? written back ◄─── one subagent per row ──► gh pr create
+      └── Status / PR / Agent notes / Done? written back ◄─── one subagent per row ──► gh api (REST)
 ```
 
 ## Sheet columns
@@ -59,7 +59,10 @@ re-queue it after answering.
    account that owns the repository
    (https://github.com/apps/claude/installations/select_target). Without it,
    clones work but every push and API write returns 403 and the routine stops
-   at its access probe.
+   at its access probe. The proxy only passes REST calls: the GraphQL
+   endpoint is blocked, so every `gh pr ...` subcommand fails there. The
+   bridge and the routine prompt use `gh api` / curl against REST paths
+   only.
 5. **Environment network access.** The routine's cloud environment must allow
    egress to `script.google.com` and `script.googleusercontent.com` (Custom
    network access with the default package-manager list kept).
