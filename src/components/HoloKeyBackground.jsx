@@ -7,7 +7,7 @@
 // The tile is the exact DoorMan mark: an OPEN keyhole ring (open at the bottom)
 // flowing into a hanging necktie, drawn twice (outer + inner) as strokes.
 const KEY_TILE =
-  "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='56'%20height='78'%20viewBox='0%200%20100%20140'%3E%3Cg%20fill='none'%20stroke='black'%20stroke-width='5.5'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M58%2061%20A23%2023%200%201%200%2042%2061%20L32%2093%20L50%20113%20L68%2093%20Z'/%3E%3Cpath%20d='M55%2056%20A15%2015%200%201%200%2045%2056%20L38%2090%20L50%20107%20L62%2090%20Z'/%3E%3C/g%3E%3C/svg%3E";
+  "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='100'%20height='140'%20viewBox='0%200%20100%20140'%3E%3Cg%20fill='none'%20stroke='black'%20stroke-width='5'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M58%2061%20A23%2023%200%201%200%2042%2061%20L32%2093%20L50%20113%20L68%2093%20Z'/%3E%3Cpath%20d='M55%2056%20A15%2015%200%201%200%2045%2056%20L38%2090%20L50%20107%20L62%2090%20Z'/%3E%3C/g%3E%3C/svg%3E";
 
 export default function HoloKeyBackground({ opacity = 0.32, className = "" }) {
   return (
@@ -23,8 +23,8 @@ export default function HoloKeyBackground({ opacity = 0.32, className = "" }) {
         maskImage: `url("${KEY_TILE}")`,
         WebkitMaskRepeat: "repeat",
         maskRepeat: "repeat",
-        WebkitMaskSize: "56px 78px",
-        maskSize: "56px 78px",
+        WebkitMaskSize: "100px 140px",
+        maskSize: "100px 140px",
       }}
     />
   );
