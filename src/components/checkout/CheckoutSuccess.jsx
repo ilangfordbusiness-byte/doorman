@@ -1,11 +1,13 @@
 import { currencySymbol } from "@/lib/money";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/api/data";
 import { Ticket, QrCode, CheckCircle2, Megaphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { trackPixel } from "@/lib/metaPixel";
+import { hapticSuccess } from "@/lib/native";
+import confetti from "canvas-confetti";
 
 // Confirmation screen shown after a successful Stripe Checkout redirect.
 // Polls for the paid order (webhook may still be processing) then shows the
@@ -70,6 +72,21 @@ export default function CheckoutSuccess({ eventId, orderId = null }) {
     return () => { active = false; };
   }, [eventId, orderId]);
 
+  // Celebrate once, the moment the paid ticket resolves: a brand-coloured
+  // confetti burst + a success haptic. Skipped under reduced-motion.
+  const celebrated = useRef(false);
+  useEffect(() => {
+    if (!order || celebrated.current) return;
+    celebrated.current = true;
+    hapticSuccess();
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const colors = ["#b388ff", "#22d3ee", "#a855f7", "#ffffff"];
+    confetti({ particleCount: 90, spread: 70, startVelocity: 45, origin: { x: 0.5, y: 0.65 }, colors, zIndex: 100, disableForReducedMotion: true });
+    const t1 = setTimeout(() => confetti({ particleCount: 50, spread: 100, startVelocity: 35, angle: 60, origin: { x: 0.15, y: 0.8 }, colors, zIndex: 100 }), 160);
+    const t2 = setTimeout(() => confetti({ particleCount: 50, spread: 100, startVelocity: 35, angle: 120, origin: { x: 0.85, y: 0.8 }, colors, zIndex: 100 }), 160);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [order]);
+
   const cur = String(event?.currency || "gbp").toLowerCase();
   const sym = currencySymbol(cur);
 
@@ -85,10 +102,10 @@ export default function CheckoutSuccess({ eventId, orderId = null }) {
 
   return (
     <div className="max-w-lg mx-auto px-4 pt-10 pb-12 text-center">
-      <div className="w-16 h-16 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center mx-auto mb-4">
+      <div className="w-16 h-16 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center mx-auto mb-4 shadow-[0_0_30px_-4px_rgba(16,185,129,0.6)] animate-in zoom-in-50 duration-500">
         <CheckCircle2 className="w-9 h-9 text-emerald-400" />
       </div>
-      <h1 className="font-heading font-bold text-2xl mb-1">You're on the list!</h1>
+      <h1 className="font-heading font-bold text-2xl mb-1 animate-in fade-in slide-in-from-bottom-2 duration-500">You're on the list!</h1>
       <p className="text-sm text-muted-foreground mb-6">{event?.title}</p>
 
       <div className="bg-card rounded-2xl border border-border p-5 text-left mb-5">
