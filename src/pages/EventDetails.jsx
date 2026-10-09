@@ -1,17 +1,9 @@
 import { currencySymbol } from "@/lib/money";
 import { timeSuffix } from "@/lib/eventTime";
 import { useState, useEffect } from "react";
-import { COVERS } from "../components/CoverPicker";
+import EventCoverHero from "../components/EventCoverHero";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { normalizePhone, formatPhoneDisplay } from "@/lib/phone";
-
-function getCoverStyle(cover_image) {
-  if (cover_image?.startsWith("__cover__")) {
-    const id = cover_image.replace("__cover__", "");
-    return COVERS.find((c) => c.id === id)?.style || null;
-  }
-  return null;
-}
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { api } from "@/api/data";
 import { shareUrl } from "@/lib/native";
@@ -256,33 +248,22 @@ export default function EventDetails() {
 
   return (
     <div className="max-w-lg mx-auto">
-      {/* Cover */}
-      <div className="relative aspect-square">{
-        (() => {
-          const coverStyle = getCoverStyle(event.cover_image);
-          return coverStyle ? (
-            <div className="w-full h-full" style={coverStyle}>
-              <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: "repeating-linear-gradient(0deg, rgba(255,255,255,0.8) 0px, rgba(255,255,255,0.8) 1px, transparent 1px, transparent 3px)" }} />
-            </div>
-          ) : event.cover_image && !event.cover_image.startsWith("__cover__") ? (
-            <img src={event.cover_image} alt={event.title} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-br from-primary/40 via-primary/20 to-accent/20" />
-          );
-        })()
-      }
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
-        <div className="absolute top-4 left-4 right-4 flex justify-between">
-          <Button variant="ghost" size="icon" className="rounded-full bg-card/60 backdrop-blur-sm" onClick={() => navigate(-1)}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <Button variant="ghost" size="icon" className="rounded-full bg-card/60 backdrop-blur-sm" onClick={handleShare}>
-            {copied ? <Check className="w-5 h-5 text-emerald-400" /> : <Share2 className="w-5 h-5" />}
-          </Button>
-        </div>
-      </div>
+      {/* Cover — a floating card that tilts toward the pointer/finger (see EventCoverHero) */}
+      <EventCoverHero
+        event={event}
+        topBar={
+          <>
+            <Button variant="ghost" size="icon" className="rounded-full bg-card/60 backdrop-blur-sm" onClick={() => navigate(-1)}>
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <Button variant="ghost" size="icon" className="rounded-full bg-card/60 backdrop-blur-sm" onClick={handleShare}>
+              {copied ? <Check className="w-5 h-5 text-emerald-400" /> : <Share2 className="w-5 h-5" />}
+            </Button>
+          </>
+        }
+      />
 
-      <div className="px-4 -mt-8 relative z-10 pb-8 space-y-5">
+      <div className="px-4 pt-6 relative z-10 pb-8 space-y-5">
         {/* Title & Status */}
         <div>
           <div className="flex items-center gap-2 mb-1">
