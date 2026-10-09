@@ -251,7 +251,7 @@ export default function EventDetails() {
   return (
     <div className="max-w-lg mx-auto relative isolate">
       {/* Holographic field of little keys, drifting behind the whole event page */}
-      <HoloKeyBackground opacity={0.1} />
+      <HoloKeyBackground opacity={0.18} />
       {/* Cover — a floating card that tilts toward the pointer/finger (see EventCoverHero) */}
       <EventCoverHero
         event={event}
