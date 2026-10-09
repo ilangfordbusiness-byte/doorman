@@ -2,6 +2,7 @@ import { currencySymbol } from "@/lib/money";
 import { timeSuffix } from "@/lib/eventTime";
 import { useState, useEffect } from "react";
 import EventCoverHero from "../components/EventCoverHero";
+import EventCountdown from "../components/EventCountdown";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { normalizePhone, formatPhoneDisplay } from "@/lib/phone";
 import { useParams, Link, useNavigate } from "react-router-dom";
@@ -295,6 +296,9 @@ export default function EventDetails() {
             ))}
           </div>
         </div>
+
+        {/* Neon countdown to doors (hidden once the event is over) */}
+        <EventCountdown event={event} />
 
         {/* Guest status + QR pass — at the top so a ticket is one tap away */}
         {!canManage && myEntry && myEntry.status !== "denied" && (
