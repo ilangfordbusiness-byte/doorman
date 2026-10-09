@@ -11,6 +11,7 @@ import HomeButton from "@/components/HomeButton";
 import { useToast } from "@/components/ui/use-toast";
 import EventCard from "../components/EventCard";
 import LoadingSpinner from "../components/LoadingSpinner";
+import KeyholeMark from "../components/KeyholeMark";
 
 export default function GuestHub() {
   const { toast } = useToast();
@@ -71,7 +72,19 @@ export default function GuestHub() {
   }
 
   return (
-    <div className="max-w-lg mx-auto px-4 pt-4 pb-8">
+    <div className="max-w-lg mx-auto px-4 pt-4 pb-8 relative overflow-hidden">
+      {/* Neon keyhole watermark — the frosted-glass tabs blur over it. Masked to
+          a soft ellipse so it glows behind the tabs without bleeding into the list. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-[14px] w-[210px] -z-10"
+        style={{
+          maskImage: "radial-gradient(ellipse 60% 44% at 50% 50%, #000 44%, transparent 74%)",
+          WebkitMaskImage: "radial-gradient(ellipse 60% 44% at 50% 50%, #000 44%, transparent 74%)",
+        }}
+      >
+        <KeyholeMark className="w-full opacity-60" />
+      </div>
       <div className="flex items-center gap-3 mb-4">
         <Link to="/">
           <Button variant="ghost" size="icon" className="rounded-full">
@@ -84,12 +97,12 @@ export default function GuestHub() {
         <HomeButton />
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 bg-secondary/50 rounded-xl p-1 mb-5">
+      {/* Tabs — frosted glass over the keyhole watermark */}
+      <div className="relative flex gap-1 rounded-xl p-1 mb-5 bg-white/5 backdrop-blur-md border border-white/10 shadow-lg shadow-black/20">
         <button
           onClick={() => setSearchParams({ tab: "invites" })}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-colors ${
-            tab === "invites" ? "bg-card text-foreground shadow" : "text-muted-foreground hover:text-foreground"
+            tab === "invites" ? "bg-white/10 text-foreground border border-white/15 shadow-sm" : "text-muted-foreground hover:text-foreground"
           }`}
         >
           <QrCode className="w-3.5 h-3.5" /> My Invites
@@ -97,7 +110,7 @@ export default function GuestHub() {
         <button
           onClick={() => setSearchParams({ tab: "discover" })}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-colors ${
-            tab === "discover" ? "bg-card text-foreground shadow" : "text-muted-foreground hover:text-foreground"
+            tab === "discover" ? "bg-white/10 text-foreground border border-white/15 shadow-sm" : "text-muted-foreground hover:text-foreground"
           }`}
         >
           <Compass className="w-3.5 h-3.5" /> Discover
@@ -105,7 +118,7 @@ export default function GuestHub() {
         <button
           onClick={() => setSearchParams({ tab: "transfers" })}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-colors ${
-            tab === "transfers" ? "bg-card text-foreground shadow" : "text-muted-foreground hover:text-foreground"
+            tab === "transfers" ? "bg-white/10 text-foreground border border-white/15 shadow-sm" : "text-muted-foreground hover:text-foreground"
           }`}
         >
           <ArrowLeftRight className="w-3.5 h-3.5" /> Transfers
