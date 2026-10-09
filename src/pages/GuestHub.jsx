@@ -11,7 +11,7 @@ import HomeButton from "@/components/HomeButton";
 import { useToast } from "@/components/ui/use-toast";
 import EventCard from "../components/EventCard";
 import LoadingSpinner from "../components/LoadingSpinner";
-import KeyholeMark from "../components/KeyholeMark";
+import HoloKeyBackground from "../components/HoloKeyBackground";
 
 export default function GuestHub() {
   const { toast } = useToast();
@@ -73,18 +73,8 @@ export default function GuestHub() {
 
   return (
     <div className="max-w-lg mx-auto px-4 pt-4 pb-8 relative overflow-hidden isolate">
-      {/* Neon keyhole watermark — the frosted-glass tabs blur over it. Masked to
-          a soft ellipse so it glows behind the tabs without bleeding into the list. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-[14px] w-[210px] -z-10"
-        style={{
-          maskImage: "radial-gradient(ellipse 60% 44% at 50% 50%, #000 44%, transparent 74%)",
-          WebkitMaskImage: "radial-gradient(ellipse 60% 44% at 50% 50%, #000 44%, transparent 74%)",
-        }}
-      >
-        <KeyholeMark className="w-full opacity-60" />
-      </div>
+      {/* Holographic field of little keys — the frosted-glass tabs blur over it */}
+      <HoloKeyBackground />
       <div className="flex items-center gap-3 mb-4">
         <Link to="/">
           <Button variant="ghost" size="icon" className="rounded-full">
