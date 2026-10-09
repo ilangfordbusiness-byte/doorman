@@ -9,6 +9,7 @@ import StatusBadge from "../components/StatusBadge";
 import LoadingSpinner from "../components/LoadingSpinner";
 import TransferTicketDialog from "../components/TransferTicketDialog";
 import { useToast } from "@/components/ui/use-toast";
+import { useTilt } from "@/hooks/useTilt";
 import moment from "moment";
 
 export default function GuestPass() {
@@ -27,6 +28,7 @@ export default function GuestPass() {
   const { toast } = useToast();
   const intervalRef = useRef(null);
   const watchIdRef = useRef(null);
+  const tiltRef = useTilt({ max: 14 });
 
   useEffect(() => {
     loadPass();
@@ -199,8 +201,19 @@ export default function GuestPass() {
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center px-4 pb-8">
-        {/* Pass Card */}
-        <div className="w-full max-w-sm bg-card rounded-3xl border border-border overflow-hidden shadow-2xl shadow-primary/5">
+        {/* Pass Card — holographic, tilts toward the pointer/finger */}
+        <div ref={tiltRef} className="w-full max-w-sm [transform-style:preserve-3d]" style={{ touchAction: "pan-y" }}>
+        {/* Animated neon gradient border + outer glow */}
+        <div className="relative rounded-[28px] p-[2px] overflow-hidden shadow-[0_0_45px_-8px_hsl(270_90%_65%/0.55)]">
+          <div
+            className="absolute inset-[-60%] animate-[spin_8s_linear_infinite] motion-reduce:hidden"
+            style={{ background: "conic-gradient(from 0deg, hsl(270 90% 65%), hsl(180 100% 50%), hsl(320 90% 60%), hsl(270 90% 65%))" }}
+          />
+          <div
+            className="absolute inset-0 hidden rounded-[28px] motion-reduce:block"
+            style={{ background: "linear-gradient(135deg, hsl(270 90% 65%), hsl(180 100% 50%))" }}
+          />
+          <div className="relative bg-card rounded-[26px] overflow-hidden">
           {/* Top section */}
           <div className="bg-gradient-to-br from-primary/20 via-primary/5 to-transparent p-6 text-center border-b border-border/50">
             {hasMultiple && (
@@ -222,7 +235,7 @@ export default function GuestPass() {
           <div className="p-6 flex flex-col items-center">
             {isApproved && qrData && (
               <>
-                <div className="relative">
+                <div className="relative z-30">
                   <div className="w-52 h-52 bg-white rounded-2xl p-3 flex items-center justify-center">
                     {/* Rendered locally: the signed payload never leaves the
                         device and the pass still works with no signal at the door. */}
@@ -370,6 +383,18 @@ export default function GuestPass() {
               )}
             </div>
           )}
+
+          {/* Holographic sheen — screen blend leaves the white QR box (z-30) untinted */}
+          <div
+            className="pointer-events-none absolute inset-0 z-20 mix-blend-screen opacity-60 animate-holo-pan motion-reduce:animate-none"
+            style={{ background: "linear-gradient(110deg, transparent 20%, hsl(270 90% 65% / 0.35) 35%, hsl(180 100% 50% / 0.35) 50%, hsl(320 90% 60% / 0.35) 65%, transparent 80%)", backgroundSize: "220% 220%" }}
+          />
+          <div
+            className="pointer-events-none absolute inset-0 z-20 mix-blend-screen"
+            style={{ background: "radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(255,255,255,0.35), transparent 45%)" }}
+          />
+          </div>
+        </div>
         </div>
       </div>
 
