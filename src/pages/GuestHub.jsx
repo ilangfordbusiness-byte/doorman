@@ -88,11 +88,11 @@ export default function GuestHub() {
       </div>
 
       {/* Tabs — frosted glass over the keyhole watermark */}
-      <div className="relative flex gap-1 rounded-xl p-1 mb-5 bg-white/5 backdrop-blur-md border border-white/10 shadow-lg shadow-black/20">
+      <div className="relative flex gap-1 rounded-xl p-1 mb-5 bg-white/5 backdrop-blur-md border-2 border-white/15 shadow-lg shadow-black/20">
         <button
           onClick={() => setSearchParams({ tab: "invites" })}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-colors ${
-            tab === "invites" ? "bg-white/10 text-foreground border border-white/15 shadow-sm" : "text-muted-foreground hover:text-foreground"
+            tab === "invites" ? "bg-white/10 text-foreground border-2 border-white/30 shadow-sm" : "text-muted-foreground hover:text-foreground"
           }`}
         >
           <QrCode className="w-3.5 h-3.5" /> My Invites
@@ -100,7 +100,7 @@ export default function GuestHub() {
         <button
           onClick={() => setSearchParams({ tab: "discover" })}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-colors ${
-            tab === "discover" ? "bg-white/10 text-foreground border border-white/15 shadow-sm" : "text-muted-foreground hover:text-foreground"
+            tab === "discover" ? "bg-white/10 text-foreground border-2 border-white/30 shadow-sm" : "text-muted-foreground hover:text-foreground"
           }`}
         >
           <Compass className="w-3.5 h-3.5" /> Discover
@@ -108,7 +108,7 @@ export default function GuestHub() {
         <button
           onClick={() => setSearchParams({ tab: "transfers" })}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-colors ${
-            tab === "transfers" ? "bg-white/10 text-foreground border border-white/15 shadow-sm" : "text-muted-foreground hover:text-foreground"
+            tab === "transfers" ? "bg-white/10 text-foreground border-2 border-white/30 shadow-sm" : "text-muted-foreground hover:text-foreground"
           }`}
         >
           <ArrowLeftRight className="w-3.5 h-3.5" /> Transfers
