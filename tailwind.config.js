@@ -90,12 +90,21 @@ module.exports = {
   				'50%': {
   					backgroundPosition: '100% 50%'
   				}
+  			},
+  			'holo-drift': {
+  				from: {
+  					backgroundPosition: '0% 50%'
+  				},
+  				to: {
+  					backgroundPosition: '100% 50%'
+  				}
   			}
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
   			'accordion-up': 'accordion-up 0.2s ease-out',
-  			'holo-pan': 'holo-pan 6s ease-in-out infinite'
+  			'holo-pan': 'holo-pan 6s ease-in-out infinite',
+  			'holo-drift': 'holo-drift 16s ease-in-out infinite alternate'
   		}
   	}
   },
