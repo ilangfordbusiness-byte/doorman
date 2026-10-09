@@ -72,7 +72,7 @@ export default function GuestHub() {
   }
 
   return (
-    <div className="max-w-lg mx-auto px-4 pt-4 pb-8 relative overflow-hidden">
+    <div className="max-w-lg mx-auto px-4 pt-4 pb-8 relative overflow-hidden isolate">
       {/* Neon keyhole watermark — the frosted-glass tabs blur over it. Masked to
           a soft ellipse so it glows behind the tabs without bleeding into the list. */}
       <div
