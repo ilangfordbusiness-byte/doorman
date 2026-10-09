@@ -10,7 +10,7 @@ export default function HoloKeyBackground({ opacity = 0.15, className = "" }) {
   return (
     <div
       aria-hidden
-      className={`pointer-events-none absolute inset-0 -z-10 animate-holo-drift motion-reduce:animate-none ${className}`}
+      className={`pointer-events-none fixed inset-0 -z-10 animate-holo-drift motion-reduce:animate-none ${className}`}
       style={{
         opacity,
         backgroundImage:
