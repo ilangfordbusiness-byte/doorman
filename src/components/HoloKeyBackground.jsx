@@ -23,8 +23,11 @@ export default function HoloKeyBackground({ opacity = 0.32, className = "" }) {
         maskImage: `url("${KEY_TILE}")`,
         WebkitMaskRepeat: "repeat",
         maskRepeat: "repeat",
-        WebkitMaskSize: "72px 101px",
-        maskSize: "72px 101px",
+        // Size each tile to a fraction of the viewport width so a whole number
+        // of keys always fits across — no half-keys clipped at the edges. The
+        // 1.4 keeps the key's proportions (viewBox is 100×140).
+        WebkitMaskSize: "calc(100vw / 8) calc(100vw / 8 * 1.4)",
+        maskSize: "calc(100vw / 8) calc(100vw / 8 * 1.4)",
       }}
     />
   );
