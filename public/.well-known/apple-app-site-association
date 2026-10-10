@@ -2,7 +2,7 @@
   "applinks": {
     "details": [
       {
-        "appIDs": ["TEAMID.com.thedoorman.app"],
+        "appIDs": ["QR6D9ZR6P2.com.thedoorman.app"],
         "components": [
           { "/": "/event/*" },
           { "/": "/invite/*" },
@@ -20,6 +20,6 @@
     ]
   },
   "webcredentials": {
-    "apps": ["TEAMID.com.thedoorman.app"]
+    "apps": ["QR6D9ZR6P2.com.thedoorman.app"]
   }
 }
