@@ -19,7 +19,7 @@ export default function Privacy() {
           DoorMan
         </a>
         <h1 className="font-heading font-extrabold text-3xl mb-2">Privacy Policy</h1>
-        <p className="text-sm text-muted-foreground mb-10">Last updated: 25 August 2026</p>
+        <p className="text-sm text-muted-foreground mb-10">Last updated: 10 October 2026</p>
 
         <Section title="Who we are">
           <p>
@@ -57,7 +57,11 @@ export default function Privacy() {
             processing payments and payouts, sending tickets and event emails (confirmations,
             reminders, transfers), and showing hosts who is attending their events.
           </p>
-          <p>We do not sell your personal information or use it for third-party advertising.</p>
+          <p>
+            We do not sell your personal information. Some event organisers use Meta ads to
+            promote their events; see "Organiser ad measurement" below for what we share with
+            Meta on their behalf.
+          </p>
         </Section>
 
         <Section title="Who can see your information">
@@ -72,8 +76,9 @@ export default function Privacy() {
         <Section title="Service providers">
           <p>
             We rely on a small number of processors to run DoorMan: Supabase (database,
-            authentication and file storage), Stripe (payments), Resend (email delivery) and
-            Vercel (hosting). Each receives only what it needs to provide its service.
+            authentication and file storage), Stripe (payments), Resend (email delivery),
+            Vercel (hosting) and Apple (push notifications in the iOS app). Each receives only
+            what it needs to provide its service.
           </p>
         </Section>
 
@@ -85,10 +90,32 @@ export default function Privacy() {
           </p>
         </Section>
 
+        <Section title="Organiser ad measurement">
+          <p>
+            An event organiser with a business account can connect their own Meta (Facebook and
+            Instagram) ads account, so they can measure which of their ads lead to ticket sales.
+            We do this only for that organiser's events. Other events are not affected.
+          </p>
+          <p>
+            On the website, the event and checkout pages of those events load the Meta Pixel,
+            which records page views and checkout steps and can set Meta cookies. When you buy
+            a ticket to one of those events, we also send Meta the purchase (order id, value
+            and currency) with your email address, name and phone number in hashed form, your
+            IP address and browser details, so Meta can match the sale to an ad.
+          </p>
+          <p>
+            In the DoorMan iOS app, none of this happens unless you allow tracking when the app
+            asks. You can change this at any time in iOS Settings → Privacy &amp; Security →
+            Tracking. Meta uses this data under its own privacy policy. To object to this use
+            of your data on the website, contact us.
+          </p>
+        </Section>
+
         <Section title="Cookies and local storage">
           <p>
-            We use browser storage only to keep you signed in. We do not use advertising or
-            cross-site tracking cookies.
+            We use browser storage to keep you signed in. On the event pages of organisers who
+            use Meta ad measurement, Meta may set its own cookies, as described above. We do not
+            use any other advertising cookies.
           </p>
         </Section>
 
