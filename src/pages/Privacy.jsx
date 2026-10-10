@@ -101,6 +101,16 @@ export default function Privacy() {
           </p>
         </Section>
 
+        <Section title="Contact us">
+          <p>
+            For help with DoorMan, questions about this policy or a data request, email{' '}
+            <a href="mailto:contact@thedoorman.app" className="underline text-foreground">
+              contact@thedoorman.app
+            </a>
+            .
+          </p>
+        </Section>
+
         <Section title="Changes">
           <p>
             If we make material changes to this policy we will update this page and change the
