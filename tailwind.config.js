@@ -90,12 +90,27 @@ module.exports = {
   				'50%': {
   					backgroundPosition: '100% 50%'
   				}
+  			},
+  			'shine': {
+  				'0%': {
+  					transform: 'translateX(-150%)'
+  				},
+  				'55%, 100%': {
+  					transform: 'translateX(450%)'
+  				}
+  			},
+  			'shimmer': {
+  				'100%': {
+  					backgroundPosition: '-200% 0'
+  				}
   			}
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
   			'accordion-up': 'accordion-up 0.2s ease-out',
-  			'holo-pan': 'holo-pan 6s ease-in-out infinite'
+  			'holo-pan': 'holo-pan 6s ease-in-out infinite',
+  			'shine': 'shine 3.5s ease-in-out infinite',
+  			'shimmer': 'shimmer 1.3s linear infinite'
   		}
   	}
   },

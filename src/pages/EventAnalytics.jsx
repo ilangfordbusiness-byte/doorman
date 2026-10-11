@@ -20,6 +20,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { buildEventExportCsv } from "@/lib/eventExport";
 import { downloadCsv, slugForFilename } from "@/lib/csv";
 import { CHART, Card, StatTile, Ring, MeterBar, TooltipCard, EmptyNote } from "@/components/analytics/ChartKit";
+import CountUp from "@/components/CountUp";
 
 const GOING = new Set(["approved", "checked_in", "invited"]);
 const DAY_MS = 86400000;
@@ -273,11 +274,11 @@ export default function EventAnalytics() {
 
       {/* KPI hero */}
       <div className="grid grid-cols-2 gap-3 mb-4">
-        <StatTile icon={<Ticket className="w-4 h-4" />} label="Tickets sold" value={ticketsSold.toLocaleString()}
+        <StatTile icon={<Ticket className="w-4 h-4" />} label="Tickets sold" value={<CountUp value={ticketsSold} />}
           sub={capacity ? `of ${capacity.toLocaleString()} capacity` : "no capacity set"} />
-        <StatTile icon={<TrendingUp className="w-4 h-4" />} label="Revenue" value={fmtMoney(revenue)}
+        <StatTile icon={<TrendingUp className="w-4 h-4" />} label="Revenue" value={<CountUp value={revenue} prefix={sym} decimals={2} />}
           sub={totalDiscount > 0 ? `${fmtMoney(totalDiscount)} discounted` : "gross sales"} />
-        <StatTile icon={<Wallet className="w-4 h-4" />} label="Net payout" value={fmtMoney(netPayout)}
+        <StatTile icon={<Wallet className="w-4 h-4" />} label="Net payout" value={<CountUp value={netPayout} prefix={sym} decimals={2} />}
           accent="text-emerald-400" sub="after fees & commission" />
         <div className="bg-secondary/40 rounded-2xl p-3.5 border border-border/50 flex items-center gap-3">
           <Ring value={capacity ? ticketsSold / capacity : 0} size={64} stroke={7} color={CHART.cyan}>

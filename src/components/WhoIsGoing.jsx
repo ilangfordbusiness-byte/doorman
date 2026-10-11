@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { api } from "@/api/data";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Users, Lock, Loader2 } from "lucide-react";
+import CountUp from "@/components/CountUp";
 import { Button } from "@/components/ui/button";
 import AttendeeList from "./AttendeeList";
 import AttendeesModal from "./AttendeesModal";
@@ -82,7 +83,7 @@ export default function WhoIsGoing({ eventId, myEmail, visibility = "show_names"
     return (
       <div className="flex items-center gap-2 mb-3">
         <Users className="w-4 h-4 text-muted-foreground" />
-        <h3 className="font-heading font-semibold text-sm">{goingCount} going</h3>
+        <h3 className="font-heading font-semibold text-sm"><CountUp value={goingCount} /> going</h3>
       </div>
     );
   }
@@ -109,7 +110,7 @@ export default function WhoIsGoing({ eventId, myEmail, visibility = "show_names"
     <div>
       <div className="flex items-center gap-2 mb-3">
         <Users className="w-4 h-4 text-muted-foreground" />
-        <h3 className="font-heading font-semibold text-sm">Who's Going ({goingCount})</h3>
+        <h3 className="font-heading font-semibold text-sm">Who's Going (<CountUp value={goingCount} />)</h3>
       </div>
 
       <AttendeeSearchInput value={query} onChange={setQuery} className="mb-3" />

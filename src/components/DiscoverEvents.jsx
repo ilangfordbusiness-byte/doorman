@@ -5,7 +5,7 @@ import { api } from "@/api/data";
 import { Search, Sparkles, History, ChevronLeft } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import EventCard from "./EventCard";
-import LoadingSpinner from "./LoadingSpinner";
+import { SkeletonEventList } from "./Skeleton";
 
 export default function DiscoverEvents() {
   const [events, setEvents] = useState([]);
@@ -56,7 +56,7 @@ export default function DiscoverEvents() {
       )}
 
       {loading ? (
-        <LoadingSpinner />
+        <SkeletonEventList count={3} />
       ) : list.length === 0 ? (
         <div className="flex flex-col items-center py-12 text-center">
           <Sparkles className="w-10 h-10 text-amber-400 mb-3" />
