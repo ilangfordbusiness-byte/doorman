@@ -7,8 +7,10 @@ submission; update alongside the app. Field limits are App Store Connect's.
 
 | Field | Value |
 | --- | --- |
-| Name (30) | `DoorMan` |
-| Subtitle (30) | `Guestlists, tickets & the door` |
+| Name (30) | `DoorMan – Events & Tickets` (plain `DoorMan` is taken on the App Store; the home-screen name stays `DoorMan`) |
+| Company name | `DoorMan.app Ltd` (seller line shows `DOORMAN.APP LTD`; cannot be changed) |
+| App Store Connect app ID | `6821447175` |
+| Subtitle (30) | `Guestlists, passes & the door` |
 | Bundle ID | `com.thedoorman.app` |
 | SKU | `doorman-ios` |
 | Primary language | English (U.K.) |
@@ -19,9 +21,9 @@ submission; update alongside the app. Field limits are App Store Connect's.
 | Privacy policy URL | `https://thedoorman.app/privacy` |
 | Support URL | `https://thedoorman.app` (needs a contact route: a `mailto:` is not accepted, a page with an email address is) |
 | Marketing URL (optional) | `https://thedoorman.app` |
-| Copyright | `2026 DoorMan` (legal entity name once the business is set up) |
+| Copyright | `2026 DoorMan.app Ltd` |
 | Price | Free |
-| Availability | United Kingdom first; add United States when US hosts are onboarded (payouts already support USD) |
+| Availability | United Kingdom and United States. iPhone only: Mac (Apple silicon) and Vision Pro availability are off |
 
 ## Promotional text (170, editable without a new build)
 
@@ -172,6 +174,7 @@ To test the door: Host tab → the event → Guestlist, or open the Scanner and 
 
 Tickets are for physical events, so payment goes through Stripe Checkout (guideline 3.1.3(e)); the app sells no digital content.
 Sign in with Apple and Google are both offered. Account deletion is under Profile → Delete account.
+App Tracking Transparency: organisers with a business account can connect their own Meta ads pixel. The tracking permission prompt appears the first time you open an event of such an organiser ("DoorMan Review Night" is one). If you choose "Ask App Not to Track", no data is shared with Meta.
 Push notifications are used for event updates, chat messages and reminders.
 Location is requested only while a guest is checked in at a venue, to check them out automatically when they leave.
 ```
@@ -181,6 +184,10 @@ create "DoorMan Review Night" dated a few weeks out with a free tier (and a
 paid tier that can stay unsold), and log in with it once on a phone to clear
 the onboarding gate (name, phone, Instagram, photo) so the reviewer lands on
 Home.
+
+Create the review event under a business account that has a Meta Pixel ID
+set, so the reviewer sees the App Tracking Transparency prompt. Apple rejects
+apps that declare tracking when the reviewer cannot find the prompt.
 
 ## Version release
 
