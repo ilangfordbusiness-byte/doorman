@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api/data";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import UpcomingEventHero from "@/components/home/UpcomingEventHero";
+import ShimmerText from "@/components/ShimmerText";
 import QuickActions from "@/components/home/QuickActions";
 import SectionGrid from "@/components/home/SectionGrid";
 
@@ -34,8 +35,8 @@ export default function Home() {
           alt="DoorMan"
           className="w-8 h-8 object-contain absolute left-0"
         />
-        <span className="font-heading font-bold text-4xl tracking-widest text-foreground uppercase">
-          Door<span className="text-primary" style={{ textShadow: "0 0 20px hsl(270 90% 65% / 0.8)" }}>Man</span>
+        <span className="font-heading font-bold text-4xl tracking-widest uppercase [filter:drop-shadow(0_0_16px_hsl(270_90%_65%/0.45))]">
+          <ShimmerText>DoorMan</ShimmerText>
         </span>
         <div className="absolute right-0 flex items-center gap-1.5 px-2 py-1 rounded-full border border-accent/30 bg-accent/5">
           <div className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" style={{ boxShadow: "0 0 6px hsl(180 100% 50%)" }} />
