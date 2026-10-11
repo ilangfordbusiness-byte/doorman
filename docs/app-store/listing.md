@@ -17,7 +17,7 @@ submission; update alongside the app. Field limits are App Store Connect's.
 | Content rights | Does not contain, show, or access third-party content |
 | Age rating | See below |
 | Privacy policy URL | `https://thedoorman.app/privacy` |
-| Support URL | `https://thedoorman.app` (needs a contact route: a `mailto:` is not accepted, a page with an email address is) |
+| Support URL | `https://thedoorman.app/privacy` (its "Contact us" section gives `contact@thedoorman.app`) |
 | Marketing URL (optional) | `https://thedoorman.app` |
 | Copyright | `2026 DoorMan` (legal entity name once the business is set up) |
 | Price | Free |
