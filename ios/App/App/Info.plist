@@ -44,6 +44,8 @@
 	<string>DoorMan uses the camera to scan guest QR passes at the door and to take a profile photo.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>DoorMan uses your location to check you out automatically when you leave the venue.</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Event organisers use this to measure which of their ads brought you to their event. DoorMan works the same if you say no.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>DoorMan uses your photo library to pick a profile picture or event cover.</string>
 	<key>LSRequiresIPhoneOS</key>

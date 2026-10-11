@@ -150,7 +150,7 @@ export default function TicketCheckout() {
         cancel_url: native ? returnFor("cancelled") : `${base}?payment=cancelled${refPart}`,
         // Browser match keys for the server-side Purchase (ignored unless the
         // event's business has Meta tracking configured).
-        tracking: event.meta_pixel_id ? metaMatchKeys() : null,
+        tracking: event.meta_pixel_id ? await metaMatchKeys() : null,
       });
       if (!res.data?.url) throw new Error(res.data?.error || "Failed to start checkout");
       if (native) {

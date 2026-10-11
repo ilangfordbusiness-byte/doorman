@@ -170,14 +170,18 @@ Deno.serve(async (req) => {
         const str = (v: unknown, max: number) => (typeof v === 'string' && v ? v.slice(0, max) : null);
         const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim()
           || req.headers.get('cf-connecting-ip') || null;
-        const { error } = await svc.from('ticket_order_tracking').insert({
+        // The iOS app sends allowed: false when the buyer declined tracking
+        // (App Tracking Transparency): store only that answer, no match keys,
+        // so ticketWebhook sends nothing to Meta for this order.
+        const allowed = t.allowed !== false;
+        const { error } = await svc.from('ticket_order_tracking').insert(allowed ? {
           order_id: order.id,
           fbp: str(t.fbp, 200),
           fbc: str(t.fbc, 500),
           client_ip: ip,
           client_user_agent: str(req.headers.get('user-agent'), 500),
           event_source_url: str(t.source_url, 500),
-        });
+        } : { order_id: order.id, tracking_allowed: false });
         if (error) console.log('ticket_order_tracking insert error', error.message);
       }
     } catch (e) {

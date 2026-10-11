@@ -115,45 +115,41 @@ answered "Frequent/Intense" somewhere; 12+ is right for this content.
 
 ## App Privacy (nutrition label)
 
-Answer **Yes, we collect data from this app**. Everything below is **linked to
-the user's identity** and **not used for tracking**. Keep this identical to
+Answer **Yes, we collect data from this app**. Keep these answers identical to
 `ios/App/App/PrivacyInfo.xcprivacy`.
+
+The app uses data for tracking. A business can connect its Meta Pixel and
+Conversions API token to measure its own ads. On the events of that business,
+the app loads the pixel. After a purchase, `ticketWebhook` sends a Purchase
+event to Meta with the hashed email, name, phone and user ID of the buyer.
+Apple calls this "tracking". Hashed data is not an exception.
+
+The iOS app shows the App Tracking Transparency (ATT) prompt before it tracks.
+The prompt comes when a user first opens an event of a business with a Meta
+Pixel. If the user selects "Ask App Not to Track", the app does not load the
+pixel. The order then gets `tracking_allowed = false` in
+`ticket_order_tracking`, and the server sends no Purchase event to Meta.
+Web orders do not change.
 
 | Data type | Collected | Purpose | Linked | Tracking |
 | --- | --- | --- | --- | --- |
-| Contact Info → Name | Yes | App Functionality | Yes | No |
-| Contact Info → Email Address | Yes | App Functionality | Yes | No |
-| Contact Info → Phone Number | Yes | App Functionality | Yes | No |
+| Contact Info → Name | Yes | App Functionality, Third-Party Advertising | Yes | Yes |
+| Contact Info → Email Address | Yes | App Functionality, Third-Party Advertising | Yes | Yes |
+| Contact Info → Phone Number | Yes | App Functionality, Third-Party Advertising | Yes | Yes |
 | User Content → Photos or Videos | Yes (profile photo, event covers) | App Functionality | Yes | No |
 | User Content → Other User Content | Yes (event chat, guestlist notes) | App Functionality | Yes | No |
-| Location → Precise Location | Yes (auto check-out when leaving the venue, only while checked in) | App Functionality | Yes | No |
-| Purchases → Purchase History | Yes (ticket orders) | App Functionality, Analytics | Yes | No |
-| Identifiers → User ID | Yes | App Functionality | Yes | No |
+| Location → Precise Location | Yes (auto check-out when the guest goes away from the venue, only while checked in) | App Functionality | Yes | No |
+| Purchases → Purchase History | Yes (ticket orders) | App Functionality, Analytics, Third-Party Advertising | Yes | Yes |
+| Identifiers → User ID | Yes | App Functionality, Third-Party Advertising | Yes | Yes |
 | Identifiers → Device ID | Yes (push token) | App Functionality | Yes | No |
-| Usage Data, Diagnostics | No | Vercel Analytics and the Meta pixel do not load in the app | | |
-| Financial Info → Payment Info | No | Card details are entered on Stripe's hosted page, never seen by the app | | |
+| Usage Data → Product Interaction | Yes (Meta Pixel ViewContent and InitiateCheckout on business events) | Third-Party Advertising | No | Yes |
+| Diagnostics | No | Vercel Analytics does not load in the app | | |
+| Financial Info → Payment Info | No | The buyer types card details on the hosted page of Stripe. The app does not see them. | | |
 
-**Decision needed before answering "tracking: No":** when a business has set
-up Meta ads tracking, `ticketWebhook` sends a server-side Purchase event to
-Meta with the buyer's hashed email, name and phone plus client IP and
-user agent, for every paid order, including orders placed from the iOS app
-(`supabase/functions/_shared/meta.ts`, `createTicketCheckout` writes
-`ticket_order_tracking`). Under Apple's definition that is "tracking"
-(linking user data with a third party for advertising measurement; hashing
-does not exempt it), which would require the App Tracking Transparency prompt
-and a "Yes" here. Two ways to keep the answer "No":
-
-1. **Recommended:** skip the Meta Purchase event and the tracking row for
-   orders that originate from the iOS app. `createTicketCheckout` can tell:
-   the native client sends `success_url` on `/native/return`. Store a
-   `source = 'ios'` flag on the order or tracking row and have `meta.ts` skip
-   it. Small PR, no UI change.
-2. Keep sending it, add `@capacitor-community/app-tracking-transparency`,
-   prompt once before the first checkout, and declare tracking here and in
-   the privacy manifest. More work and a worse opt-in rate.
-
-Until one of these ships, the honest answer is "Yes, tracking" for Purchase
-History and Contact Info.
+The text of the ATT prompt is `NSUserTrackingUsageDescription` in
+`ios/App/App/Info.plist`. The privacy manifest declares `connect.facebook.net`
+and `www.facebook.com` as tracking domains. iOS blocks connections to these
+domains until the user allows tracking.
 
 ## App Review information
 

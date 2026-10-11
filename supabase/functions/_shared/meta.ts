@@ -134,7 +134,7 @@ export async function postMetaEvents(cfg: MetaConfig, payload: unknown): Promise
 }
 
 // Send the Purchase for a fulfilled order. Returns null when the event's
-// business has no Meta setup. Never throws.
+// business has no Meta setup or the buyer declined tracking. Never throws.
 export async function sendMetaPurchase(svc: any, order: any, event: any): Promise<MetaSendResult | null> {
   try {
     const cfg = await metaConfigForEvent(svc, event);
@@ -145,6 +145,8 @@ export async function sendMetaPurchase(svc: any, order: any, event: any): Promis
         ? svc.from('profiles').select('phone').eq('id', order.guest_user_id).maybeSingle()
         : Promise.resolve({ data: null }),
     ]);
+    // Buyer declined tracking in the iOS app (App Tracking Transparency).
+    if (tracking?.tracking_allowed === false) return null;
     const ev = buildPurchaseEvent({ order, event, tracking, buyerPhone: profile?.phone ?? null });
     const payload = await toCapiPayload(ev, cfg.testEventCode);
     const result = await postMetaEvents(cfg, payload);

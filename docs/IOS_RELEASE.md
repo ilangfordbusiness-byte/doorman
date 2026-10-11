@@ -12,7 +12,8 @@ account owner · ⏱ typical time.
 - ✅ Capacitor shell, native auth, deep links, Stripe sheet, push, native chrome (PRs #107–#110, #124, #133, #134).
 - ✅ Production database has every migration through `20260928130000`, including `push_devices` and OAuth sign-up.
 - ✅ `https://thedoorman.app/.well-known/apple-app-site-association` is served as JSON (team id placeholder still inside, see B2).
-- ✅ Privacy manifest `ios/App/App/PrivacyInfo.xcprivacy` (UserDefaults reason, collected data types, no tracking).
+- ✅ Privacy manifest `ios/App/App/PrivacyInfo.xcprivacy` (UserDefaults reason, collected data types, Meta tracking domains).
+- ✅ Meta ads tracking in the app behind the App Tracking Transparency prompt (`trackingAllowed` in `src/lib/native.js`). If the user declines, the app loads no pixel and the server sends no Purchase event.
 - ✅ `Info.plist`: URL scheme, camera/location/photo usage strings, encryption exemption, portrait only. Icon has no alpha channel.
 - ✅ `npm run ios:archive` (`scripts/ios-archive.sh`) builds, archives and uploads to App Store Connect with an auto-incrementing build number.
 - ✅ Store listing copy, keywords, age-rating and privacy answers, reviewer notes: `docs/app-store/listing.md`.
@@ -43,7 +44,7 @@ account owner · ⏱ typical time.
    `curl -s https://thedoorman.app/.well-known/apple-app-site-association | head -5`.
    Apple's CDN caches this for hours; do it before the first device test. Verify Apple can read it at
    `https://app-site-association.cdn-apple.com/a/v1/thedoorman.app`.
-5. ☐ **Meta tracking decision** (see "App Privacy" in `listing.md`): either ship the small PR that skips the Meta Purchase event for iOS-originated orders, or declare tracking + add the ATT prompt. Decide before filling in App Privacy.
+5. ✅ **Meta tracking**: the app tracks only after the ATT prompt. Declare tracking in App Privacy (answers in `listing.md`).
 6. ☐ **Review account**: on production, sign up `appreview@thedoorman.app` (or similar) by email, complete onboarding, make it a host, create "DoorMan Review Night" a few weeks out with a free tier and a paid tier. Password into the password manager.
 
 ## C. Xcode signing and first device build ⏱ 30 min
@@ -58,7 +59,7 @@ account owner · ⏱ typical time.
 
 1. ☐ App Store Connect → My Apps → **+** → New App: iOS, name `DoorMan`, primary language English (U.K.), bundle ID `com.thedoorman.app`, SKU `doorman-ios`, full access.
 2. ☐ App Information: categories, content rights, age rating questionnaire (answers in `listing.md`).
-3. ☐ App Privacy: answers in `listing.md` (after the B5 decision). Publish the answers.
+3. ☐ App Privacy: answers in `listing.md` (tracking: Yes for the data types in the table). Publish the answers.
 4. ☐ Pricing and Availability: Free; territories UK (add US later).
 5. ☐ Version 1.0 → iOS App: upload the screenshots from `docs/app-store/screenshots/` to the 6.9" slot (add the scanner shot from a phone if you have one); promotional text, description, keywords, support URL, marketing URL, copyright, version `1.0`.
 6. ☐ App Review Information: sign-in required, review account from B6, contact details, the reviewer notes from `listing.md`.
@@ -117,6 +118,15 @@ re-doing this list, so batch the fixes).
 - ☐ Event chat: send a message; it shows live on the web; keyboard pushes the composer up without a gap; status bar stays readable.
 - ☐ Who's going renders avatars; tapping a profile works.
 
+**Meta tracking (App Tracking Transparency)**
+
+Use an event of a business with a Meta Pixel. Set a test event code on the business, then look at Meta Events Manager → Test Events.
+
+- ☐ Fresh install. Open the event. The ATT prompt comes one time, with the text from `Info.plist`.
+- ☐ Select **Allow**. ViewContent and PageView show in Test Events. Buy the cheapest tier. The Purchase event shows one time (browser and server events merge on the order id).
+- ☐ Delete the app and install it again. Select **Ask App Not to Track**. Buy a ticket. Test Events shows no event. In the dashboard, the `ticket_order_tracking` row of the order has `tracking_allowed = false`.
+- ☐ Open an event with no Meta Pixel on a fresh install. The ATT prompt does not come.
+
 **Host flow**
 - ☐ Create an event with a cover from the photo library (permission prompt, picker works) and with the camera (prompt, capture works).
 - ☐ Edit the event; guests on the test phones get the push.
@@ -170,7 +180,6 @@ re-doing this list, so batch the fixes).
 
 ## Known gaps to decide on before or just after 1.0
 
-- Meta Conversions API counts as tracking for iOS orders (section B5).
 - No crash reporting in the binary. Sentry's Capacitor SDK is a one-hour add if crashes need visibility.
 - Stripe Connect dashboard links use `account_dashboard`, which fails for Custom accounts; production uses Express accounts, so verify once with a real host in section F.
 - `aps-environment` is `development` in `App.entitlements`; Xcode swaps it to `production` for App Store and TestFlight builds automatically. Debug builds on a phone receive sandbox pushes, so with `APNS_ENV=production` the **Xcode-run** build will not get pushes; only TestFlight/App Store builds will. Test push in section F on the TestFlight build, not the Xcode build.

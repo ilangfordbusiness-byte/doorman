@@ -9,6 +9,7 @@ import { PushNotifications } from "@capacitor/push-notifications";
 import { Haptics, NotificationType } from "@capacitor/haptics";
 import { Share } from "@capacitor/share";
 import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
+import { AppTrackingTransparency } from "capacitor-plugin-app-tracking-transparency";
 
 // The one module that talks to Capacitor. Pages, hooks and the data layer
 // import from here and never from @capacitor/* directly — the same rule that
@@ -190,6 +191,29 @@ export function onPushReceived(cb) {
   if (!isNative()) return () => {};
   const handle = PushNotifications.addListener("pushNotificationReceived", (n) => cb(n));
   return () => { handle.then((h) => h.remove()); };
+}
+
+// --- App Tracking Transparency ----------------------------------------------
+
+// Organiser Meta ads tracking counts as "tracking" under Apple's rules, so the
+// app must ask (ATT) before it runs. Resolves true when tracking may run: on
+// the web always, in the app only after the user taps Allow. iOS shows the
+// prompt once per install; later calls return the stored answer.
+let trackingAnswer = null;
+export function trackingAllowed() {
+  if (!isNative()) return Promise.resolve(true);
+  if (!trackingAnswer) {
+    trackingAnswer = (async () => {
+      try {
+        let { status } = await AppTrackingTransparency.getStatus();
+        if (status === "notDetermined") ({ status } = await AppTrackingTransparency.requestPermission());
+        return status === "authorized";
+      } catch {
+        return false;
+      }
+    })();
+  }
+  return trackingAnswer;
 }
 
 // --- Haptics / share ----------------------------------------------------------
