@@ -11,7 +11,6 @@ import HomeButton from "@/components/HomeButton";
 import { useToast } from "@/components/ui/use-toast";
 import EventCard from "../components/EventCard";
 import LoadingSpinner from "../components/LoadingSpinner";
-import HoloKeyBackground from "../components/HoloKeyBackground";
 
 export default function GuestHub() {
   const { toast } = useToast();
@@ -72,9 +71,7 @@ export default function GuestHub() {
   }
 
   return (
-    <div className="max-w-lg mx-auto px-4 pt-4 pb-8 relative overflow-hidden isolate">
-      {/* Holographic field of little keys — the frosted-glass tabs blur over it */}
-      <HoloKeyBackground />
+    <div className="max-w-lg mx-auto px-4 pt-4 pb-8">
       <div className="flex items-center gap-3 mb-4">
         <Link to="/">
           <Button variant="ghost" size="icon" className="rounded-full">

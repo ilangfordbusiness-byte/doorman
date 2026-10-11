@@ -3,7 +3,6 @@ import { timeSuffix } from "@/lib/eventTime";
 import { useState, useEffect } from "react";
 import EventCoverHero from "../components/EventCoverHero";
 import EventCountdown from "../components/EventCountdown";
-import HoloKeyBackground from "../components/HoloKeyBackground";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { normalizePhone, formatPhoneDisplay } from "@/lib/phone";
 import { useParams, Link, useNavigate } from "react-router-dom";
@@ -249,9 +248,7 @@ export default function EventDetails() {
   const sym = currencySymbol(event.currency);
 
   return (
-    <div className="max-w-lg mx-auto relative isolate">
-      {/* Holographic field of little keys, drifting behind the whole event page */}
-      <HoloKeyBackground opacity={0.18} />
+    <div className="max-w-lg mx-auto">
       {/* Cover — a floating card that tilts toward the pointer/finger (see EventCoverHero) */}
       <EventCoverHero
         event={event}
