@@ -64,7 +64,15 @@ export default function UpcomingEventHero({ event, isHosting, friendsGoing, atte
     <div>
       <p className="text-[10px] font-mono text-muted-foreground tracking-widest uppercase mb-2">{label}</p>
       <Link to={`/event/${event.id}`} className="block group">
-        <div className="relative rounded-2xl overflow-hidden border border-primary/30 aspect-square transition-all duration-300 group-hover:border-primary/60">
+        {/* Orbiting border beam around the featured card */}
+        <div className="relative rounded-2xl p-[1.5px] overflow-hidden shadow-[0_0_30px_-8px_hsl(270_90%_65%/0.5)]">
+          <div
+            aria-hidden
+            className="absolute inset-[-35%] animate-[spin_4s_linear_infinite] motion-reduce:hidden"
+            style={{ background: "conic-gradient(from 0deg, transparent 0 72%, hsl(180 100% 50%) 86%, hsl(270 90% 65%) 97%, transparent 100%)" }}
+          />
+          <div aria-hidden className="absolute inset-0 hidden rounded-2xl motion-reduce:block" style={{ background: "linear-gradient(135deg, hsl(270 90% 65%), hsl(180 100% 50%))" }} />
+          <div className="relative rounded-[15px] overflow-hidden aspect-square">
           {/* Background */}
           {hasImg ? (
             <img src={event.cover_image} alt={event.title} className="absolute inset-0 w-full h-full object-cover" />
@@ -128,6 +136,7 @@ export default function UpcomingEventHero({ event, isHosting, friendsGoing, atte
                 VIEW INVITE <ArrowRight className="w-3 h-3" />
               </span>
             </div>
+          </div>
           </div>
         </div>
       </Link>

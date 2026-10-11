@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api } from "@/api/data";
 import { UserPlus, Ticket, Lock, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import CtaButton from "@/components/CtaButton";
 import { useToast } from "@/components/ui/use-toast";
 import { formatReleaseAt } from "@/lib/tiers";
 
@@ -84,9 +85,9 @@ export default function EventJoinActions({ event, me, myEntry, soldOut = false, 
     }
     return (
       <Link to={`/event/${event.id}/checkout`} className="block">
-        <Button className="w-full h-14 rounded-xl font-bold text-base gap-2 bg-primary hover:bg-primary/90">
+        <CtaButton>
           <Ticket className="w-5 h-5" /> Buy Tickets
-        </Button>
+        </CtaButton>
       </Link>
     );
   }

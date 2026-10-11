@@ -7,6 +7,7 @@ import { isNative, openInAppBrowser } from "@/lib/native";
 import NativeCheckoutWait from "@/components/checkout/NativeCheckoutWait";
 import { ArrowLeft, CreditCard, Tag, Loader2, AlertCircle, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import CtaButton from "@/components/CtaButton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import HomeButton from "@/components/HomeButton";
 import { Input } from "@/components/ui/input";
@@ -297,9 +298,9 @@ export default function TicketCheckout() {
             </div>
           </div>
 
-          <Button className="w-full h-14 rounded-xl font-bold text-base gap-2" onClick={pay} disabled={paying}>
+          <CtaButton onClick={pay} disabled={paying}>
             {paying ? <Loader2 className="w-5 h-5 animate-spin" /> : <><CreditCard className="w-5 h-5" /> Pay {sym}{totalDue.toFixed(2)}</>}
-          </Button>
+          </CtaButton>
           <p className="text-[10px] text-muted-foreground text-center">Secure card payment via Stripe. You'll receive a QR pass after payment.</p>
         </div>
       )}
