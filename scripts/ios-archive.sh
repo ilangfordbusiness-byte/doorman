@@ -37,6 +37,18 @@ if grep -q '"TEAMID\.' public/.well-known/apple-app-site-association; then
   exit 1
 fi
 
+# The web bundle falls back to the local Supabase stack without these, which
+# would ship an app that cannot reach production. Vite reads them from the
+# environment or from a gitignored .env.production(.local).
+PROD_URL="${VITE_SUPABASE_URL:-}"
+for f in .env.production.local .env.production .env.local .env; do
+  [[ -z "$PROD_URL" && -f "$f" ]] && PROD_URL=$(sed -n 's/^VITE_SUPABASE_URL=//p' "$f" | head -1)
+done
+if [[ "$PROD_URL" != https://*.supabase.co ]]; then
+  echo "Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to the production project in .env.production.local (see .env.example). Without them the app talks to the local stack." >&2
+  exit 1
+fi
+
 AUTH=()
 if [[ -n "${ASC_KEY_ID:-}" ]]; then
   : "${ASC_ISSUER_ID:?ASC_ISSUER_ID is required with ASC_KEY_ID}"
