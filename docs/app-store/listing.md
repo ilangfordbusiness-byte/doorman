@@ -158,7 +158,7 @@ domains until the user allows tracking.
 | Field | Value |
 | --- | --- |
 | Sign-in required | Yes |
-| Demo account | A dedicated production account created for review, e.g. `appreview@thedoorman.app`, with a password stored in the password manager. Must not be a real customer. |
+| Demo account | `akshay.irudayaraj+appreview@gmail.com` (password in the password manager). Owns the business "DoorMan Review" (Meta Pixel ID `1234567890123456`, a dummy so the ATT prompt shows) and the private, free event "DoorMan Review Night", hidden from Discover. Invite link: https://thedoorman.app/invite/557269464e00 |
 | Contact | First name, last name, phone, email of whoever will answer review questions within a day |
 
 Notes for the reviewer (paste into the Notes field):
@@ -166,28 +166,29 @@ Notes for the reviewer (paste into the Notes field):
 ```
 DoorMan is a guestlist and ticketing app for real-world events.
 
-Sign in with the demo account above (email + password form at the bottom of the sign-in screen). The account is a host with a published demo event, "DoorMan Review Night", that has free and paid tickets on sale, a guestlist and door-staff access.
+Sign in with the demo account above (tap "Sign in with email" on the sign-in screen). The account owns the business "DoorMan Review" and its private, free demo event "DoorMan Review Night". The event is hidden from Discover so real users do not see it.
 
-To test the guest flow: open the event from the Home tab, tap "Get tickets", choose the free tier and complete checkout. The pass appears under the Guest tab with a QR code.
-To test paid tickets: Stripe is in live mode; please use the free tier. A paid tier is shown so the pricing UI can be reviewed without charging a card.
-To test the door: Host tab → the event → Guestlist, or open the Scanner and point it at the QR shown under Guest → your pass.
+To open the event as the host: if the app opens on the DoorMan Review "Events" page, tap the event there. Otherwise go to Profile → DoorMan Review → Switch → Events.
+On the event page, the host can open Guestlist, Door (check-in list and QR scanner) and Share.
 
-Tickets are for physical events, so payment goes through Stripe Checkout (guideline 3.1.3(e)); the app sells no digital content.
+To test the guest flow you need a second account:
+1. Sign out (Profile), then sign in with Sign in with Apple. This creates a new guest account.
+2. Open the invite link: https://thedoorman.app/invite/557269464e00 and tap "Request to Join".
+3. Sign out, sign in with the demo account again, open the event → Guestlist and approve the request.
+4. Sign in as the guest again and open the invite link. Tap "Open QR Pass" to see the guest pass.
+5. To test the door: as the demo account, open the event → Door → Scan, and scan the QR code on the guest pass.
+
+Paid events take payment through Stripe Checkout for tickets to physical events (guideline 3.1.3(e)). The app sells no digital content. The demo event is free, so no card is needed.
 Sign in with Apple and Google are both offered. Account deletion is under Profile → Delete account.
 App Tracking Transparency: organisers with a business account can connect their own Meta ads pixel. The tracking permission prompt appears the first time you open an event of such an organiser ("DoorMan Review Night" is one). If you choose "Ask App Not to Track", no data is shared with Meta.
 Push notifications are used for event updates, chat messages and reminders.
 Location is requested only while a guest is checked in at a venue, to check them out automatically when they leave.
 ```
 
-Before submitting: create the review account on production, make it a host,
-create "DoorMan Review Night" dated a few weeks out with a free tier (and a
-paid tier that can stay unsold), and log in with it once on a phone to clear
-the onboarding gate (name, phone, Instagram, photo) so the reviewer lands on
-Home.
-
-Create the review event under a business account that has a Meta Pixel ID
-set, so the reviewer sees the App Tracking Transparency prompt. Apple rejects
-apps that declare tracking when the reviewer cannot find the prompt.
+Before submitting: check that "DoorMan Review Night" is still upcoming (move
+its date if review takes long), that the demo login works, and that the
+invite link opens the event. Do not delete the account, business or event
+until the app is approved.
 
 ## Version release
 
