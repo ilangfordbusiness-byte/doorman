@@ -119,7 +119,7 @@ export default function CoverPhotoEditor({ file, onSave, onClose }) {
             step="0.01"
             value={zoom}
             onChange={(e) => { setZoom(Number(e.target.value)); setOffset((o) => clamp(o)); }}
-            className="flex-1 accent-primary"
+            className="flex-1 range-slider"
           />
         </div>
 
