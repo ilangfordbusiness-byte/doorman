@@ -124,6 +124,13 @@
     z-index: 100;
     pointer-events: none;
   }
+  /* iOS zooms the page in when a field with text under 16px gets focus, and
+     stays zoomed after. On phone-width screens every field is 16px. */
+  @media (max-width: 767px) {
+    input, textarea, select {
+      font-size: 16px !important;
+    }
+  }
   /* Full-screen centred pages (sign-in, auth links, setup gates) scroll when
      their content is taller than the screen, and keep clear of the notch and
      the home indicator. The insets are 0 in a normal browser. */
