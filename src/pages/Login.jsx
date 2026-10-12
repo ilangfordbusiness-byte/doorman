@@ -110,7 +110,8 @@ export default function Login() {
   }
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-background px-6">
+    <div className="fixed inset-0 overflow-y-auto bg-background screen-scroll">
+      <div className="min-h-full flex items-center justify-center px-6 py-8">
       <div className="relative w-full max-w-sm text-center">
         {view === "root" && (
           <>
@@ -344,6 +345,7 @@ export default function Login() {
           © {new Date().getFullYear()} Doorman LTD ·{" "}
           <a href="/privacy" className="hover:text-foreground underline underline-offset-2">Privacy Policy</a>
         </p>
+      </div>
       </div>
     </div>
   );

@@ -124,6 +124,13 @@
     z-index: 100;
     pointer-events: none;
   }
+  /* Full-screen centred pages (sign-in, auth links, setup gates) scroll when
+     their content is taller than the screen, and keep clear of the notch and
+     the home indicator. The insets are 0 in a normal browser. */
+  .screen-scroll {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
   html.native .native-no-top-inset {
     padding-top: 0.5rem !important;
   }
