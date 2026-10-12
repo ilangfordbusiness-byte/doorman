@@ -37,6 +37,18 @@ if grep -q '"TEAMID\.' public/.well-known/apple-app-site-association; then
   exit 1
 fi
 
+# The web bundle falls back to the local Supabase stack without these, which
+# would ship an app that cannot reach production. Vite reads them from the
+# environment or from a gitignored .env.production(.local).
+PROD_URL="${VITE_SUPABASE_URL:-}"
+for f in .env.production.local .env.production .env.local .env; do
+  [[ -z "$PROD_URL" && -f "$f" ]] && PROD_URL=$(sed -n 's/^VITE_SUPABASE_URL=//p' "$f" | head -1)
+done
+if [[ "$PROD_URL" != https://*.supabase.co ]]; then
+  echo "Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to the production project in .env.production.local (see .env.example). Without them the app talks to the local stack." >&2
+  exit 1
+fi
+
 AUTH=()
 if [[ -n "${ASC_KEY_ID:-}" ]]; then
   : "${ASC_ISSUER_ID:?ASC_ISSUER_ID is required with ASC_KEY_ID}"
@@ -51,7 +63,7 @@ echo "==> Archive (build $BUILD_NUMBER, team $TEAM)"
 rm -rf "$ARCHIVE"
 xcodebuild -project "$PROJECT" -scheme "$SCHEME" -configuration Release \
   -destination 'generic/platform=iOS' -archivePath "$ARCHIVE" \
-  -allowProvisioningUpdates "${AUTH[@]}" \
+  -allowProvisioningUpdates ${AUTH[@]+"${AUTH[@]}"} \
   DEVELOPMENT_TEAM="$TEAM" CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
   archive | tail -5
 
@@ -67,7 +79,7 @@ plutil -replace teamID -string "$TEAM" "$EXPORT_PLIST"
 echo "==> Export ($( [[ "$UPLOAD" == "1" ]] && echo upload to App Store Connect || echo .ipa to $OUT/export ))"
 rm -rf "$OUT/export"
 xcodebuild -exportArchive -archivePath "$ARCHIVE" -exportOptionsPlist "$EXPORT_PLIST" \
-  -exportPath "$OUT/export" -allowProvisioningUpdates "${AUTH[@]}" | tail -5
+  -exportPath "$OUT/export" -allowProvisioningUpdates ${AUTH[@]+"${AUTH[@]}"} | tail -5
 rm -f "$EXPORT_PLIST"
 
 VERSION=$(plutil -extract ApplicationProperties.CFBundleShortVersionString raw "$ARCHIVE/Info.plist")
