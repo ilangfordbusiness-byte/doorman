@@ -110,7 +110,8 @@ export default function Login() {
   }
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-background px-6">
+    <div className="fixed inset-0 overflow-y-auto bg-background screen-scroll">
+      <div className="screen-fill flex items-center justify-center px-6 py-8">
       <div className="relative w-full max-w-sm text-center">
         {view === "root" && (
           <>
@@ -197,9 +198,9 @@ export default function Login() {
                 });
               }}
             >
-              <Input className={inputCls} type="email" placeholder="Email" autoComplete="email"
+              <Input className={inputCls} type="email" name="email" placeholder="Email" autoComplete="username"
                 value={email} onChange={(e) => setEmail(e.target.value)} required />
-              <Input className={inputCls} type="password" placeholder="Password" autoComplete="current-password"
+              <Input className={inputCls} type="password" name="password" placeholder="Password" autoComplete="current-password"
                 value={password} onChange={(e) => setPassword(e.target.value)} required />
               <Button disabled={busy} className="w-full h-12 rounded-xl font-semibold">
                 Sign in
@@ -243,7 +244,7 @@ export default function Login() {
                 <Input className={inputCls} placeholder="Last name" autoComplete="family-name"
                   value={lastName} onChange={(e) => setLastName(e.target.value)} required />
               </div>
-              <Input className={inputCls} type="email" placeholder="Email" autoComplete="email"
+              <Input className={inputCls} type="email" name="email" placeholder="Email" autoComplete="username"
                 value={email} onChange={(e) => setEmail(e.target.value)} required />
               <PhoneInput value={phone} onChange={setPhone} className="h-12" />
               <div className="relative">
@@ -251,7 +252,7 @@ export default function Login() {
                 <Input className={`${inputCls} pl-7`} placeholder="Instagram handle" autoComplete="off"
                   value={instagram} onChange={(e) => setInstagram(e.target.value.replace(/^@/, ""))} required />
               </div>
-              <Input className={inputCls} type="password" placeholder="Password (min 6 characters)"
+              <Input className={inputCls} type="password" name="password" placeholder="Password (min 6 characters)"
                 autoComplete="new-password" minLength={6}
                 value={password} onChange={(e) => setPassword(e.target.value)} required />
               <p className="text-xs text-muted-foreground px-1">You'll add a profile picture right after confirming your email.</p>
@@ -344,6 +345,7 @@ export default function Login() {
           © {new Date().getFullYear()} Doorman LTD ·{" "}
           <a href="/privacy" className="hover:text-foreground underline underline-offset-2">Privacy Policy</a>
         </p>
+      </div>
       </div>
     </div>
   );

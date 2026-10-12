@@ -35,7 +35,8 @@ export default function ResetPassword() {
   }
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-background px-6">
+    <div className="fixed inset-0 overflow-y-auto bg-background screen-scroll">
+      <div className="screen-fill flex items-center justify-center px-6 py-8">
       <div className="w-full max-w-sm text-center">
         <img src="/logo.png" alt="DoorMan" className="w-14 h-14 mx-auto mb-6 object-contain" />
         <h1 className="text-xl font-extrabold mb-1">Set a new password</h1>
@@ -60,6 +61,7 @@ export default function ResetPassword() {
           </Button>
         </form>
         {error && <p className="mt-4 text-sm text-red-500">{error}</p>}
+      </div>
       </div>
     </div>
   );

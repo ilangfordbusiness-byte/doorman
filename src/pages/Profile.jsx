@@ -219,9 +219,9 @@ export default function Profile() {
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
             <input ref={cameraInputRef} type="file" accept="image/*" capture="user" className="hidden" onChange={handlePhotoChange} />
           </div>
-          <div>
-            <h2 className="font-heading font-bold text-lg">{user?.full_name}</h2>
-            <p className="text-sm text-muted-foreground">{user?.email}</p>
+          <div className="min-w-0 flex-1">
+            <h2 className="font-heading font-bold text-lg truncate">{user?.full_name}</h2>
+            <p className="text-sm text-muted-foreground truncate">{user?.email}</p>
           </div>
         </div>
 
@@ -334,9 +334,9 @@ export default function Profile() {
         {/* Email (read-only) */}
         <div className="flex items-center gap-3 px-4 py-3.5 border-b border-border/50">
           <User className="w-5 h-5 text-muted-foreground" />
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <p className="text-xs text-muted-foreground mb-0.5">Email</p>
-            <p className="text-sm font-medium">{user?.email}</p>
+            <p className="text-sm font-medium break-words">{user?.email}</p>
           </div>
         </div>
 

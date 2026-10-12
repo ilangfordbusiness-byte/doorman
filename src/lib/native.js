@@ -302,8 +302,29 @@ export async function hideSplash() {
 export async function initNativeShell() {
   if (!isNative()) return;
   document.documentElement.classList.add("native");
+  trackScreenHeight();
   try {
     await StatusBar.setStyle({ style: Style.Dark });
     await StatusBar.setOverlaysWebView({ overlay: true });
   } catch { /* status bar plugin unavailable */ }
+}
+
+// The Keyboard plugin (resize: "native") shrinks the WebView only after the
+// keyboard has finished sliding up. Full-screen centred pages (.screen-fill)
+// would then re-centre with a visible jump. --app-h keeps the height without
+// the keyboard, so those pages stay still; the focused field scrolls into view
+// only when the keyboard would cover it.
+function trackScreenHeight() {
+  const root = document.documentElement;
+  let keyboardOpen = false;
+  const save = () => {
+    if (!keyboardOpen) root.style.setProperty("--app-h", `${window.innerHeight}px`);
+  };
+  save();
+  window.addEventListener("resize", save);
+  window.addEventListener("keyboardWillShow", () => { keyboardOpen = true; });
+  window.addEventListener("keyboardDidShow", () => {
+    document.activeElement?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+  });
+  window.addEventListener("keyboardWillHide", () => { keyboardOpen = false; });
 }

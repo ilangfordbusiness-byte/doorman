@@ -95,14 +95,14 @@ export default function DoorList() {
   return (
     <div className="max-w-lg mx-auto px-4 pt-4 pb-8">
       <div className="flex items-center gap-3 mb-4">
-        <Button variant="ghost" size="icon" className="rounded-full" onClick={() => navigate(-1)}>
+        <Button variant="ghost" size="icon" className="rounded-full" onClick={() => (window.history.state?.idx > 0 ? navigate(-1) : navigate(`/event/${id}`))}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div className="flex-1 min-w-0">
           <h1 className="font-heading font-bold text-lg truncate">{event?.title || "Door list"}</h1>
           <p className="text-xs text-muted-foreground">Check guests in by name</p>
         </div>
-        <Button variant="outline" size="sm" className="rounded-lg gap-1.5" onClick={() => navigate(`/scanner?event_id=${id}`)}>
+        <Button variant="outline" size="sm" className="rounded-lg gap-1.5" onClick={() => navigate(`/scanner?event_id=${id}`, { state: { fromDoor: true } })}>
           <QrCode className="w-4 h-4" /> Scan
         </Button>
       </div>

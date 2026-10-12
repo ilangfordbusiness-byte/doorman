@@ -135,7 +135,8 @@ export default function PhoneSetupGate({ children }) {
 
   function shell(icon, iconWrap, title, subtitle, body) {
     return (
-      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center px-6">
+      <div className="fixed inset-0 overflow-y-auto bg-background screen-scroll">
+        <div className="screen-fill flex flex-col items-center justify-center px-6 py-8">
         <div className="w-full max-w-sm">
           <div className="flex items-center gap-2 mb-8 justify-center">
             <img src="/logo.png" alt="DoorMan" className="w-12 h-12 object-contain" />
@@ -148,6 +149,7 @@ export default function PhoneSetupGate({ children }) {
           <p className="text-muted-foreground text-sm text-center mb-7">{subtitle}</p>
           {body}
           {counter && <p className="text-xs text-muted-foreground text-center mt-4">{counter}</p>}
+        </div>
         </div>
       </div>
     );

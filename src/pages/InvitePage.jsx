@@ -10,6 +10,7 @@ import LoadingSpinner from "../components/LoadingSpinner";
 import EventJoinActions from "../components/EventJoinActions";
 import { getLinkDomain } from "@/lib/promoterRef";
 import moment from "moment";
+import { COVERS } from "@/components/CoverPicker";
 
 export default function InvitePage() {
   const { code } = useParams();
@@ -104,11 +105,20 @@ export default function InvitePage() {
         <p className="text-sm text-muted-foreground mt-1">Hosted by {event.host_name}</p>
       </div>
 
-      {event.cover_image && (
-        <div className="rounded-2xl overflow-hidden aspect-square mb-6">
-          <img src={event.cover_image} alt={event.title} className="w-full h-full object-cover" />
-        </div>
-      )}
+      {/* Preset covers are stored as "__cover__<id>" (a gradient, not a URL),
+          the same as EventCard renders them. */}
+      <div className="rounded-2xl overflow-hidden aspect-square mb-6">
+        {(() => {
+          const preset = event.cover_image?.startsWith("__cover__")
+            ? COVERS.find((c) => c.id === event.cover_image.replace("__cover__", ""))?.style
+            : null;
+          if (preset) return <div className="w-full h-full" style={preset} />;
+          if (event.cover_image && !event.cover_image.startsWith("__cover__")) {
+            return <img src={event.cover_image} alt={event.title} className="w-full h-full object-cover" />;
+          }
+          return <div className="w-full h-full bg-gradient-to-br from-primary/20 via-card to-accent/10" />;
+        })()}
+      </div>
 
       <div className="grid grid-cols-2 gap-3 mb-6">
         <div className="bg-secondary/50 rounded-xl p-3 border border-border/50">

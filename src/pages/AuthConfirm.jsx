@@ -56,7 +56,8 @@ export default function AuthConfirm() {
   }, [search]);
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-background px-6">
+    <div className="fixed inset-0 overflow-y-auto bg-background screen-scroll">
+      <div className="screen-fill flex items-center justify-center px-6 py-8">
       <div className="w-full max-w-sm text-center">
         <img src="/logo.png" alt="DoorMan" className="w-14 h-14 mx-auto mb-6 object-contain" />
         {error ? (
@@ -74,6 +75,7 @@ export default function AuthConfirm() {
             <p className="text-sm text-muted-foreground">Confirming your email…</p>
           </>
         )}
+      </div>
       </div>
     </div>
   );
