@@ -7,7 +7,7 @@ import { supabase } from "./client";
 import { normalizePhone } from "@/lib/phone";
 import { appBaseUrl } from "@/lib/appUrl";
 import {
-  isNative, openInAppBrowser, appleAuthorize, NATIVE_AUTH_CALLBACK,
+  isNative, openInAppBrowser, onBrowserFinished, appleAuthorize, NATIVE_AUTH_CALLBACK,
 } from "@/lib/native";
 import { getStoredPushToken, setStoredPushToken, clearStoredPushToken } from "@/lib/pushToken";
 
@@ -897,7 +897,13 @@ const auth = {
         options: { redirectTo: NATIVE_AUTH_CALLBACK, skipBrowserRedirect: true },
       });
       throwOn(error);
-      await openInAppBrowser(data.url);
+      // Resolves when the sheet closes: after the callback deep link closes
+      // it, or when the user dismisses it. The login screen re-enables its
+      // buttons then; a completed sign-in has already navigated away.
+      await new Promise((resolve) => {
+        const off = onBrowserFinished(() => { off(); resolve(); });
+        openInAppBrowser(data.url).catch((e) => { off(); resolve(); console.error(e); });
+      });
       return;
     }
     const { error } = await supabase.auth.signInWithOAuth({

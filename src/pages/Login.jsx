@@ -140,7 +140,11 @@ export default function Login() {
             </div>
             <Button
               disabled={busy}
-              onClick={() => withBusy(() => api.auth.signInWithGoogle(peekLoginNext() || window.location.href))}
+              onClick={() => withBusy(async () => {
+                await api.auth.signInWithGoogle(peekLoginNext() || window.location.href);
+                // In the app the Google sheet can be closed without signing in.
+                if (isNative()) setBusy(false);
+              })}
               variant="outline"
               className="w-full h-12 rounded-xl font-semibold gap-3"
             >
