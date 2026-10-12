@@ -11,7 +11,7 @@ export default function EventChat({ eventId, user, canPost = false, hostIsBusine
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
-  const bottomRef = useRef(null);
+  const listRef = useRef(null);
 
   useEffect(() => {
     api.entities.EventMessage.filter({ event_id: eventId }, "created_date", 100).then(setMessages);
@@ -25,8 +25,11 @@ export default function EventChat({ eventId, user, canPost = false, hostIsBusine
     return unsub;
   }, [eventId]);
 
+  // Scroll only the message list. scrollIntoView would also scroll the page
+  // down to the chat every time the event page opens.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const list = listRef.current;
+    if (list) list.scrollTo({ top: list.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
   async function handleSend() {
@@ -55,7 +58,7 @@ export default function EventChat({ eventId, user, canPost = false, hostIsBusine
 
       <div className="bg-secondary/30 rounded-2xl border border-border/50 flex flex-col" style={{ height: 320 }}>
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+        <div ref={listRef} className="flex-1 overflow-y-auto p-3 space-y-2">
           {messages.length === 0 && (
             <div className="flex items-center justify-center h-full">
               <p className="text-xs text-muted-foreground">No messages yet — start the conversation!</p>
@@ -93,7 +96,6 @@ export default function EventChat({ eventId, user, canPost = false, hostIsBusine
               </div>
             );
           })}
-          <div ref={bottomRef} />
         </div>
 
         {/* Input */}
