@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "@/api/data";
 import jsQR from "jsqr";
 import { ArrowLeft, Search, CheckCircle2, XCircle, RotateCcw, Ticket, ClipboardList } from "lucide-react";
@@ -16,6 +16,7 @@ const SHOW_DEBUG = import.meta.env.DEV;
 
 export default function DoormanScanner() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [mode, setMode] = useState("scan");
   const [result, setResult] = useState(null);
   const [processing, setProcessing] = useState(false);
@@ -198,7 +199,12 @@ export default function DoormanScanner() {
     <div className="min-h-screen bg-black text-white flex flex-col">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 pt-4 pb-2 z-10">
-        <Button variant="ghost" size="icon" className="rounded-full text-white hover:bg-white/10" onClick={() => navigate("/")}>
+        <Button variant="ghost" size="icon" className="rounded-full text-white hover:bg-white/10" onClick={() => {
+          // Back to where the scanner was opened from (door list, staff hub);
+          // the door list when it was opened directly from a link.
+          if (window.history.state?.idx > 0) navigate(-1);
+          else navigate(event ? `/event/${event.id}/door` : "/");
+        }}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <h1 className="font-heading font-bold text-lg">Door Scanner</h1>
@@ -208,7 +214,9 @@ export default function DoormanScanner() {
               variant="ghost"
               size="sm"
               className="text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-400"
-              onClick={() => navigate(`/event/${event.id}/door`)}
+              onClick={() => (location.state?.fromDoor
+                ? navigate(-1)
+                : navigate(`/event/${event.id}/door`))}
             >
               <ClipboardList className="w-4 h-4" /> List
             </Button>
