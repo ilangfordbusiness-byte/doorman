@@ -6,6 +6,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { ArrowLeft, UserPlus, Users, Check, X, UserCheck, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import HomeButton from "@/components/HomeButton";
+import SlidingTabs from "@/components/SlidingTabs";
 import { useToast } from "@/components/ui/use-toast";
 import LoadingSpinner from "../components/LoadingSpinner";
 import UserAvatar from "../components/UserAvatar";
@@ -103,8 +104,8 @@ export default function Friends() {
     { id: "activity", label: "Activity" },
     { id: "search", label: "Search" },
     { id: "suggestions", label: "Suggest" },
-    { id: "requests", label: `Requests${requests.length ? ` (${requests.length})` : ""}` },
-    { id: "friends", label: `Friends${friends.length ? ` (${friends.length})` : ""}` },
+    { id: "requests", label: "Requests", badge: requests.length },
+    { id: "friends", label: "Friends", badge: friends.length },
   ];
 
   return (
@@ -120,19 +121,7 @@ export default function Friends() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-secondary/50 rounded-xl p-1 mb-5">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`flex-1 py-2 rounded-lg text-[13px] font-semibold transition-colors ${
-              tab === t.id ? "bg-card text-foreground shadow" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <SlidingTabs className="mb-5" tabs={tabs} value={tab} onChange={setTab} />
 
       {viewingFriend && (
         <FriendProfile

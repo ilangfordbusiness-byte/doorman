@@ -6,6 +6,7 @@ import { api } from "@/api/data";
 import { ArrowLeft, ScanLine, Calendar, MapPin, Clock, UserCheck, Ticket, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import HomeButton from "@/components/HomeButton";
+import SlidingTabs from "@/components/SlidingTabs";
 import LoadingSpinner from "../components/LoadingSpinner";
 import TicketSalesQR from "../components/TicketSalesQR";
 import { COVERS } from "../components/CoverPicker";
@@ -113,24 +114,12 @@ export default function StaffHub() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-secondary/50 rounded-xl p-1 mb-5">
-        <button
-          onClick={() => setTab("events")}
-          className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${
-            tab === "events" ? "bg-card text-foreground shadow" : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          My Events
-        </button>
-        <button
-          onClick={() => setTab("join")}
-          className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${
-            tab === "join" ? "bg-card text-foreground shadow" : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Enter Code
-        </button>
-      </div>
+      <SlidingTabs
+        className="mb-5"
+        value={tab}
+        onChange={setTab}
+        tabs={[{ id: "events", label: "My Events" }, { id: "join", label: "Enter Code" }]}
+      />
 
       {tab === "join" && (
         <div className="flex flex-col items-center pt-6 pb-4 text-center">

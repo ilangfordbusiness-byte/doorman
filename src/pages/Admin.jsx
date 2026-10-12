@@ -7,6 +7,7 @@ import { ArrowLeft, Shield, Ban, Search, Trash2, EyeOff, XCircle, Pencil, Eye } 
 import { startImpersonation } from "@/lib/impersonation";
 import { Button } from "@/components/ui/button";
 import HomeButton from "@/components/HomeButton";
+import SlidingTabs from "@/components/SlidingTabs";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -45,19 +46,7 @@ export default function Admin() {
         <HomeButton />
       </div>
 
-      <div className="flex gap-1 bg-secondary/50 rounded-xl p-1 mb-5">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${
-              tab === t.id ? "bg-card text-foreground shadow" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <SlidingTabs className="mb-5" tabs={TABS} value={tab} onChange={setTab} />
 
       {tab === "dashboard" && <Dashboard />}
       {tab === "users" && <Users myId={me.id} isSuperAdmin={SUPER_ADMIN_EMAILS.includes(String(me.email || "").toLowerCase())} />}
