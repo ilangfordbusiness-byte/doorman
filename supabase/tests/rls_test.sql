@@ -891,3 +891,26 @@ begin
   raise notice '';
   raise notice 'ALL % CHECKS PASSED', currval('pg_temp.t_pass');
 end $test$;
+
+-- ---- business creation by a brand-new user ------------------------------
+-- Regression for 20261011120000_business_select_owner.sql. A user who owns no
+-- business yet could not create one: the INSERT passed, but the RETURNING
+-- check of business_select failed. The DO block above only creates businesses
+-- as alice, who already owns one, so this runs as a new user.
+insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
+                        email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
+                        created_at, updated_at)
+values ('00000000-0000-0000-0000-000000000000',
+        '99999999-9999-9999-9999-999999999999', 'authenticated', 'authenticated',
+        'first.biz@test.dev', '', now(), '{}',
+        json_build_object('full_name', 'First Business')::jsonb, now(), now());
+begin;
+select set_config('request.jwt.claims',
+  json_build_object('sub', '99999999-9999-9999-9999-999999999999',
+                    'email', 'first.biz@test.dev', 'role', 'authenticated')::text, true);
+set local role authenticated;
+insert into public.business_accounts (owner_id, business_email, business_name)
+  values ('99999999-9999-9999-9999-999999999999', 'first.biz@test.dev', 'First Events Ltd')
+  returning business_name;
+rollback;
+do $$ begin raise notice 'PASS: a new user can create their first business (INSERT ... RETURNING)'; end $$;
