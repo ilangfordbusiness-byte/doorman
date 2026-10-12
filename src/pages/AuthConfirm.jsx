@@ -57,7 +57,7 @@ export default function AuthConfirm() {
 
   return (
     <div className="fixed inset-0 overflow-y-auto bg-background screen-scroll">
-      <div className="min-h-full flex items-center justify-center px-6 py-8">
+      <div className="screen-fill flex items-center justify-center px-6 py-8">
       <div className="w-full max-w-sm text-center">
         <img src="/logo.png" alt="DoorMan" className="w-14 h-14 mx-auto mb-6 object-contain" />
         {error ? (

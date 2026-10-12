@@ -111,7 +111,7 @@ export default function Login() {
 
   return (
     <div className="fixed inset-0 overflow-y-auto bg-background screen-scroll">
-      <div className="min-h-full flex items-center justify-center px-6 py-8">
+      <div className="screen-fill flex items-center justify-center px-6 py-8">
       <div className="relative w-full max-w-sm text-center">
         {view === "root" && (
           <>

@@ -136,7 +136,7 @@ export default function PhoneSetupGate({ children }) {
   function shell(icon, iconWrap, title, subtitle, body) {
     return (
       <div className="fixed inset-0 overflow-y-auto bg-background screen-scroll">
-        <div className="min-h-full flex flex-col items-center justify-center px-6 py-8">
+        <div className="screen-fill flex flex-col items-center justify-center px-6 py-8">
         <div className="w-full max-w-sm">
           <div className="flex items-center gap-2 mb-8 justify-center">
             <img src="/logo.png" alt="DoorMan" className="w-12 h-12 object-contain" />
