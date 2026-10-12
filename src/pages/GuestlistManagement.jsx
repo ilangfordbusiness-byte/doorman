@@ -8,7 +8,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import SlidingTabs from "@/components/SlidingTabs";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger
 } from "@/components/ui/dialog";
@@ -29,6 +29,7 @@ export default function GuestlistManagement() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [event, setEvent] = useState(null);
+  const [glTab, setGlTab] = useState(null);
   const [guests, setGuests] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -203,6 +204,8 @@ export default function GuestlistManagement() {
   const checkedIn = byStatus("checked_in");
   const denied = [...byStatus("denied"), ...byStatus("revoked")];
   const waitlist = byStatus("waitlist");
+  // Default to Requests when any are pending, else Approved — until the user taps a tab.
+  const activeTab = glTab ?? (requests.length > 0 ? "requests" : "approved");
 
   if (loading) return <LoadingSpinner fullScreen />;
 
@@ -309,23 +312,20 @@ export default function GuestlistManagement() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue={requests.length > 0 ? "requests" : "approved"} className="w-full">
-        <TabsList className="w-full bg-secondary/50 border border-border rounded-xl p-1 mb-4">
-          <TabsTrigger value="requests" className="flex-1 rounded-lg text-[11px] font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            Requests {requests.length > 0 && `(${requests.length})`}
-          </TabsTrigger>
-          <TabsTrigger value="approved" className="flex-1 rounded-lg text-[11px] font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            Approved ({approved.length})
-          </TabsTrigger>
-          <TabsTrigger value="checked" className="flex-1 rounded-lg text-[11px] font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            In ({checkedIn.length})
-          </TabsTrigger>
-          <TabsTrigger value="other" className="flex-1 rounded-lg text-[11px] font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            Other
-          </TabsTrigger>
-        </TabsList>
+      <SlidingTabs
+        className="mb-4"
+        value={activeTab}
+        onChange={setGlTab}
+        tabs={[
+          { id: "requests", label: "Requests", badge: requests.length },
+          { id: "approved", label: "Approved", badge: approved.length },
+          { id: "checked", label: "In", badge: checkedIn.length },
+          { id: "other", label: "Other" },
+        ]}
+      />
 
-        <TabsContent value="requests" className="space-y-2">
+      {activeTab === "requests" && (
+        <div className="space-y-2">
           {requests.length === 0 ? (
             <EmptyTab message="No pending requests" />
           ) : (
@@ -341,9 +341,11 @@ export default function GuestlistManagement() {
               />
             ))
           )}
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="approved" className="space-y-2">
+      {activeTab === "approved" && (
+        <div className="space-y-2">
           {approved.length === 0 ? (
             <EmptyTab message="No approved guests yet" />
           ) : (
@@ -359,9 +361,11 @@ export default function GuestlistManagement() {
               />
             ))
           )}
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="checked" className="space-y-2">
+      {activeTab === "checked" && (
+        <div className="space-y-2">
           {checkedIn.length === 0 ? (
             <EmptyTab message="No check-ins yet" />
           ) : (
@@ -370,9 +374,11 @@ export default function GuestlistManagement() {
                 onViewProfile={setViewProfile} onUncheck={(g) => checkIn(g, true)} showActions={true} />
             ))
           )}
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="other" className="space-y-2">
+      {activeTab === "other" && (
+        <div className="space-y-2">
           {waitlist.length > 0 && (
             <>
               <p className="text-xs text-muted-foreground uppercase font-semibold px-1">Waitlist</p>
@@ -406,8 +412,8 @@ export default function GuestlistManagement() {
           {waitlist.length === 0 && denied.length === 0 && (
             <EmptyTab message="No waitlisted or denied guests" />
           )}
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
 
       <AlertDialog open={!!revokeTarget} onOpenChange={(open) => { if (!open && !revoking) setRevokeTarget(null); }}>
         <AlertDialogContent className="bg-card border-border max-w-sm rounded-xl">
