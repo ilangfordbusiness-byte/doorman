@@ -99,7 +99,7 @@ export default function ProfilePictureEditor({ file, onSave, onClose }) {
                 src={img.src}
                 alt="Adjust"
                 draggable={false}
-                className="absolute select-none pointer-events-none"
+                className="absolute max-w-none select-none pointer-events-none"
                 style={{
                   width: img.naturalWidth * totalScale,
                   height: img.naturalHeight * totalScale,
