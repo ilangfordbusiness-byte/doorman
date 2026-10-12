@@ -5,6 +5,7 @@ import { api } from "@/api/data";
 import { Megaphone, Copy, Check, ExternalLink, Ticket, MousePointerClick, Wallet } from "lucide-react";
 import { getLinkDomain } from "@/lib/promoterRef";
 import { useToast } from "@/components/ui/use-toast";
+import CollapsibleSection from "@/components/CollapsibleSection";
 
 // Promoter-facing summary shown in the Account tab. Matches promoter records
 // to the logged-in user by the email the host entered when adding them.
@@ -52,15 +53,23 @@ export default function PromoterAccountSection({ email }) {
     setTimeout(() => setCopied(""), 2000);
   }
 
-  if (loading || !promoters.length) return null;
+  // Keep the section hidden until the first load resolves, then always show it
+  // as a dropdown — collapsed with an explainer for non-promoters, expanded
+  // with stats for promoters.
+  if (loading) return null;
 
   return (
-    <div className="bg-card rounded-2xl border border-border p-4 mb-4">
-      <h3 className="font-heading font-semibold text-sm flex items-center gap-2 mb-3">
-        <Megaphone className="w-4 h-4" /> Promoter
-      </h3>
-      <div className="space-y-3">
-        {promoters.map((p) => {
+    <CollapsibleSection icon={Megaphone} title="Promoter" hasData={promoters.length > 0}>
+      <div className="p-4">
+        {!promoters.length ? (
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            You haven't been added to an event as a promoter yet. Hosts add you as a
+            promoter when they set up an event — your tracking link and earnings will
+            show up here.
+          </p>
+        ) : (
+        <div className="space-y-3">
+          {promoters.map((p) => {
           const event = events[p.event_id];
           const cur = String(event?.currency || "gbp").toLowerCase();
           const sym = currencySymbol(cur);
@@ -110,7 +119,9 @@ export default function PromoterAccountSection({ email }) {
             </div>
           );
         })}
+        </div>
+        )}
       </div>
-    </div>
+    </CollapsibleSection>
   );
 }

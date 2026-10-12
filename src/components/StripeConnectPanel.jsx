@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { COUNTRIES, DEFAULT_COUNTRY, countryFromValue } from "@/lib/phone";
+import CollapsibleSection from "@/components/CollapsibleSection";
 
 function inIframe() {
   try { return window.self !== window.top; } catch { return true; }
@@ -126,11 +127,8 @@ export default function StripeConnectPanel() {
   const active = account?.payouts_enabled;
 
   return (
-    <div className="bg-card rounded-2xl border border-border p-4 mb-4">
-      <h3 className="font-heading font-semibold text-sm flex items-center gap-2 mb-3">
-        <CreditCard className="w-4 h-4" /> Payouts & Earnings
-      </h3>
-
+    <CollapsibleSection icon={CreditCard} title="Payouts & Earnings" hasData={connected || balances.length > 0}>
+      <div className="p-4">
       {!connected ? (
         <div>
           <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
@@ -190,6 +188,7 @@ export default function StripeConnectPanel() {
           </Button>
         </div>
       )}
-    </div>
+      </div>
+    </CollapsibleSection>
   );
 }

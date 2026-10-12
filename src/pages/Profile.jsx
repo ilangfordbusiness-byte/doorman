@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { api } from "@/api/data";
-import { LogOut, User, Calendar, Camera, ArrowLeft, Pencil, Check, X, Shield, Trash2, AtSign, Ghost, Mic2, ChevronRight, ChevronDown, Building2, ArrowLeftRight, MapPin, Disc3 } from "lucide-react";
+import { LogOut, User, Calendar, Camera, ArrowLeft, Pencil, Check, X, Shield, Trash2, AtSign, Ghost, Mic2, ChevronRight, Building2, ArrowLeftRight, MapPin, Disc3 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import HomeButton from "@/components/HomeButton";
@@ -10,6 +10,7 @@ import LoadingSpinner from "../components/LoadingSpinner";
 import Avatar from "../components/Avatar";
 import PromoterAccountSection from "../components/PromoterAccountSection";
 import StripeConnectPanel from "../components/StripeConnectPanel";
+import CollapsibleSection from "../components/CollapsibleSection";
 import ProfilePictureEditor from "../components/ProfilePictureEditor";
 import CreateBusinessDialog from "../components/business/CreateBusinessDialog";
 import { useSwitchAccount } from "@/hooks/useActiveAccount";
@@ -45,7 +46,6 @@ export default function Profile() {
   const [showPhotoMenu, setShowPhotoMenu] = useState(false);
   const [businessAccounts, setBusinessAccounts] = useState([]);
   const [showCreateBiz, setShowCreateBiz] = useState(false);
-  const [djOpen, setDjOpen] = useState(false);
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
 
@@ -491,16 +491,7 @@ export default function Profile() {
       {(() => {
       const hasDjInfo = !!(user?.bio || user?.booking_email || user?.music_link || user?.genres);
       return (
-      <div className="bg-card rounded-2xl border border-border overflow-hidden mb-4">
-        <button onClick={() => setDjOpen((o) => !o)} className="w-full px-4 py-3.5 flex items-center justify-between text-left">
-          <span className="font-heading font-semibold text-sm flex items-center gap-2">
-            <Disc3 className="w-4 h-4" /> {hasDjInfo ? "DJ profile" : "Add DJ profile"}
-          </span>
-          <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${djOpen ? "rotate-180" : ""}`} />
-        </button>
-
-        {djOpen && (
-        <div className="border-t border-border/50">
+      <CollapsibleSection icon={Disc3} title={hasDjInfo ? "DJ profile" : "Add DJ profile"} hasData={hasDjInfo}>
         {/* Bio */}
         <div className="px-4 py-3.5 border-b border-border/50">
           <div className="flex items-center justify-between mb-1">
@@ -567,9 +558,7 @@ export default function Profile() {
               <Link to={`/dj/${user.id}`} className="text-sm text-primary font-medium hover:underline">View my DJ page</Link>
             </div>
           )}
-        </div>
-        )}
-      </div>
+      </CollapsibleSection>
       );
       })()}
 
