@@ -198,9 +198,9 @@ export default function Login() {
                 });
               }}
             >
-              <Input className={inputCls} type="email" placeholder="Email" autoComplete="email"
+              <Input className={inputCls} type="email" name="email" placeholder="Email" autoComplete="username"
                 value={email} onChange={(e) => setEmail(e.target.value)} required />
-              <Input className={inputCls} type="password" placeholder="Password" autoComplete="current-password"
+              <Input className={inputCls} type="password" name="password" placeholder="Password" autoComplete="current-password"
                 value={password} onChange={(e) => setPassword(e.target.value)} required />
               <Button disabled={busy} className="w-full h-12 rounded-xl font-semibold">
                 Sign in
@@ -244,7 +244,7 @@ export default function Login() {
                 <Input className={inputCls} placeholder="Last name" autoComplete="family-name"
                   value={lastName} onChange={(e) => setLastName(e.target.value)} required />
               </div>
-              <Input className={inputCls} type="email" placeholder="Email" autoComplete="email"
+              <Input className={inputCls} type="email" name="email" placeholder="Email" autoComplete="username"
                 value={email} onChange={(e) => setEmail(e.target.value)} required />
               <PhoneInput value={phone} onChange={setPhone} className="h-12" />
               <div className="relative">
@@ -252,7 +252,7 @@ export default function Login() {
                 <Input className={`${inputCls} pl-7`} placeholder="Instagram handle" autoComplete="off"
                   value={instagram} onChange={(e) => setInstagram(e.target.value.replace(/^@/, ""))} required />
               </div>
-              <Input className={inputCls} type="password" placeholder="Password (min 6 characters)"
+              <Input className={inputCls} type="password" name="password" placeholder="Password (min 6 characters)"
                 autoComplete="new-password" minLength={6}
                 value={password} onChange={(e) => setPassword(e.target.value)} required />
               <p className="text-xs text-muted-foreground px-1">You'll add a profile picture right after confirming your email.</p>
