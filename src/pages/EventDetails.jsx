@@ -3,6 +3,8 @@ import { timeSuffix } from "@/lib/eventTime";
 import { useState, useEffect } from "react";
 import EventCoverHero from "../components/EventCoverHero";
 import EventCountdown from "../components/EventCountdown";
+import EventStatusChip from "../components/EventStatusChip";
+import ShimmerText from "../components/ShimmerText";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { normalizePhone, formatPhoneDisplay } from "@/lib/phone";
 import { useParams, Link, useNavigate } from "react-router-dom";
@@ -267,11 +269,12 @@ export default function EventDetails() {
       <div className="px-4 pt-6 relative z-10 pb-8 space-y-5">
         {/* Title & Status */}
         <div>
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <StatusBadge status={event.status} />
             {event.is_public && <span className="text-[10px] text-muted-foreground uppercase font-semibold">Public</span>}
+            <EventStatusChip event={event} tiers={tiers} />
           </div>
-          <h1 className="font-heading font-bold text-2xl text-foreground">{event.title}</h1>
+          <h1 className="font-heading font-bold text-2xl"><ShimmerText>{event.title}</ShimmerText></h1>
           <div className="flex items-center gap-2 mt-2 flex-wrap">
             <button
               onClick={() =>

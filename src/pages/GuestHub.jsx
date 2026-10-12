@@ -84,29 +84,28 @@ export default function GuestHub() {
         <HomeButton />
       </div>
 
-      {/* Tabs — frosted glass over the keyhole watermark */}
-      <div className="relative flex gap-1 rounded-xl p-1 mb-5 bg-white/5 backdrop-blur-md border-2 border-white/15 shadow-lg shadow-black/20">
+      {/* Tabs — frosted glass with a sliding active indicator */}
+      <div className="relative flex rounded-xl p-1 mb-5 bg-white/5 backdrop-blur-md border-2 border-white/15 shadow-lg shadow-black/20">
+        <div
+          aria-hidden
+          className="absolute top-1 bottom-1 rounded-lg bg-white/10 border border-white/25 shadow-[0_0_12px_-2px_hsl(270_90%_65%/0.45)] transition-transform duration-300 ease-[cubic-bezier(.3,1.3,.5,1)] motion-reduce:transition-none"
+          style={{ left: 4, width: "calc((100% - 8px) / 3)", transform: `translateX(${Math.max(0, ["invites", "discover", "transfers"].indexOf(tab)) * 100}%)` }}
+        />
         <button
           onClick={() => setSearchParams({ tab: "invites" })}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-colors ${
-            tab === "invites" ? "bg-white/10 text-foreground border-2 border-white/30 shadow-sm" : "text-muted-foreground hover:text-foreground"
-          }`}
+          className={`relative z-10 flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === "invites" ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
         >
           <QrCode className="w-3.5 h-3.5" /> My Invites
         </button>
         <button
           onClick={() => setSearchParams({ tab: "discover" })}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-colors ${
-            tab === "discover" ? "bg-white/10 text-foreground border-2 border-white/30 shadow-sm" : "text-muted-foreground hover:text-foreground"
-          }`}
+          className={`relative z-10 flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === "discover" ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
         >
           <Compass className="w-3.5 h-3.5" /> Discover
         </button>
         <button
           onClick={() => setSearchParams({ tab: "transfers" })}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-colors ${
-            tab === "transfers" ? "bg-white/10 text-foreground border-2 border-white/30 shadow-sm" : "text-muted-foreground hover:text-foreground"
-          }`}
+          className={`relative z-10 flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === "transfers" ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
         >
           <ArrowLeftRight className="w-3.5 h-3.5" /> Transfers
           {transfersIn.length > 0 && (
