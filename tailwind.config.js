@@ -1,5 +1,8 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  // hover: styles only on devices that can hover. On touch screens a tapped
+  // button otherwise keeps its hover colour until you tap somewhere else.
+  future: { hoverOnlyWhenSupported: true },
     darkMode: ["class"],
     content: ["./index.html", "./src/**/*.{ts,tsx,js,jsx}"],
   theme: {
