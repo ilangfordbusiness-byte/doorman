@@ -52,6 +52,13 @@ const throwOn = (error) => {
 // ---------------------------------------------------------------------------
 const PROFILE_JOIN = "email, full_name, avatar_url";
 
+// A deleted account is anonymised in place by the deleteAccount edge function:
+// its email becomes a <...>@deleted.doorman tombstone and its name "Deleted user".
+// We hide such accounts from social surfaces (friends, chat, activity, co-hosts,
+// DJ lineup, search) so they disappear instead of lingering as "Deleted user".
+const isDeletedEmail = (email) => /@deleted\.doorman$/i.test(String(email || ""));
+const isDeletedProfile = (p) => !!p && (isDeletedEmail(p.email) || p.full_name === "Deleted user");
+
 const ENTITIES = {
   Event: {
     table: "events",
@@ -62,26 +69,34 @@ const ENTITIES = {
       visibility, lineup_style, created_at, updated_at,
       host:profiles!events_host_id_fkey(${PROFILE_JOIN}),
       co_host_rows:event_co_hosts(id, email, status, user_id,
-        profile:profiles(full_name, avatar_url)),
+        profile:profiles(full_name, avatar_url, email)),
       dj_rows:event_dj_lineup(id, dj_user_id, dj_name, set_time, sort_order,
-        profile:profiles(full_name, avatar_url))`,
+        profile:profiles(full_name, avatar_url, email))`,
     toApp(r) {
       const djLineup = (r.dj_rows ?? [])
-        .map((d) => ({
-          id: d.id,
-          user_id: d.dj_user_id,
-          name: d.profile?.full_name || d.dj_name,
-          picture: d.profile?.avatar_url || "",
-          set_time: d.set_time || "",
-          sort_order: d.sort_order ?? 0,
-        }))
+        .map((d) => {
+          // A linked DJ who deleted their account: drop the link and fall back to
+          // the host-entered name (never show "Deleted user" in the lineup).
+          const deleted = isDeletedProfile(d.profile);
+          return {
+            id: d.id,
+            user_id: deleted ? null : d.dj_user_id,
+            name: (deleted ? null : d.profile?.full_name) || d.dj_name,
+            picture: deleted ? "" : (d.profile?.avatar_url || ""),
+            set_time: d.set_time || "",
+            sort_order: d.sort_order ?? 0,
+          };
+        })
         .sort((a, b) => a.sort_order - b.sort_order);
-      const coHosts = (r.co_host_rows ?? []).map((c) => ({
-        email: c.email,
-        name: c.profile?.full_name || c.email,
-        picture: c.profile?.avatar_url || "",
-        status: c.status,
-      }));
+      // Hide co-hosts whose account was deleted.
+      const coHosts = (r.co_host_rows ?? [])
+        .filter((c) => !isDeletedProfile(c.profile))
+        .map((c) => ({
+          email: c.email,
+          name: c.profile?.full_name || c.email,
+          picture: c.profile?.avatar_url || "",
+          status: c.status,
+        }));
       return {
         ...base(r),
         title: r.title,
@@ -309,6 +324,8 @@ const ENTITIES = {
       receiver_name: r.receiver?.full_name ?? "",
       receiver_picture: r.receiver?.avatar_url ?? "",
     }),
+    // Hide friendships/requests where the other person deleted their account.
+    hideRow: (r) => isDeletedEmail(r.sender_email) || isDeletedEmail(r.receiver_email),
     async fromApp(obj, isCreate) {
       const out = {};
       if ("status" in obj) out.status = obj.status;
@@ -340,6 +357,8 @@ const ENTITIES = {
       sender_picture: r.sender?.avatar_url ?? "",
       is_host: r.event?.host_id != null && r.sender_id === r.event.host_id,
     }),
+    // Hide chat messages from users who deleted their account.
+    hideRow: (r) => isDeletedEmail(r.sender_email),
     async fromApp(obj, isCreate) {
       const out = {};
       if ("event_id" in obj) out.event_id = obj.event_id;
@@ -655,6 +674,7 @@ function makeEntity(name) {
     const { data, error } = await q;
     throwOn(error);
     let rows = (data ?? []).map(def.toApp);
+    if (def.hideRow) rows = rows.filter((row) => !def.hideRow(row));
     if (def.enrich) rows = await def.enrich(rows);
     return rows;
   }
@@ -833,7 +853,7 @@ const auth = {
       .map((t) => t.replace(/[,()*%]/g, "").trim())
       .filter((t) => t.length >= 2);
     if (tokens.length === 0) return [];
-    let q = supabase.from("profiles").select(PROFILE_COLS);
+    let q = supabase.from("profiles").select(PROFILE_COLS).not("email", "like", "%@deleted.doorman");
     for (const tok of tokens) {
       q = q.or(`full_name.ilike.%${tok}%,instagram.ilike.%${tok}%`);
     }
@@ -1060,8 +1080,13 @@ async function invokeEdge(name, body) {
 const functions = {
   async invoke(name, body = {}) {
     switch (name) {
-      case "getHomeDashboard":
-        return rpc("get_home_dashboard");
+      case "getHomeDashboard": {
+        const d = await rpc("get_home_dashboard");
+        if (d && Array.isArray(d.friendsGoing)) {
+          d.friendsGoing = d.friendsGoing.filter((f) => !isDeletedEmail(f?.email));
+        }
+        return d;
+      }
       case "getGuestDashboard":
         return rpc("get_guest_dashboard");
       case "getNotifications":
