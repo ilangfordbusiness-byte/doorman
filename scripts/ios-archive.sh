@@ -63,7 +63,7 @@ echo "==> Archive (build $BUILD_NUMBER, team $TEAM)"
 rm -rf "$ARCHIVE"
 xcodebuild -project "$PROJECT" -scheme "$SCHEME" -configuration Release \
   -destination 'generic/platform=iOS' -archivePath "$ARCHIVE" \
-  -allowProvisioningUpdates "${AUTH[@]}" \
+  -allowProvisioningUpdates ${AUTH[@]+"${AUTH[@]}"} \
   DEVELOPMENT_TEAM="$TEAM" CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
   archive | tail -5
 
@@ -79,7 +79,7 @@ plutil -replace teamID -string "$TEAM" "$EXPORT_PLIST"
 echo "==> Export ($( [[ "$UPLOAD" == "1" ]] && echo upload to App Store Connect || echo .ipa to $OUT/export ))"
 rm -rf "$OUT/export"
 xcodebuild -exportArchive -archivePath "$ARCHIVE" -exportOptionsPlist "$EXPORT_PLIST" \
-  -exportPath "$OUT/export" -allowProvisioningUpdates "${AUTH[@]}" | tail -5
+  -exportPath "$OUT/export" -allowProvisioningUpdates ${AUTH[@]+"${AUTH[@]}"} | tail -5
 rm -f "$EXPORT_PLIST"
 
 VERSION=$(plutil -extract ApplicationProperties.CFBundleShortVersionString raw "$ARCHIVE/Info.plist")
