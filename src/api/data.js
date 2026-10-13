@@ -383,6 +383,7 @@ const ENTITIES = {
       sales_status: r.sales_status,
       sort_order: r.sort_order,
       hide_remaining: r.hide_remaining,
+      door_only: r.door_only, // hidden from the public picker; sold only via the scanner
       release_at: r.release_at, // null = on sale now; ISO timestamp = scheduled
     }),
     // Writes must go through the manageTicketCatalog edge function (RLS blocks
@@ -397,6 +398,7 @@ const ENTITIES = {
         quantity: obj.quantity,
         sort_order: obj.sort_order ?? 0,
         hide_remaining: obj.hide_remaining ?? false,
+        door_only: obj.door_only ?? false,
         release_at: obj.release_at ?? null,
       });
       return ENTITIES.TicketTier.toApp(data.tier);
@@ -406,6 +408,7 @@ const ENTITIES = {
         action: "update_tier",
         id,
         hide_remaining: obj.hide_remaining,
+        ...("door_only" in obj ? { door_only: obj.door_only } : {}),
         ...("release_at" in obj ? { release_at: obj.release_at } : {}),
         ...("description" in obj ? { description: obj.description } : {}),
       });
@@ -414,6 +417,31 @@ const ENTITIES = {
     async delete(id) {
       await invokeEdge("manageTicketCatalog", { action: "delete_tier", id });
       return { ok: true };
+    },
+    // Door tiers are hidden from the normal tier query (RLS). A buyer on the
+    // scanner's door link reveals them with the event's secret token.
+    async doorTiers(eventId, token) {
+      if (!token) return [];
+      const { data, error } = await supabase.rpc("get_door_tiers", {
+        p_event_id: eventId,
+        p_token: token,
+      });
+      if (error) throw error;
+      return (data ?? []).map(ENTITIES.TicketTier.toApp);
+    },
+    // Authorized door operators (host / co-host / staff / business manager) get
+    // the event's door-sale token to build the scanner QR. Returns null when the
+    // event has no door tier, or on any error (caller treats as "no door QR").
+    async doorToken(eventId) {
+      try {
+        const { data, error } = await supabase.rpc("get_door_sale_token", {
+          p_event_id: eventId,
+        });
+        if (error) return null;
+        return data ?? null;
+      } catch {
+        return null;
+      }
     },
   },
 

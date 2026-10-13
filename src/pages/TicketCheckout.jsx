@@ -5,7 +5,7 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { api } from "@/api/data";
 import { isNative, openInAppBrowser } from "@/lib/native";
 import NativeCheckoutWait from "@/components/checkout/NativeCheckoutWait";
-import { ArrowLeft, CreditCard, Tag, Loader2, AlertCircle, HelpCircle } from "lucide-react";
+import { ArrowLeft, CreditCard, Tag, Loader2, AlertCircle, HelpCircle, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import CtaButton from "@/components/CtaButton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -34,6 +34,9 @@ export default function TicketCheckout() {
   const payment = params.get("payment");
   const ref = params.get("ref");
   const orderParam = params.get("order");
+  // Door-sale link from the scanner: the event's secret token unlocks the
+  // hidden door-only tiers, which are the only tiers shown in this mode.
+  const doorToken = params.get("door");
   // iOS: the order we opened in the Stripe sheet, while we wait for it to pay.
   const [pendingOrder, setPendingOrder] = useState(null);
 
@@ -80,15 +83,29 @@ export default function TicketCheckout() {
 
   async function load() {
     try {
+      // Door mode: show only the hidden door tiers the token unlocks. Normal
+      // mode: the public tier list (RLS already excludes door tiers from it).
       const [events, t] = await Promise.all([
         api.entities.Event.filter({ id }),
-        api.entities.TicketTier.filter({ event_id: id }),
+        doorToken
+          ? api.entities.TicketTier.doorTiers(id, doorToken)
+          : api.entities.TicketTier.filter({ event_id: id }),
       ]);
       if (!events.length) { setLoadError("This event is no longer available."); setLoading(false); return; }
+      if (doorToken && t.length === 0) {
+        setLoadError("This door ticket link is no longer valid. Ask the door staff for a new one.");
+        setLoading(false);
+        return;
+      }
       setEvent(events[0]);
-      t.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-      setTiers(t);
-      const refCode = ref || getStoredRef(id);
+      // Normal mode must never show door tiers — RLS hides them from everyone
+      // but this event's managers, so a host opening normal checkout would
+      // otherwise see their own door tier. Door mode returns only door tiers.
+      const visible = doorToken ? t : t.filter((x) => !x.door_only);
+      visible.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+      setTiers(visible);
+      // Door sales aren't promoter-attributed, so skip ref lookup in door mode.
+      const refCode = doorToken ? null : (ref || getStoredRef(id));
       if (refCode) {
         const p = await getPromoterByCode(id, refCode);
         if (p) setPromoter(p);
@@ -126,10 +143,13 @@ export default function TicketCheckout() {
     }
     setPaying(true);
     try {
-      const promoterCode = getStoredRef(id);
+      const promoterCode = doorToken ? null : getStoredRef(id);
       const path = `/event/${id}/checkout`;
       const base = `${getLinkDomain()}${path}`;
-      const refPart = promoterCode ? `&ref=${promoterCode}` : "";
+      // Keep the door token on the return URLs so a cancelled door sale comes
+      // back to the door tiers rather than the empty public list.
+      const refPart = (promoterCode ? `&ref=${promoterCode}` : "")
+        + (doorToken ? `&door=${encodeURIComponent(doorToken)}` : "");
       // iOS: Stripe runs in a browser sheet that cannot land on the app's own
       // origin, so it redirects to /native/return on the public site, which
       // hands the user back through the doorman:// scheme with `to` = the
@@ -147,6 +167,7 @@ export default function TicketCheckout() {
         tier_id: tier.id,
         promo_code: promo ? promoInput.trim() : null,
         promoter_code: promoterCode || null,
+        door_token: doorToken || null,
         success_url: native ? returnFor("success") : `${base}?payment=success${refPart}`,
         cancel_url: native ? returnFor("cancelled") : `${base}?payment=cancelled${refPart}`,
         // Browser match keys for the server-side Purchase (ignored unless the
@@ -217,6 +238,13 @@ export default function TicketCheckout() {
         <HomeButton />
       </div>
       <p className="text-sm text-muted-foreground mb-4">{event.title}</p>
+
+      {doorToken && (
+        <div className="rounded-xl p-3 border border-amber-500/20 bg-amber-500/10 text-amber-300 text-xs mb-4 flex items-center gap-2">
+          <Ticket className="w-4 h-4 shrink-0" />
+          <span><span className="font-semibold">Door sales</span> — buying a ticket at the door for this event.</span>
+        </div>
+      )}
 
       {(discActive || discExhausted) && (
         <div className={`rounded-xl p-3 border text-xs mb-4 ${discActive ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-300" : "bg-secondary/40 border-border/50 text-muted-foreground"}`}>

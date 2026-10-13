@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { tierRemaining, tierScheduled, formatReleaseAt, releaseAtToLocalInput, localInputToReleaseAt } from "@/lib/tiers";
 import { Link } from "react-router-dom";
 import { api } from "@/api/data";
-import { Ticket, Tag, Plus, Trash2, Loader2, BarChart3, Pencil, Check, X, Clock } from "lucide-react";
+import { Ticket, Tag, Plus, Trash2, Loader2, BarChart3, Pencil, Check, X, Clock, ScanLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
@@ -21,10 +21,10 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
   const [tiers, setTiers] = useState([]);
   const [promos, setPromos] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [newTier, setNewTier] = useState({ name: "", description: "", price: "", quantity: "", release_at: "" });
+  const [newTier, setNewTier] = useState({ name: "", description: "", price: "", quantity: "", release_at: "", door_only: false });
   const [newPromo, setNewPromo] = useState({ code: "", discount_percent: "", max_uses: "" });
   const [editing, setEditing] = useState(null); // tier id whose name/description is being edited
-  const [editValue, setEditValue] = useState({ name: "", description: "", quantity: "" });
+  const [editValue, setEditValue] = useState({ name: "", description: "", quantity: "", door_only: false });
   const [scheduling, setScheduling] = useState(null); // tier id whose release is being edited
   const [scheduleValue, setScheduleValue] = useState(""); // datetime-local, browser zone
 
@@ -61,11 +61,13 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
         price: Number(newTier.price),
         quantity: Number(newTier.quantity),
         sort_order: tiers.length,
+        // Door tier: hidden from the event page, sold only via the scanner QR.
+        door_only: newTier.door_only,
         // Optional scheduled release; null = on sale as soon as it's created.
         release_at: localInputToReleaseAt(newTier.release_at),
       });
       if (res.data?.error) throw new Error(res.data.error);
-      setNewTier({ name: "", description: "", price: "", quantity: "", release_at: "" });
+      setNewTier({ name: "", description: "", price: "", quantity: "", release_at: "", door_only: false });
       await load();
       toast({ title: newTier.release_at ? "Tier added — release scheduled" : "Tier added" });
     } catch (e) {
@@ -133,7 +135,7 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
 
   function startEdit(t) {
     setEditing(t.id);
-    setEditValue({ name: t.name, description: t.description || "", quantity: String(t.quantity ?? "") });
+    setEditValue({ name: t.name, description: t.description || "", quantity: String(t.quantity ?? ""), door_only: !!t.door_only });
   }
 
   async function saveEdit(t) {
@@ -155,6 +157,7 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
     if (name !== t.name) patch.name = name;
     if (description !== (t.description || "")) patch.description = description || null;
     if (qty !== null && qty !== Number(t.quantity)) patch.quantity = qty;
+    if (!!editValue.door_only !== !!t.door_only) patch.door_only = !!editValue.door_only;
     if (Object.keys(patch).length === 0) return;
     try {
       const res = await api.functions.invoke("manageTicketCatalog", {
@@ -258,16 +261,28 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
                       Total tickets{(Number(t.sold || 0) + Number(t.reserved || 0)) > 0 ? ` · min ${Number(t.sold || 0) + Number(t.reserved || 0)} (sold/held)` : ""}
                     </span>
                   </div>
+                  <label className="flex items-start gap-2 text-xs cursor-pointer select-none">
+                    <input type="checkbox" checked={!!editValue.door_only}
+                      onChange={(e) => setEditValue((s) => ({ ...s, door_only: e.target.checked }))}
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-amber-500" />
+                    <span><span className="font-medium">Door only</span> — hidden from the event page, sold only via the scanner's door QR.</span>
+                  </label>
                 </div>
               ) : (
                 <>
                   <p className="text-sm font-medium flex items-center gap-1.5">
                     <span className="truncate">{t.name}</span>
+                    {t.door_only && (
+                      <span className="shrink-0 inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider text-amber-400">
+                        <ScanLine className="w-2.5 h-2.5" /> Door
+                      </span>
+                    )}
                     <button onClick={() => startEdit(t)}
                       className="text-muted-foreground hover:text-foreground shrink-0" aria-label="Edit tier">
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
                   </p>
+                  {t.door_only && <p className="text-[11px] text-amber-400/80">Hidden from the event page — sold only through the scanner's door QR.</p>}
                   {t.description && <p className="text-xs text-muted-foreground whitespace-pre-line break-words">{t.description}</p>}
                 </>
               )}
@@ -337,6 +352,15 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
             </div>
             <p className="text-[11px] text-muted-foreground">Optional: schedule when this tier goes on sale (your local time). Leave empty to sell right away.</p>
           </div>
+          <label className="flex items-start gap-2 text-sm cursor-pointer select-none">
+            <input type="checkbox" checked={newTier.door_only}
+              onChange={(e) => setNewTier((s) => ({ ...s, door_only: e.target.checked }))}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-amber-500" />
+            <span className="flex items-center gap-1.5">
+              <ScanLine className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span><span className="font-medium">Door only</span> — hidden from the event page. Sold only through the scanner's door QR, so it won't affect your online sales.</span>
+            </span>
+          </label>
           <Button className="w-full h-10 rounded-xl" onClick={addTier} disabled={!newTier.name || newTier.price === "" || newTier.quantity === ""}>
             <Plus className="w-4 h-4" /> Add Tier
           </Button>

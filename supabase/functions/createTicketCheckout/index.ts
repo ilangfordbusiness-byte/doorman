@@ -19,7 +19,7 @@ Deno.serve(async (req) => {
 
     const {
       tier_id, promo_code, promoter_code, quantity = 1, success_url, cancel_url,
-      tracking = null,
+      tracking = null, door_token = null,
     } = await req.json();
     if (!tier_id) return json({ error: 'A ticket tier is required' }, 400);
     const qty = Math.max(1, Math.round(Number(quantity) || 1));
@@ -35,6 +35,16 @@ Deno.serve(async (req) => {
 
     const { data: event } = await svc.from('events').select('*').eq('id', tier.event_id).single();
     if (!event) return json({ error: 'Event not found' }, 404);
+
+    // Door tiers are hidden from the public picker and sold only through the
+    // scanner's door QR, which carries the event's secret door_sale_token. A
+    // door tier can't be bought by guessing its id or appending ?door=anything:
+    // the token must match, or the sale is refused here (service role, so this
+    // is the real gate even though RLS already hides the tier from clients).
+    if (tier.door_only && door_token !== event.door_sale_token) {
+      return json({ error: 'This ticket is only available at the door' }, 403);
+    }
+
     const currency = String(event.currency || 'gbp').toLowerCase();
 
     // Paid tickets require a payout-ready host: the host's share is routed to

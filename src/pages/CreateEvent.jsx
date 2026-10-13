@@ -3,7 +3,7 @@ import CoverPicker from "../components/CoverPicker";
 import CoverPhotoUpload from "../components/CoverPhotoUpload";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/data";
-import { ArrowLeft, Eye, Plus, Ticket, Megaphone, Trash2, CreditCard, AtSign, Info, Clock } from "lucide-react";
+import { ArrowLeft, Eye, Plus, Ticket, Megaphone, Trash2, CreditCard, AtSign, Info, Clock, ScanLine } from "lucide-react";
 import { formatReleaseAt, localInputToReleaseAt } from "@/lib/tiers";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Link } from "react-router-dom";
@@ -97,7 +97,7 @@ export default function CreateEvent({ business = null }) {
   }
 
   const [tiers, setTiers] = useState([]);
-  const [newTier, setNewTier] = useState({ name: "", description: "", price: "", quantity: "", release_at: "" });
+  const [newTier, setNewTier] = useState({ name: "", description: "", price: "", quantity: "", release_at: "", door_only: false });
 
   function addTier() {
     if (!newTier.name || newTier.price === "" || newTier.quantity === "") return;
@@ -106,10 +106,12 @@ export default function CreateEvent({ business = null }) {
       description: newTier.description.trim(),
       price: Number(newTier.price),
       quantity: Number(newTier.quantity),
+      // Door tier: hidden from the event page, sold only via the scanner QR.
+      door_only: newTier.door_only,
       // Optional scheduled release (ISO); null = on sale the moment it exists.
       release_at: localInputToReleaseAt(newTier.release_at),
     }]);
-    setNewTier({ name: "", description: "", price: "", quantity: "", release_at: "" });
+    setNewTier({ name: "", description: "", price: "", quantity: "", release_at: "", door_only: false });
   }
 
   function removeTier(i) {
@@ -173,6 +175,7 @@ export default function CreateEvent({ business = null }) {
             sold: 0,
             sales_status: "open",
             sort_order: 0,
+            door_only: t.door_only ?? false,
             release_at: t.release_at ?? null,
           });
         } catch {}
@@ -493,10 +496,18 @@ export default function CreateEvent({ business = null }) {
                     {tiers.map((t, i) => (
                       <div key={i} className="flex items-center gap-2 bg-secondary/40 rounded-lg px-3 py-2 border border-border/50">
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{t.name}</p>
+                          <p className="text-sm font-medium flex items-center gap-1.5">
+                            <span className="truncate">{t.name}</span>
+                            {t.door_only && (
+                              <span className="shrink-0 inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider text-amber-400">
+                                <ScanLine className="w-2.5 h-2.5" /> Door
+                              </span>
+                            )}
+                          </p>
                           {t.description && <p className="text-[11px] text-muted-foreground whitespace-pre-line break-words">{t.description}</p>}
                           <p className="text-[11px] text-muted-foreground">
                             {currencySymbol(form.currency)}{Number(t.price).toFixed(2)} · {t.quantity} tickets
+                            {t.door_only && <span className="text-amber-400"> · Door only</span>}
                             {t.release_at && <span className="text-amber-400"> · On sale {formatReleaseAt(t.release_at)}</span>}
                           </p>
                         </div>
@@ -525,6 +536,15 @@ export default function CreateEvent({ business = null }) {
                     aria-label="Schedule release (optional)" />
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-1">Optional: schedule when this tier goes on sale (your local time). Leave empty to sell as soon as you publish.</p>
+                <label className="flex items-start gap-2 text-sm cursor-pointer select-none mt-3">
+                  <input type="checkbox" checked={newTier.door_only}
+                    onChange={(e) => setNewTier((s) => ({ ...s, door_only: e.target.checked }))}
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-amber-500" />
+                  <span className="flex items-center gap-1.5">
+                    <ScanLine className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span><span className="font-medium">Door only</span> — hidden from the event page. Sold only through the scanner's door QR, so it won't affect your online sales.</span>
+                  </span>
+                </label>
               </div>
               {/* Booking fee — who pays the platform fee */}
               <div>

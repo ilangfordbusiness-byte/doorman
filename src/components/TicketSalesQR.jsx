@@ -19,8 +19,15 @@ function escapeHtml(str) {
 // The code is rendered locally (no third-party image service). On the web it
 // can be downloaded or printed; in the iOS app, where the WebView cannot save
 // files or open print windows, the link is shared instead.
-export default function TicketSalesQR({ event, onClose }) {
-  const ticketUrl = `${getLinkDomain()}/event/${event.id}/checkout`;
+//
+// With `doorToken` set (scanner "Sell" for an event that has door tiers), the
+// link carries the event's secret door token so checkout reveals the hidden
+// door-only tiers — the only way to buy them.
+export default function TicketSalesQR({ event, onClose, doorToken = null }) {
+  const door = !!doorToken;
+  const ticketUrl = door
+    ? `${getLinkDomain()}/event/${event.id}/checkout?door=${encodeURIComponent(doorToken)}`
+    : `${getLinkDomain()}/event/${event.id}/checkout`;
   const [downloading, setDownloading] = useState(false);
   const canvasWrap = useRef(null);
   const native = isNative();
@@ -37,7 +44,7 @@ export default function TicketSalesQR({ event, onClose }) {
       if (!url) throw new Error("no canvas");
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${String(event.title).replace(/[^a-z0-9]+/gi, "-")}-buy-tickets.png`;
+      a.download = `${String(event.title).replace(/[^a-z0-9]+/gi, "-")}-${door ? "door" : "buy"}-tickets.png`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -52,11 +59,12 @@ export default function TicketSalesQR({ event, onClose }) {
     const w = window.open("", "_blank");
     if (!w) return;
     const safeTitle = escapeHtml(event.title);
+    const heading = door ? "Scan to buy door tickets" : "Scan to buy tickets";
     const img = pngDataUrl() || "";
     w.document.write(
-      `<!doctype html><html><head><title>Scan to buy tickets — ${safeTitle}</title>` +
+      `<!doctype html><html><head><title>${heading} — ${safeTitle}</title>` +
       `<style>body{font-family:system-ui,sans-serif;text-align:center;padding:48px;color:#0a0a0a}h2{margin:0 0 4px}p{margin:4px 0;color:#555}img{margin:16px 0}</style>` +
-      `</head><body><h2>Scan to buy tickets</h2><p>${safeTitle}</p>` +
+      `</head><body><h2>${heading}</h2><p>${safeTitle}</p>` +
       `<img src="${img}" width="320" height="320"/>` +
       `<p style="word-break:break-all;font-size:12px">${ticketUrl}</p></body></html>`
     );
@@ -66,7 +74,11 @@ export default function TicketSalesQR({ event, onClose }) {
   }
 
   function handleShare() {
-    shareUrl({ title: `Buy tickets — ${event.title}`, text: "Scan or tap to buy tickets", url: ticketUrl });
+    shareUrl({
+      title: `${door ? "Door tickets" : "Buy tickets"} — ${event.title}`,
+      text: door ? "Scan or tap to buy door tickets" : "Scan or tap to buy tickets",
+      url: ticketUrl,
+    });
   }
 
   return (
@@ -77,9 +89,9 @@ export default function TicketSalesQR({ event, onClose }) {
 
       <div className="bg-card rounded-3xl border border-border p-6 w-full max-w-sm text-center">
         <div className="inline-flex items-center gap-1.5 bg-amber-500/10 text-amber-400 text-[10px] font-mono uppercase tracking-widest px-2 py-1 rounded-full border border-amber-500/20 mb-3">
-          <Ticket className="w-3 h-3" /> Ticket Sales
+          <Ticket className="w-3 h-3" /> {door ? "Door Sales" : "Ticket Sales"}
         </div>
-        <h2 className="font-heading font-bold text-lg mb-1">Scan to buy tickets</h2>
+        <h2 className="font-heading font-bold text-lg mb-1">{door ? "Scan to buy door tickets" : "Scan to buy tickets"}</h2>
         <p className="text-sm text-muted-foreground mb-4">{event.title}</p>
 
         <div className="w-52 h-52 bg-white rounded-2xl p-3 mx-auto mb-3">
@@ -91,7 +103,8 @@ export default function TicketSalesQR({ event, onClose }) {
           <QRCodeCanvas value={ticketUrl} size={800} level="M" bgColor="#FFFFFF" fgColor="#000000" includeMargin />
         </div>
         <p className="text-[10px] text-muted-foreground mb-5">
-          This is <strong>not</strong> a guest entry pass. Scanning opens the ticket purchase page.
+          This is <strong>not</strong> a guest entry pass. Scanning opens the
+          {door ? " door ticket purchase page (hidden from the public event page)." : " ticket purchase page."}
         </p>
 
         {native ? (
