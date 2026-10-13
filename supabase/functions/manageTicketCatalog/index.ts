@@ -88,6 +88,8 @@ Deno.serve(async (req) => {
         quantity: Math.round(Number(quantity)),
         sort_order: body.sort_order ?? 0,
         hide_remaining: !!body.hide_remaining,
+        // Door tier: hidden from the public picker, sold only via the scanner.
+        door_only: !!body.door_only,
         // Scheduled release: visible to guests but not buyable until then.
         release_at: release.value ?? null,
       }).select('*').single();
@@ -115,6 +117,7 @@ Deno.serve(async (req) => {
         patch.description = description.value;
       }
       if ('hide_remaining' in body) patch.hide_remaining = !!body.hide_remaining;
+      if ('door_only' in body) patch.door_only = !!body.door_only;
       if ('release_at' in body) {
         // Schedule, move, or clear (null) a tier's release. A past value is
         // allowed and simply means "on sale now", the same as clearing it.

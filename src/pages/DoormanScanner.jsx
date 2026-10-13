@@ -25,6 +25,10 @@ export default function DoormanScanner() {
   const [debugMsg, setDebugMsg] = useState("");
   const [event, setEvent] = useState(null);
   const [showSell, setShowSell] = useState(false);
+  // The event's door-sale token, fetched once the event loads. Non-null only
+  // when this event has door tiers and the caller is an authorized door
+  // operator — then the Sell QR becomes a door-sale QR that reveals them.
+  const [doorToken, setDoorToken] = useState(null);
   // Bumped when the app returns to the foreground so the camera effect re-runs.
   const [cameraEpoch, setCameraEpoch] = useState(0);
 
@@ -44,6 +48,17 @@ export default function DoormanScanner() {
         .catch(() => {});
     }
   }, []);
+
+  // Door-sale token: present only when this event has door tiers (returns null
+  // otherwise, so Sell falls back to the ordinary buy-tickets QR).
+  useEffect(() => {
+    if (!event?.id) return;
+    let alive = true;
+    api.entities.TicketTier.doorToken(event.id)
+      .then((tok) => { if (alive) setDoorToken(tok); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [event?.id]);
 
   const stopEverything = useCallback(() => {
     if (rafRef.current) {
@@ -379,7 +394,7 @@ export default function DoormanScanner() {
         </div>
       )}
 
-      {event && showSell && <TicketSalesQR event={event} onClose={() => setShowSell(false)} />}
+      {event && showSell && <TicketSalesQR event={event} doorToken={doorToken} onClose={() => setShowSell(false)} />}
     </div>
   );
 }

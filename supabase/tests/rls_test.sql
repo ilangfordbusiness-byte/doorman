@@ -577,6 +577,70 @@ begin
   end if;
   perform pg_temp.ok('guests can read a tier release time');
 
+  -- ---- door tiers: hidden from the public, revealed only by the event token ----
+  execute 'reset role';
+  insert into public.ticket_tiers (event_id, name, price_minor, quantity, door_only)
+    values (v_event, 'On the door', 2500, 50, true) returning id into v_id;
+  select door_sale_token into v_text from public.events where id = v_event;
+  if v_text is null then raise exception 'FAIL: event has no door_sale_token'; end if;
+
+  -- a non-manager guest cannot see a door tier at all (RLS)
+  perform pg_temp.impersonate(bob, 'bob@test.dev');
+  if (select count(*) from public.ticket_tiers where id = v_id) <> 0 then
+    raise exception 'FAIL: a guest can read a door tier directly' using errcode = 'assert_failure';
+  end if;
+  perform pg_temp.ok('door tiers are hidden from guests');
+
+  -- anon cannot see it either
+  perform pg_temp.go_anon();
+  if (select count(*) from public.ticket_tiers where id = v_id) <> 0 then
+    raise exception 'FAIL: anon can read a door tier directly' using errcode = 'assert_failure';
+  end if;
+  perform pg_temp.ok('door tiers are hidden from anonymous visitors');
+
+  -- the event's own manager still sees their door tier (so the editor works)
+  perform pg_temp.impersonate(alice, 'alice@test.dev');
+  if (select count(*) from public.ticket_tiers where id = v_id and door_only) <> 1 then
+    raise exception 'FAIL: the host cannot see their own door tier' using errcode = 'assert_failure';
+  end if;
+  perform pg_temp.ok('a manager sees their own door tier');
+
+  -- get_door_tiers reveals it only with the correct event token
+  perform pg_temp.impersonate(bob, 'bob@test.dev');
+  if (select count(*) from public.get_door_tiers(v_event, 'not-the-token')) <> 0 then
+    raise exception 'FAIL: get_door_tiers returned rows for a wrong token' using errcode = 'assert_failure';
+  end if;
+  if (select count(*) from public.get_door_tiers(v_event, null)) <> 0 then
+    raise exception 'FAIL: get_door_tiers returned rows for a null token' using errcode = 'assert_failure';
+  end if;
+  if (select count(*) from public.get_door_tiers(v_event, v_text)) <> 1 then
+    raise exception 'FAIL: get_door_tiers did not return the door tier for the right token' using errcode = 'assert_failure';
+  end if;
+  perform pg_temp.ok('get_door_tiers reveals door tiers only for the event token');
+
+  -- get_door_sale_token: door operators get it, strangers are refused
+  perform pg_temp.impersonate(carol, 'carol@test.dev');
+  if public.get_door_sale_token(v_event) is distinct from v_text then
+    raise exception 'FAIL: door staff did not receive the door token' using errcode = 'assert_failure';
+  end if;
+  perform pg_temp.ok('door staff can fetch the door sale token');
+
+  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  begin
+    perform public.get_door_sale_token(v_event);
+    raise exception 'FAIL: a stranger fetched the door sale token' using errcode = 'assert_failure';
+  exception when raise_exception then
+    perform pg_temp.ok('get_door_sale_token refuses non-operators');
+  end;
+
+  -- it returns null for an authorized operator when the event has no door tier
+  perform pg_temp.impersonate(alice, 'alice@test.dev');
+  if public.get_door_sale_token(v_draft) is not null then
+    raise exception 'FAIL: door token returned for an event with no door tier' using errcode = 'assert_failure';
+  end if;
+  perform pg_temp.ok('no door token until the event has a door tier');
+  execute 'reset role';
+
   -- ---- Meta ads tracking: pixel public, token write-only ----
   perform pg_temp.impersonate(alice, 'alice@test.dev');
   insert into public.business_accounts (owner_id, business_email, business_name)

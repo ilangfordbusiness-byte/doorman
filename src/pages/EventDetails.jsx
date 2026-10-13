@@ -55,13 +55,18 @@ async function loadEvent(id, me) {
     api.entities.EventStaff.filter({ event_id: id }),
     api.entities.TicketTier.filter({ event_id: id }).catch(() => []),
   ]);
+  // Door tiers are hidden from the public event page — they're sold only via
+  // the scanner's door QR. RLS already hides them from everyone except this
+  // event's managers, so drop them here too (a host must never see their own
+  // door tier listed in the public ticket block).
+  const publicTiers = tierList.filter((t) => !t.door_only);
   // A guest can hold several tickets (multi-quantity purchases); surface a
   // usable one ahead of an already-used one.
   const entryRank = (s) => (["approved", "invited"].includes(s) ? 0 : s === "checked_in" ? 1 : 2);
   const mine = entries
     .filter((e) => e.guest_email === me.email)
     .sort((a, b) => entryRank(a.status) - entryRank(b.status))[0];
-  tierList.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+  publicTiers.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
   return {
     notFound: false,
@@ -75,7 +80,7 @@ async function loadEvent(id, me) {
       checked_in: entries.filter((e) => e.status === "checked_in").length,
     },
     staff: staffList,
-    tiers: tierList,
+    tiers: publicTiers,
   };
 }
 
