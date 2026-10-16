@@ -4,7 +4,7 @@ import StatusBadge from "./StatusBadge";
 import Avatar from "./Avatar";
 import { formatPhoneDisplay } from "@/lib/phone";
 
-export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, onCheckIn, onUncheck, showActions = true, picture, onViewProfile }) {
+export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, onCheckIn, onUncheck, showActions = true, picture, onViewProfile, plusOneAllowed = false, onTogglePlusOne = null }) {
   const canApprove = ["requested", "waitlist", "denied"].includes(guest.status);
   const canDeny = ["requested", "waitlist", "approved", "invited"].includes(guest.status);
   const canWaitlist = ["requested"].includes(guest.status);
@@ -42,6 +42,19 @@ export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, onChec
         <StatusBadge status={guest.status} />
         {showActions && (
           <div className="flex gap-1">
+            {plusOneAllowed && onTogglePlusOne && (
+              <Button
+                size="icon"
+                variant="ghost"
+                aria-pressed={!!guest.plus_one}
+                title={guest.plus_one ? "Remove plus-one" : "Add a plus-one"}
+                aria-label={guest.plus_one ? "Remove plus-one" : "Add a plus-one"}
+                className={`h-11 w-11 ${guest.plus_one ? "text-accent hover:bg-accent/20 hover:text-accent" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}
+                onClick={(e) => { e.stopPropagation(); onTogglePlusOne(guest); }}
+              >
+                <UserPlus className="w-5 h-5" />
+              </Button>
+            )}
             {canCheckIn && (
               <Button
                 size="sm"

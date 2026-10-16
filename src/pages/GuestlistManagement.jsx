@@ -92,6 +92,21 @@ export default function GuestlistManagement() {
     loadData();
   }
 
+  // Grant or remove a guest's +1. The guest stays a single entry (one person on
+  // the list) that now carries a plus-one — shown on their pass and revealed at
+  // the door. Only meaningful while the event allows +1s (validateQR gates the
+  // door reveal on event.plus_one_allowed too).
+  async function togglePlusOne(guest) {
+    const next = !guest.plus_one;
+    try {
+      await api.entities.GuestlistEntry.update(guest.id, { plus_one: next });
+      toast({ title: next ? "Plus-one added" : "Plus-one removed" });
+      loadData();
+    } catch (e) {
+      toast({ title: e?.message || "Couldn't update plus-one", variant: "destructive" });
+    }
+  }
+
   // Revoking kills a working pass, so it only fires after the host confirms in the dialog.
   async function confirmRevoke() {
     if (!revokeTarget || revoking) return;
@@ -338,6 +353,8 @@ export default function GuestlistManagement() {
                 onApprove={(g) => updateStatus(g, "approved")}
                 onDeny={(g) => updateStatus(g, "denied")}
                 onWaitlist={(g) => updateStatus(g, "waitlist")}
+                plusOneAllowed={!!event?.plus_one_allowed}
+                onTogglePlusOne={togglePlusOne}
               />
             ))
           )}
@@ -357,6 +374,8 @@ export default function GuestlistManagement() {
                 onViewProfile={setViewProfile}
                 onCheckIn={(g) => checkIn(g)}
                 onDeny={(g) => setRevokeTarget(g)}
+                plusOneAllowed={!!event?.plus_one_allowed}
+                onTogglePlusOne={togglePlusOne}
                 showActions={true}
               />
             ))
@@ -390,6 +409,8 @@ export default function GuestlistManagement() {
                 onViewProfile={setViewProfile}
                   onApprove={(g) => updateStatus(g, "approved")}
                   onDeny={(g) => updateStatus(g, "denied")}
+                  plusOneAllowed={!!event?.plus_one_allowed}
+                  onTogglePlusOne={togglePlusOne}
                 />
               ))}
             </>
