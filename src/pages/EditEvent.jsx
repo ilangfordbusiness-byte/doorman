@@ -7,7 +7,7 @@ import CoverPhotoUpload from "../components/CoverPhotoUpload";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/data";
-import { ArrowLeft, Ticket, AtSign } from "lucide-react";
+import { ArrowLeft, Ticket, AtSign, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import HomeButton from "@/components/HomeButton";
 import { Input } from "@/components/ui/input";
@@ -342,6 +342,20 @@ export default function EditEvent() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Plus-ones */}
+        <div className="space-y-4 bg-secondary/30 rounded-2xl p-4 border border-border/50">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <UserPlus className="w-4 h-4 text-muted-foreground" />
+              <div>
+                <p className="text-sm font-medium">Allow +1s</p>
+                <p className="text-xs text-muted-foreground">Approve a guest with a plus-one — they come as one guest on your list.</p>
+              </div>
+            </div>
+            <Switch checked={form.plus_one_allowed} onCheckedChange={(v) => updateForm("plus_one_allowed", v)} />
+          </div>
         </div>
 
         {/* Paid Ticketing */}

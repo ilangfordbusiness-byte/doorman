@@ -350,7 +350,7 @@ export default function GuestPass() {
                 <span className="text-sm text-foreground">{event.dress_code}</span>
               </div>
             )}
-            {entry.plus_one && (
+            {entry.plus_one && event.plus_one_allowed && (
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">Plus One</span>
                 <span className="text-sm text-foreground">{entry.plus_one_name || "Yes"}</span>

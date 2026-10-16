@@ -42,6 +42,9 @@ export default function GuestlistManagement() {
   // Guest whose pass is about to be revoked; set by the X button, cleared by the confirm dialog.
   const [revokeTarget, setRevokeTarget] = useState(null);
   const [revoking, setRevoking] = useState(false);
+  const [plusOneTarget, setPlusOneTarget] = useState(null);
+  const [plusOneName, setPlusOneName] = useState("");
+  const [savingPlusOne, setSavingPlusOne] = useState(false);
   const { data: profiles } = useProfiles(guests.map((g) => g.guest_email).filter(Boolean));
 
   useEffect(() => {
@@ -90,6 +93,48 @@ export default function GuestlistManagement() {
       api.functions.invoke("sendTicketEmail", { entry_id: guest.id }).catch(() => {});
     }
     loadData();
+  }
+
+  // A guest's +1 is captured with the plus-one's name so it shows under the
+  // guest on the list, on their pass, and at the door. The guest stays a single
+  // entry (one person) that carries the +1; validateQR gates the door reveal on
+  // event.plus_one_allowed too. Tapping the +1 control opens this dialog.
+  function openPlusOne(guest) {
+    setPlusOneTarget(guest);
+    setPlusOneName(guest.plus_one_name || "");
+  }
+
+  async function savePlusOne() {
+    if (!plusOneTarget || savingPlusOne) return;
+    setSavingPlusOne(true);
+    try {
+      await api.entities.GuestlistEntry.update(plusOneTarget.id, {
+        plus_one: true,
+        plus_one_name: plusOneName.trim() || null,
+      });
+      toast({ title: "Plus-one saved" });
+      setPlusOneTarget(null);
+      loadData();
+    } catch (e) {
+      toast({ title: e?.message || "Couldn't save plus-one", variant: "destructive" });
+    } finally {
+      setSavingPlusOne(false);
+    }
+  }
+
+  async function removePlusOne() {
+    if (!plusOneTarget || savingPlusOne) return;
+    setSavingPlusOne(true);
+    try {
+      await api.entities.GuestlistEntry.update(plusOneTarget.id, { plus_one: false, plus_one_name: null });
+      toast({ title: "Plus-one removed" });
+      setPlusOneTarget(null);
+      loadData();
+    } catch (e) {
+      toast({ title: e?.message || "Couldn't remove plus-one", variant: "destructive" });
+    } finally {
+      setSavingPlusOne(false);
+    }
   }
 
   // Revoking kills a working pass, so it only fires after the host confirms in the dialog.
@@ -338,6 +383,8 @@ export default function GuestlistManagement() {
                 onApprove={(g) => updateStatus(g, "approved")}
                 onDeny={(g) => updateStatus(g, "denied")}
                 onWaitlist={(g) => updateStatus(g, "waitlist")}
+                plusOneAllowed={!!event?.plus_one_allowed}
+                onTogglePlusOne={openPlusOne}
               />
             ))
           )}
@@ -357,6 +404,8 @@ export default function GuestlistManagement() {
                 onViewProfile={setViewProfile}
                 onCheckIn={(g) => checkIn(g)}
                 onDeny={(g) => setRevokeTarget(g)}
+                plusOneAllowed={!!event?.plus_one_allowed}
+                onTogglePlusOne={openPlusOne}
                 showActions={true}
               />
             ))
@@ -390,6 +439,8 @@ export default function GuestlistManagement() {
                 onViewProfile={setViewProfile}
                   onApprove={(g) => updateStatus(g, "approved")}
                   onDeny={(g) => updateStatus(g, "denied")}
+                  plusOneAllowed={!!event?.plus_one_allowed}
+                  onTogglePlusOne={openPlusOne}
                 />
               ))}
             </>
@@ -438,6 +489,39 @@ export default function GuestlistManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Plus-one: capture who the guest is bringing so it shows under them. */}
+      <Dialog open={!!plusOneTarget} onOpenChange={(open) => { if (!open && !savingPlusOne) setPlusOneTarget(null); }}>
+        <DialogContent className="bg-card border-border max-w-sm rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="font-heading">
+              {plusOneTarget?.plus_one ? "Edit plus-one" : "Add a plus-one"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Who is {plusOneTarget?.guest_name || "this guest"} bringing? They'll be admitted together as one guest.
+            </p>
+            <Input
+              autoFocus
+              placeholder="Plus-one's name (optional)"
+              value={plusOneName}
+              maxLength={80}
+              onChange={(e) => setPlusOneName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") savePlusOne(); }}
+              className="bg-secondary/50 border-border h-11 rounded-xl"
+            />
+            <Button className="w-full h-11 rounded-xl bg-primary" onClick={savePlusOne} disabled={savingPlusOne}>
+              {savingPlusOne ? "Saving..." : plusOneTarget?.plus_one ? "Save" : "Add plus-one"}
+            </Button>
+            {plusOneTarget?.plus_one && (
+              <Button variant="ghost" className="w-full h-10 rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10" onClick={removePlusOne} disabled={savingPlusOne}>
+                Remove plus-one
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {viewProfile && (
         <FriendProfile
