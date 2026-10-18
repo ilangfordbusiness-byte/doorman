@@ -38,23 +38,10 @@ export async function sendEmail(
       console.log(`[email noop — RESEND_API_KEY unset] to=${to} subject=${subject}`);
       return { sent: false, error: 'RESEND_API_KEY not set' };
     }
-    const unsubUrl = await unsubscribeUrl(recipient);
-    const finalHtml = withFooter(html, unsubUrl);
-    const headers: Record<string, string> = {};
-    if (bulk) {
-      const addr = fromAddress(from);
-      headers['List-Unsubscribe'] =
-        `<${unsubUrl}>, <mailto:${addr}?subject=${encodeURIComponent(`unsubscribe ${to}`)}>`;
-      headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click';
-    }
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from, to, subject, html: finalHtml,
-        text: text || htmlToText(finalHtml),
-        ...(Object.keys(headers).length ? { headers } : {}),
-      }),
+      body: JSON.stringify(await resendPayload(from, { to, subject, html, text }, bulk)),
     });
     if (!res.ok) {
       const err = await res.text();
@@ -67,6 +54,123 @@ export async function sendEmail(
     console.log('sendEmail error', msg);
     return { sent: false, error: msg };
   }
+}
+
+// One Resend email: the footer with this recipient's unsubscribe link, a
+// plain-text alternative, and for bulk mail the List-Unsubscribe headers.
+async function resendPayload(
+  from: string,
+  { to, subject, html, text }: { to: string; subject: string; html: string; text?: string },
+  bulk: boolean,
+) {
+  const unsubUrl = await unsubscribeUrl(normalizeEmail(to));
+  const finalHtml = withFooter(html, unsubUrl);
+  const headers: Record<string, string> = {};
+  if (bulk) {
+    const addr = fromAddress(from);
+    headers['List-Unsubscribe'] =
+      `<${unsubUrl}>, <mailto:${addr}?subject=${encodeURIComponent(`unsubscribe ${to}`)}>`;
+    headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click';
+  }
+  return {
+    from, to, subject, html: finalHtml,
+    text: text || htmlToText(finalHtml),
+    ...(Object.keys(headers).length ? { headers } : {}),
+  };
+}
+
+// Bulk mail to many recipients (a guestlist, the weekly digest). Resend allows
+// 10 requests a second, so one sendEmail per recipient in parallel gets most
+// of a large send rejected with 429. This goes through the batch endpoint
+// instead: up to 100 emails per request, one request at a time, retrying a
+// 429. Same rules as a bulk sendEmail: opted-out addresses are skipped (a
+// failed lookup skips that chunk), every email carries its unsubscribe link
+// and headers. Never throws; returns counts.
+const BATCH_SIZE = 100; // Resend's maximum per batch request
+
+export async function sendBulkEmails(
+  messages: { to: string; subject: string; html: string; text?: string }[],
+): Promise<{ sent: number; skipped: number; failed: number }> {
+  const key = Deno.env.get('RESEND_API_KEY');
+  const from = Deno.env.get('EMAIL_FROM') || 'DoorMan <tickets@thedoorman.app>';
+  let sent = 0;
+  let skipped = 0;
+  let failed = 0;
+  for (let i = 0; i < messages.length; i += BATCH_SIZE) {
+    const chunk = messages.slice(i, i + BATCH_SIZE);
+    try {
+      const optedOut = await unsubscribedAmong(chunk.map((m) => m.to));
+      const deliverable = chunk.filter((m) => !optedOut.has(normalizeEmail(m.to)));
+      skipped += chunk.length - deliverable.length;
+      for (const m of chunk) {
+        if (optedOut.has(normalizeEmail(m.to))) {
+          console.log(`[email skipped — unsubscribed] to=${m.to} subject=${m.subject}`);
+        }
+      }
+      if (!deliverable.length) continue;
+      if (!key) {
+        console.log(`[email noop — RESEND_API_KEY unset] ${deliverable.length} bulk emails, subject=${deliverable[0].subject}`);
+        failed += deliverable.length;
+        continue;
+      }
+      const payload = await Promise.all(deliverable.map((m) => resendPayload(from, m, true)));
+      const result = await postBatch(key, payload);
+      sent += result.sent;
+      failed += deliverable.length - result.sent;
+    } catch (e) {
+      // The opt-out lookup failed: skip the chunk rather than mail people who
+      // asked us to stop.
+      console.log('sendBulkEmails error', e instanceof Error ? e.message : String(e));
+      skipped += chunk.length;
+    }
+  }
+  return { sent, skipped, failed };
+}
+
+// Opted-out addresses among `emails`, normalized. Throws on a failed lookup.
+async function unsubscribedAmong(emails: string[]): Promise<Set<string>> {
+  const { data, error } = await serviceClient().from('email_unsubscribes')
+    .select('email').in('email', [...new Set(emails.map(normalizeEmail))]);
+  if (error) throw new Error(`unsubscribe lookup failed: ${error.message}`);
+  return new Set((data ?? []).map((r) => normalizeEmail(r.email)));
+}
+
+// POST one batch; returns how many Resend accepted. Permissive validation, so
+// one malformed address fails only its own email. A 429 means nothing was
+// sent, so it is retried; the idempotency key stops a retry after a dropped
+// response from sending twice.
+async function postBatch(key: string, payload: unknown[]): Promise<{ sent: number }> {
+  const idempotencyKey = crypto.randomUUID();
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const res = await fetch('https://api.resend.com/emails/batch', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${key}`,
+          'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey,
+          'x-batch-validation': 'permissive',
+        },
+        body: JSON.stringify(payload),
+      });
+      if (res.status === 429) {
+        const wait = Number(res.headers.get('retry-after')) || attempt + 1;
+        await new Promise((r) => setTimeout(r, wait * 1000));
+        continue;
+      }
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        console.log('sendBulkEmails error', JSON.stringify(body));
+        return { sent: 0 };
+      }
+      for (const e of body.errors ?? []) console.log('sendBulkEmails error', JSON.stringify(e));
+      return { sent: (body.data ?? []).length };
+    } catch (e) {
+      console.log('sendBulkEmails error', e instanceof Error ? e.message : String(e));
+      await new Promise((r) => setTimeout(r, (attempt + 1) * 1000));
+    }
+  }
+  return { sent: 0 };
 }
 
 // "DoorMan <tickets@x>" -> "tickets@x"

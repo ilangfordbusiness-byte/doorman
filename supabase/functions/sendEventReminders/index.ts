@@ -2,7 +2,7 @@
 // Triggered by pg_cron; guarded by AUTOMATION_SECRET. verify_jwt=false.
 import { hasAutomationSecret, json, serviceClient } from '../_shared/db.ts';
 import {
-  appOrigin, brandedEmail, detailRows, emailCard, formatEventDateLong, formatTimeRange, sendEmail,
+  appOrigin, brandedEmail, detailRows, emailCard, formatEventDateLong, formatTimeRange, sendBulkEmails,
 } from '../_shared/email.ts';
 import { daysUntil, eventZone, localDate } from '../_shared/eventTime.ts';
 import { notifyGuestsPush } from '../_shared/push.ts';
@@ -42,32 +42,29 @@ Deno.serve(async (req) => {
       const eventUrl = `${appOrigin()}/event/${event.id}`;
       const passUrl = `${appOrigin()}/pass/${event.id}`;
 
-      const results = await Promise.allSettled(guests.map((guest) =>
-        sendEmail({
-          bulk: true,
-          to: guest.guest_email,
-          subject: `Reminder: ${event.title} is ${label}`,
-          html: brandedEmail({
-            kicker: 'Event Reminder',
-            title: event.title,
-            subtitle: `${guest.guest_name ? `Hi ${guest.guest_name}, this` : 'This'} event is happening ${label}.`,
-            bodyHtml: emailCard('Event Details', detailRows([
-              ['📅 Date', formatEventDateLong(event.date)],
-              ['🕐 Time', formatTimeRange(event)],
-              ['📍 Venue', event.venue_name],
-              ['🗺️ Address', event.address],
-              ['👔 Dress code', event.dress_code],
-              ['📋 Entry notes', event.entry_notes],
-            ])),
-            buttons: [
-              { label: 'Open QR Pass', href: passUrl },
-              { label: 'Event Details', href: eventUrl, secondary: true },
-            ],
-            footnote: 'See you there! 🙌',
-          }),
-        })
-      ));
-      totalNotified += results.filter((r) => r.status === 'fulfilled' && r.value.sent).length;
+      const { sent } = await sendBulkEmails(guests.map((guest) => ({
+        to: guest.guest_email,
+        subject: `Reminder: ${event.title} is ${label}`,
+        html: brandedEmail({
+          kicker: 'Event Reminder',
+          title: event.title,
+          subtitle: `${guest.guest_name ? `Hi ${guest.guest_name}, this` : 'This'} event is happening ${label}.`,
+          bodyHtml: emailCard('Event Details', detailRows([
+            ['📅 Date', formatEventDateLong(event.date)],
+            ['🕐 Time', formatTimeRange(event)],
+            ['📍 Venue', event.venue_name],
+            ['🗺️ Address', event.address],
+            ['👔 Dress code', event.dress_code],
+            ['📋 Entry notes', event.entry_notes],
+          ])),
+          buttons: [
+            { label: 'Open QR Pass', href: passUrl },
+            { label: 'Event Details', href: eventUrl, secondary: true },
+          ],
+          footnote: 'See you there! 🙌',
+        }),
+      })));
+      totalNotified += sent;
 
       const time = formatTimeRange(event);
       const push = await notifyGuestsPush(svc, guests, {
