@@ -3,7 +3,7 @@
 // verify_jwt=false — the secret header is the authentication.
 import { hasAutomationSecret, json, serviceClient } from '../_shared/db.ts';
 import {
-  appOrigin, brandedEmail, detailRows, emailCard, formatEventDateLong, sendEmail,
+  appOrigin, brandedEmail, detailRows, emailCard, formatEventDateLong, sendBulkEmails,
 } from '../_shared/email.ts';
 import { timeZoneSuffix } from '../_shared/eventTime.ts';
 import { notifyGuestsPush } from '../_shared/push.ts';
@@ -54,23 +54,19 @@ Deno.serve(async (req) => {
       : `<p style="margin:0;font-size:14px;color:#e8e8f0;line-height:1.6;">The host has updated event details. Check the event page for more info.</p>`;
 
     const eventUrl = `${appOrigin()}/event/${event.id}`;
-    const results = await Promise.allSettled(guests.map((guest) =>
-      sendEmail({
-        bulk: true,
-        to: guest.guest_email,
-        subject: `Update: ${event.title}`,
-        html: brandedEmail({
-          kicker: 'Event Update',
-          title: event.title,
-          subtitle: guest.guest_name
-            ? `Hi ${guest.guest_name}, the host has updated this event.`
-            : 'The host has updated this event.',
-          bodyHtml: emailCard('What changed', cardBody),
-          buttons: [{ label: 'View Event', href: eventUrl }],
-        }),
-      })
-    ));
-    const sent = results.filter((r) => r.status === 'fulfilled' && r.value.sent).length;
+    const { sent } = await sendBulkEmails(guests.map((guest) => ({
+      to: guest.guest_email,
+      subject: `Update: ${event.title}`,
+      html: brandedEmail({
+        kicker: 'Event Update',
+        title: event.title,
+        subtitle: guest.guest_name
+          ? `Hi ${guest.guest_name}, the host has updated this event.`
+          : 'The host has updated this event.',
+        bodyHtml: emailCard('What changed', cardBody),
+        buttons: [{ label: 'View Event', href: eventUrl }],
+      }),
+    })));
 
     // Native push alongside the email. Bursty edits collapse into one banner.
     const labels: Record<string, string> = {

@@ -5,12 +5,11 @@
 import { hasAutomationSecret, json, serviceClient } from '../_shared/db.ts';
 import {
   appOrigin, brandedEmail, detailRows, emailCard, escapeHtml, formatEventDateLong,
-  formatTimeRange, sendEmail,
+  formatTimeRange, sendBulkEmails,
 } from '../_shared/email.ts';
 
 const WINDOW_DAYS = 7;
 const MAX_LISTED = 10;       // events shown in full; the rest are counted
-const SEND_CONCURRENCY = 20; // parallel Resend calls per batch
 
 // deno-lint-ignore no-explicit-any
 type EventRow = any;
@@ -49,32 +48,20 @@ Deno.serve(async (req) => {
       ? `New this week: ${events[0].title}`
       : `${events.length} new events posted this week`;
 
-    let sent = 0;
-    let failed = 0;
-    for (let i = 0; i < recipients.length; i += SEND_CONCURRENCY) {
-      const batch = recipients.slice(i, i + SEND_CONCURRENCY);
-      const results = await Promise.allSettled(batch.map((user) =>
-        sendEmail({
-          bulk: true,
-          to: user.email,
-          subject,
-          html: brandedEmail({
-            kicker: 'New This Week',
-            title: events.length === 1 ? 'A new event just dropped' : `${events.length} new events posted`,
-            subtitle: `${user.full_name ? `Hi ${user.full_name}, these` : 'These'} are recently posted events that we think you'd enjoy.`,
-            bodyHtml,
-            buttons: [{ label: 'Browse all events', href: `${appOrigin()}/guest?tab=discover` }],
-            footnote: 'You get this once a week, only when new events have been posted.',
-          }),
-        })
-      ));
-      for (const r of results) {
-        if (r.status === 'fulfilled' && r.value.sent) sent += 1;
-        else failed += 1;
-      }
-    }
+    const { sent, skipped, failed } = await sendBulkEmails(recipients.map((user) => ({
+      to: user.email,
+      subject,
+      html: brandedEmail({
+        kicker: 'New This Week',
+        title: events.length === 1 ? 'A new event just dropped' : `${events.length} new events posted`,
+        subtitle: `${user.full_name ? `Hi ${user.full_name}, these` : 'These'} are recently posted events that we think you'd enjoy.`,
+        bodyHtml,
+        buttons: [{ label: 'Browse all events', href: `${appOrigin()}/guest?tab=discover` }],
+        footnote: 'You get this once a week, only when new events have been posted.',
+      }),
+    })));
 
-    return json({ ok: true, events: events.length, recipients: recipients.length, sent, failed });
+    return json({ ok: true, events: events.length, recipients: recipients.length, sent, skipped, failed });
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : String(error) }, 500);
   }

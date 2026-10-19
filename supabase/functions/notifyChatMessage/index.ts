@@ -2,7 +2,7 @@
 // database webhook (pg_net) on event_messages INSERT; guarded by
 // AUTOMATION_SECRET. verify_jwt=false — the secret header is the auth.
 import { hasAutomationSecret, json, serviceClient } from '../_shared/db.ts';
-import { appOrigin, brandedEmail, emailCard, escapeHtml, sendEmail } from '../_shared/email.ts';
+import { appOrigin, brandedEmail, emailCard, escapeHtml, sendBulkEmails } from '../_shared/email.ts';
 import { notifyGuestsPush } from '../_shared/push.ts';
 
 Deno.serve(async (req) => {
@@ -53,24 +53,20 @@ Deno.serve(async (req) => {
         .select('business_name').eq('id', event.business_id).maybeSingle();
       if (biz?.business_name) senderName = biz.business_name;
     }
-    const results = await Promise.allSettled(targets.map((guest) =>
-      sendEmail({
-        bulk: true,
-        to: guest.guest_email,
-        subject: `New message from ${senderName} – ${event.title}`,
-        html: brandedEmail({
-          kicker: 'Event Chat',
-          title: event.title,
-          subtitle: guest.guest_name ? `Hi ${guest.guest_name},` : undefined,
-          bodyHtml: emailCard(
-            `Message from ${senderName}`,
-            `<p style="margin:0;font-size:15px;color:#e8e8f0;line-height:1.6;border-left:3px solid #7c3aed;padding-left:14px;text-align:left;">${escapeHtml(message.text || '')}</p>`,
-          ),
-          buttons: [{ label: 'View Event Chat', href: eventUrl }],
-        }),
-      })
-    ));
-    const sent = results.filter((r) => r.status === 'fulfilled' && r.value.sent).length;
+    const { sent } = await sendBulkEmails(targets.map((guest) => ({
+      to: guest.guest_email,
+      subject: `New message from ${senderName} – ${event.title}`,
+      html: brandedEmail({
+        kicker: 'Event Chat',
+        title: event.title,
+        subtitle: guest.guest_name ? `Hi ${guest.guest_name},` : undefined,
+        bodyHtml: emailCard(
+          `Message from ${senderName}`,
+          `<p style="margin:0;font-size:15px;color:#e8e8f0;line-height:1.6;border-left:3px solid #7c3aed;padding-left:14px;text-align:left;">${escapeHtml(message.text || '')}</p>`,
+        ),
+        buttons: [{ label: 'View Event Chat', href: eventUrl }],
+      }),
+    })));
 
     const push = await notifyGuestsPush(svc, targets, {
       title: event.title,
