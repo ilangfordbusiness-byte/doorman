@@ -625,10 +625,12 @@ begin
   end if;
   perform pg_temp.ok('door staff can fetch the door sale token');
 
-  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  -- bob, not dave: dave became door staff on this event (phone staff, above).
+  -- bob is only an invited guest, so he is a non-operator.
+  perform pg_temp.impersonate(bob, 'bob@test.dev');
   begin
     perform public.get_door_sale_token(v_event);
-    raise exception 'FAIL: a stranger fetched the door sale token' using errcode = 'assert_failure';
+    raise exception 'FAIL: a non-operator fetched the door sale token' using errcode = 'assert_failure';
   exception when raise_exception then
     perform pg_temp.ok('get_door_sale_token refuses non-operators');
   end;
