@@ -4,6 +4,7 @@ import { X, UserPlus, Check, Instagram, Ghost, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import UserAvatar from "./UserAvatar";
 import Avatar from "./Avatar";
+import SafetyActions from "./SafetyActions";
 
 // `isBusiness`: the event is hosted by a business account — show the business
 // name + picture only, with no personal email / Instagram / add-friend.
@@ -99,6 +100,16 @@ export default function HostProfileModal({ host, me, onClose, isBusiness = false
               <UserPlus className="w-4 h-4" /> {sending ? "Sending..." : "Add as friend"}
             </Button>
           )
+        )}
+        {!isMe && host.id && (
+          <SafetyActions
+            target={{ type: "user", user_id: host.id }}
+            userId={host.id}
+            userName={host.name}
+            onBlocked={onClose}
+            compact
+            className="mt-4"
+          />
         )}
       </div>
     </div>

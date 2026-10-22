@@ -11,6 +11,7 @@ import Avatar from "../components/Avatar";
 import PromoterAccountSection from "../components/PromoterAccountSection";
 import StripeConnectPanel from "../components/StripeConnectPanel";
 import CollapsibleSection from "../components/CollapsibleSection";
+import BlockedUsersSection from "../components/BlockedUsersSection";
 import ProfilePictureEditor from "../components/ProfilePictureEditor";
 import CreateBusinessDialog from "../components/business/CreateBusinessDialog";
 import { useSwitchAccount } from "@/hooks/useActiveAccount";
@@ -566,6 +567,8 @@ export default function Profile() {
 
       <StripeConnectPanel />
 
+      <BlockedUsersSection />
+
       {user?.role === "admin" && (
         <Link
           to="/admin"
@@ -592,6 +595,12 @@ export default function Profile() {
       >
         <Trash2 className="w-4 h-4 mr-2" /> Delete Account
       </Button>
+
+      <div className="mt-6 flex justify-center gap-4 text-xs text-muted-foreground">
+        <Link to="/terms" className="hover:text-foreground">Terms of Use</Link>
+        <Link to="/privacy" className="hover:text-foreground">Privacy Policy</Link>
+        <a href="mailto:contact@thedoorman.app" className="hover:text-foreground">Contact us</a>
+      </div>
 
       {/* Hidden admin unlock */}
       <div className="mt-10 text-center">

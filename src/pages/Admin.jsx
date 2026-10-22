@@ -22,6 +22,7 @@ const TABS = [
   { id: "dashboard", label: "Dashboard" },
   { id: "users", label: "Users" },
   { id: "events", label: "Events" },
+  { id: "reports", label: "Reports" },
   { id: "audit", label: "Audit" },
 ];
 
@@ -51,6 +52,7 @@ export default function Admin() {
       {tab === "dashboard" && <Dashboard />}
       {tab === "users" && <Users myId={me.id} isSuperAdmin={SUPER_ADMIN_EMAILS.includes(String(me.email || "").toLowerCase())} />}
       {tab === "events" && <Events />}
+      {tab === "reports" && <Reports />}
       {tab === "audit" && <Audit />}
     </div>
   );
@@ -353,6 +355,117 @@ function Events() {
                 onClick={() => { if (window.confirm(`Permanently delete "${ev.title}"? This cannot be undone.`)) act(ev.id, () => api.admin.deleteEvent(ev.id), "Event deleted"); }}>
                 <Trash2 className="w-3.5 h-3.5" /> Delete
               </Button>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+// --- Reports --------------------------------------------------------------
+
+// Content reports from the Report buttons (reportContent edge function). Each
+// one is also emailed to the moderation inbox. Act within 24 hours: delete the
+// message or event, or ban the user, then mark the report resolved.
+const REPORT_STATUSES = ["open", "resolved", "dismissed"];
+
+function Reports() {
+  const { toast } = useToast();
+  const [status, setStatus] = useState("open");
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState("");
+
+  async function load() {
+    setLoading(true);
+    try {
+      setRows(await api.admin.listReports({ status }));
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Couldn't load reports", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { load(); }, [status]);
+
+  async function act(id, fn, msg) {
+    setBusy(id);
+    try {
+      await fn();
+      toast({ title: msg });
+      await load();
+    } catch (e) {
+      toast({ title: e.message || "Action failed", variant: "destructive" });
+    } finally {
+      setBusy("");
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2">
+        {REPORT_STATUSES.map((s) => (
+          <Button key={s} size="sm" variant={status === s ? "default" : "secondary"} className="rounded-lg h-8 capitalize"
+            onClick={() => setStatus(s)}>
+            {s}
+          </Button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="py-16"><LoadingSpinner /></div>
+      ) : rows.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-8">No {status} reports.</p>
+      ) : (
+        rows.map((r) => (
+          <div key={r.id} className="bg-card rounded-xl border border-border p-3 space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-semibold capitalize">{r.reason} · {r.target_type}</p>
+              <p className="text-[11px] text-muted-foreground">{moment(r.created_at).format("MMM D, HH:mm")}</p>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              By {r.reporter?.full_name || r.reporter?.email || "—"}
+              {r.reported && <> · against {r.reported.full_name || r.reported.email}</>}
+              {r.event && <> · event <Link to={`/event/${r.event_id}`} className="text-primary hover:underline">{r.event.title}</Link></>}
+            </p>
+            {r.message_text && (
+              <p className="text-sm bg-secondary/50 rounded-lg px-3 py-2 break-words">"{r.message_text}"</p>
+            )}
+            {r.details && <p className="text-xs text-muted-foreground break-words">Details: {r.details}</p>}
+            <div className="flex flex-wrap gap-2 pt-1">
+              {r.message_id && (
+                <Button size="sm" variant="destructive" className="rounded-lg h-8" disabled={busy === r.id}
+                  onClick={() => act(r.id, () => api.admin.deleteMessage(r.message_id), "Message deleted")}>
+                  <Trash2 className="w-3.5 h-3.5" /> Delete message
+                </Button>
+              )}
+              {r.target_type === "event" && r.event_id && (
+                <Button size="sm" variant="secondary" className="rounded-lg h-8" disabled={busy === r.id}
+                  onClick={() => act(r.id, () => api.admin.updateEventStatus(r.event_id, "unpublish"), "Event unpublished")}>
+                  <EyeOff className="w-3.5 h-3.5" /> Unpublish event
+                </Button>
+              )}
+              {r.reported_user_id && (
+                <Button size="sm" variant="destructive" className="rounded-lg h-8" disabled={busy === r.id}
+                  onClick={() => { if (window.confirm("Ban this user? They will be signed out and unable to sign in.")) act(r.id, () => api.admin.banUser(r.reported_user_id), "User banned"); }}>
+                  <Ban className="w-3.5 h-3.5" /> Ban user
+                </Button>
+              )}
+              {r.status !== "resolved" && (
+                <Button size="sm" variant="secondary" className="rounded-lg h-8" disabled={busy === r.id}
+                  onClick={() => act(r.id, () => api.admin.setReportStatus(r.id, "resolved"), "Report resolved")}>
+                  Resolve
+                </Button>
+              )}
+              {r.status !== "dismissed" && (
+                <Button size="sm" variant="ghost" className="rounded-lg h-8" disabled={busy === r.id}
+                  onClick={() => act(r.id, () => api.admin.setReportStatus(r.id, "dismissed"), "Report dismissed")}>
+                  Dismiss
+                </Button>
+              )}
             </div>
           </div>
         ))

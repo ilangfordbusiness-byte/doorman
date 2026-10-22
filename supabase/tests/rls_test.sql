@@ -980,3 +980,82 @@ insert into public.business_accounts (owner_id, business_email, business_name)
   returning business_name;
 rollback;
 do $$ begin raise notice 'PASS: a new user can create their first business (INSERT ... RETURNING)'; end $$;
+
+-- ---- content reports and user blocks (20261022120000_ugc_safety.sql) ----
+do $test$
+declare
+  alice uuid := '11111111-1111-1111-1111-111111111111';
+  bob   uuid := '22222222-2222-2222-2222-222222222222';
+  dave  uuid := '44444444-4444-4444-4444-444444444444';
+  v_count int;
+  v_report uuid;
+begin
+  -- a user blocks and lists only their own blocks
+  perform pg_temp.impersonate(bob, 'bob@test.dev');
+  insert into public.user_blocks (blocker_id, blocked_id) values (bob, dave);
+  begin
+    insert into public.user_blocks (blocker_id, blocked_id) values (alice, dave);
+    raise exception 'FAIL: user created a block on behalf of someone else';
+  exception when insufficient_privilege then null;
+  end;
+  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  select count(*) into v_count from public.user_blocks;
+  if v_count <> 0 then
+    raise exception 'FAIL: blocked user can see who blocked them';
+  end if;
+  perform pg_temp.ok('users manage only their own blocks, and the blocked user cannot see them');
+
+  -- a blocked pair cannot open a friend request in either direction
+  begin
+    insert into public.friend_requests (sender_id, receiver_id, status) values (dave, bob, 'pending');
+    raise exception 'FAIL: blocked user sent a friend request to the blocker';
+  exception when insufficient_privilege then null;
+  end;
+  perform pg_temp.impersonate(bob, 'bob@test.dev');
+  begin
+    insert into public.friend_requests (sender_id, receiver_id, status) values (bob, dave, 'pending');
+    raise exception 'FAIL: blocker sent a friend request to the blocked user';
+  exception when insufficient_privilege then null;
+  end;
+  perform pg_temp.ok('a blocked pair cannot send friend requests either way');
+
+  -- unblocking lifts the restriction
+  delete from public.user_blocks where blocker_id = bob and blocked_id = dave;
+  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  insert into public.friend_requests (sender_id, receiver_id, status) values (dave, bob, 'pending');
+  delete from public.friend_requests where sender_id = dave and receiver_id = bob;
+  perform pg_temp.ok('unblocking allows friend requests again');
+
+  -- reports: clients cannot insert or read; admins read and resolve
+  begin
+    insert into public.content_reports (reporter_id, target_type, reason) values (dave, 'user', 'spam');
+    raise exception 'FAIL: client inserted a content report directly';
+  exception when insufficient_privilege then null;
+  end;
+  execute 'reset role';
+  insert into public.content_reports (reporter_id, target_type, reported_user_id, reason)
+    values (dave, 'user', bob, 'harassment') returning id into v_report;
+  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  select count(*) into v_count from public.content_reports;
+  if v_count <> 0 then
+    raise exception 'FAIL: non-admin can read content reports';
+  end if;
+  update public.content_reports set status = 'dismissed' where id = v_report;
+  execute 'reset role';
+  if (select status from public.content_reports where id = v_report) <> 'open' then
+    raise exception 'FAIL: non-admin changed a report status';
+  end if;
+  update public.profiles set role = 'admin' where id = alice;
+  perform pg_temp.impersonate(alice, 'alice@test.dev');
+  update public.content_reports set status = 'resolved', resolved_at = now(), resolved_by = alice
+    where id = v_report;
+  select count(*) into v_count from public.content_reports where id = v_report and status = 'resolved';
+  if v_count <> 1 then
+    raise exception 'FAIL: admin could not read or resolve a report';
+  end if;
+  execute 'reset role';
+  update public.profiles set role = 'user' where id = alice;
+  perform pg_temp.ok('content reports are admin-only: clients cannot insert, read or resolve them');
+
+  execute 'reset role';
+end $test$;
