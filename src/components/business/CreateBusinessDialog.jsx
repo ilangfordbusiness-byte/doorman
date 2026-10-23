@@ -50,7 +50,7 @@ export default function CreateBusinessDialog({ user, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-end md:items-center justify-center z-50 px-4 py-4">
+    <div className="fixed inset-0 bg-black/70 flex items-end md:items-center justify-center z-[60] px-4 py-4">
       <div className="bg-card rounded-2xl border border-border p-6 w-full max-w-sm max-h-[85vh] overflow-y-auto">
         <div className="flex items-center gap-2 mb-2">
           <Building2 className="w-5 h-5 text-primary" />

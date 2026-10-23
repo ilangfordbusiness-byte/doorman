@@ -95,7 +95,7 @@ export default function TransferTicketDialog({ entry, event, user, onClose, onTr
   const ticketLabel = entry.notes || entry.guest_name || "Ticket";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-w-md bg-card border border-border rounded-t-3xl sm:rounded-3xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="flex items-center gap-2">

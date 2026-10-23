@@ -254,6 +254,7 @@ export default function Login() {
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">@</span>
                 <Input className={`${inputCls} pl-7`} placeholder="Instagram handle" autoComplete="off"
+                  autoCapitalize="none" autoCorrect="off" spellCheck={false}
                   value={instagram} onChange={(e) => setInstagram(e.target.value.replace(/^@/, ""))} required />
               </div>
               <Input className={inputCls} type="password" name="password" placeholder="Password (min 6 characters)"

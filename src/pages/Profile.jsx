@@ -610,7 +610,7 @@ export default function Profile() {
       </div>
 
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/70 flex items-end justify-center z-50 px-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}>
+        <div className="fixed inset-0 bg-black/70 flex items-end justify-center z-[60] px-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}>
           <div className="bg-card rounded-2xl border border-border p-6 w-full max-w-sm">
             <p className="font-heading font-bold text-lg mb-1">Delete Account</p>
             <p className="text-sm text-muted-foreground mb-4">This closes your account for good: you'll be signed out and unable to sign back in, and your name, phone, Instagram and photo are removed. Type <strong>DELETE</strong> to confirm.</p>
@@ -650,7 +650,7 @@ export default function Profile() {
       )}
 
       {showAdminPin && (
-        <div className="fixed inset-0 bg-black/70 flex items-end justify-center z-50 pb-8 px-4">
+        <div className="fixed inset-0 bg-black/70 flex items-end justify-center z-[60] pb-8 px-4">
           <div className="bg-card rounded-2xl border border-border p-6 w-full max-w-sm">
             <p className="text-sm font-semibold mb-3 text-center">Admin Access</p>
             <Input

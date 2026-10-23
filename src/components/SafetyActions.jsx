@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/data";
 import { Flag, Ban, X } from "lucide-react";
@@ -52,8 +53,10 @@ export default function SafetyActions({ target, userId, userName, onBlocked, com
   );
 }
 
+// Portalled to <body>: the event page wraps its content in a stacking context,
+// so a fixed overlay rendered in place can sit under later page elements.
 function Sheet({ title, onClose, children }) {
-  return (
+  return createPortal(
     <div className="fixed inset-0 bg-black/70 z-[70] flex items-center justify-center px-4" onClick={onClose}>
       <div
         className="bg-card rounded-2xl border border-border p-5 w-full max-w-sm relative text-left"
@@ -70,7 +73,8 @@ function Sheet({ title, onClose, children }) {
         <h3 className="font-heading font-semibold text-base pr-8 mb-3">{title}</h3>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

@@ -200,6 +200,7 @@ export default function PhoneSetupGate({ children }) {
         <div className="relative mb-5">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">@</span>
           <Input placeholder="yourhandle" value={instagram}
+            autoCapitalize="none" autoCorrect="off" spellCheck={false}
             onChange={(e) => setInstagram(e.target.value.replace(/^@/, ""))}
             className="bg-secondary/50 border-border h-12 rounded-xl pl-8" autoFocus
             onKeyDown={(e) => e.key === "Enter" && saveInstagram()} />
