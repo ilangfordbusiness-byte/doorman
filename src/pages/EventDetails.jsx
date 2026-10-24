@@ -27,6 +27,7 @@ import EventChat from "../components/EventChat";
 import UserAvatar from "../components/UserAvatar";
 import Avatar from "../components/Avatar";
 import HostProfileModal from "../components/HostProfileModal";
+import SafetyActions from "../components/SafetyActions";
 import CoHostsSection from "../components/CoHostsSection";
 import LineupSection from "../components/LineupSection";
 import FitText from "../components/FitText";
@@ -156,6 +157,22 @@ export default function EventDetails() {
   const isCoHost = user && coHosts.some((c) => c.email === user.email && c.status === "accepted");
   const canManage = event?.can_manage || isHost || isCoHost;
   const myCoHostInvite = user ? coHosts.find((c) => c.email === user.email && c.status === "pending") : null;
+  const hostId = event?.host_id;
+  const { data: hostBlocked = false } = useQuery({
+    queryKey: ["blocked", hostId],
+    queryFn: () => api.safety.isBlocked(hostId),
+    enabled: !!hostId && !canManage,
+  });
+
+  async function handleUnblockHost() {
+    try {
+      await api.safety.unblock(hostId);
+      queryClient.invalidateQueries();
+      toast({ title: `${event.host_name || "Host"} unblocked` });
+    } catch (e) {
+      toast({ title: e?.message || "Couldn't unblock", variant: "destructive" });
+    }
+  }
 
   async function handleAcceptCoHost() {
     setAccepting(true);
@@ -280,6 +297,12 @@ export default function EventDetails() {
             <EventStatusChip event={event} tiers={tiers} />
           </div>
           <h1 className="font-heading font-bold text-2xl"><ShimmerText>{event.title}</ShimmerText></h1>
+          {hostBlocked && (
+            <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2">
+              <p className="text-xs text-muted-foreground">You blocked this host. Their events and messages are hidden.</p>
+              <Button size="sm" variant="secondary" onClick={handleUnblockHost}>Unblock</Button>
+            </div>
+          )}
           <div className="flex items-center gap-2 mt-2 flex-wrap">
             <button
               onClick={() =>
@@ -621,9 +644,18 @@ export default function EventDetails() {
             )}
           </div>
         )}
+        {!canManage && !hostBlocked && (
+          <SafetyActions
+            target={{ type: "event", event_id: id }}
+            userId={hostId}
+            userName={event.host_name}
+            onBlocked={() => navigate("/guest")}
+            className="pt-2"
+          />
+        )}
         {showHostModal && (
           <HostProfileModal
-            host={{ name: event.host_name, email: event.host_email, picture: event.host_picture }}
+            host={{ id: hostId, name: event.host_name, email: event.host_email, picture: event.host_picture }}
             isBusiness={event.host_is_business}
             me={user}
             onClose={() => setShowHostModal(false)}

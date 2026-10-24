@@ -11,6 +11,7 @@ import Avatar from "../components/Avatar";
 import PromoterAccountSection from "../components/PromoterAccountSection";
 import StripeConnectPanel from "../components/StripeConnectPanel";
 import CollapsibleSection from "../components/CollapsibleSection";
+import BlockedUsersSection from "../components/BlockedUsersSection";
 import ProfilePictureEditor from "../components/ProfilePictureEditor";
 import CreateBusinessDialog from "../components/business/CreateBusinessDialog";
 import { useSwitchAccount } from "@/hooks/useActiveAccount";
@@ -566,6 +567,8 @@ export default function Profile() {
 
       <StripeConnectPanel />
 
+      <BlockedUsersSection />
+
       {user?.role === "admin" && (
         <Link
           to="/admin"
@@ -593,6 +596,12 @@ export default function Profile() {
         <Trash2 className="w-4 h-4 mr-2" /> Delete Account
       </Button>
 
+      <div className="mt-6 flex justify-center gap-4 text-xs text-muted-foreground">
+        <Link to="/terms" className="hover:text-foreground">Terms of Use</Link>
+        <Link to="/privacy" className="hover:text-foreground">Privacy Policy</Link>
+        <a href="mailto:contact@thedoorman.app" className="hover:text-foreground">Contact us</a>
+      </div>
+
       {/* Hidden admin unlock */}
       <div className="mt-10 text-center">
         <button onClick={handleVersionTap} className="text-[10px] text-muted-foreground/30 select-none">
@@ -601,7 +610,7 @@ export default function Profile() {
       </div>
 
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/70 flex items-end justify-center z-50 px-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}>
+        <div className="fixed inset-0 bg-black/70 flex items-end justify-center z-[60] px-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}>
           <div className="bg-card rounded-2xl border border-border p-6 w-full max-w-sm">
             <p className="font-heading font-bold text-lg mb-1">Delete Account</p>
             <p className="text-sm text-muted-foreground mb-4">This closes your account for good: you'll be signed out and unable to sign back in, and your name, phone, Instagram and photo are removed. Type <strong>DELETE</strong> to confirm.</p>
@@ -641,7 +650,7 @@ export default function Profile() {
       )}
 
       {showAdminPin && (
-        <div className="fixed inset-0 bg-black/70 flex items-end justify-center z-50 pb-8 px-4">
+        <div className="fixed inset-0 bg-black/70 flex items-end justify-center z-[60] pb-8 px-4">
           <div className="bg-card rounded-2xl border border-border p-6 w-full max-w-sm">
             <p className="text-sm font-semibold mb-3 text-center">Admin Access</p>
             <Input

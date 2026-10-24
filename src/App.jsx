@@ -14,6 +14,7 @@ import Layout from './components/Layout';
 import ImpersonationBanner from './components/ImpersonationBanner';
 import Login from './pages/Login';
 import Privacy from './pages/Privacy';
+import Terms from './pages/Terms';
 import AuthConfirm from './pages/AuthConfirm';
 import Unsubscribe from './pages/Unsubscribe';
 import NativeReturn from './pages/NativeReturn';
@@ -83,6 +84,9 @@ const AuthenticatedApp = () => {
   // Public pages, reachable with no session (Google's consent screen links here).
   if (pathname === '/privacy') {
     return <Privacy />;
+  }
+  if (pathname === '/terms') {
+    return <Terms />;
   }
   // Auth email links land here with a token hash; there is no session yet.
   if (pathname === '/auth/confirm') {

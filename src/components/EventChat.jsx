@@ -3,6 +3,7 @@ import { api } from "@/api/data";
 import { Send, MessageCircle } from "lucide-react";
 import UserAvatar from "./UserAvatar";
 import Avatar from "./Avatar";
+import SafetyActions from "./SafetyActions";
 
 // One-way channel: the host and accepted co-hosts post, everyone on the
 // guestlist reads. RLS enforces it; `canPost` only decides what to render.
@@ -11,7 +12,15 @@ export default function EventChat({ eventId, user, canPost = false, hostIsBusine
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [blocked, setBlocked] = useState(() => new Set());
+  const [selectedId, setSelectedId] = useState(null);
   const listRef = useRef(null);
+
+  // The list query already drops blocked senders; realtime inserts do not go
+  // through it, so the rendered list is filtered against this set too.
+  useEffect(() => {
+    api.safety.blockedIds().then(setBlocked).catch(() => {});
+  }, [eventId]);
 
   useEffect(() => {
     api.entities.EventMessage.filter({ event_id: eventId }, "created_date", 100).then(setMessages);
@@ -31,6 +40,8 @@ export default function EventChat({ eventId, user, canPost = false, hostIsBusine
     const list = listRef.current;
     if (list) list.scrollTo({ top: list.scrollHeight, behavior: "smooth" });
   }, [messages]);
+
+  const visible = messages.filter((m) => !blocked.has(m.sender_id));
 
   async function handleSend() {
     if (!text.trim() || sending || !canSend) return;
@@ -59,12 +70,12 @@ export default function EventChat({ eventId, user, canPost = false, hostIsBusine
       <div className="bg-secondary/30 rounded-2xl border border-border/50 flex flex-col" style={{ height: 320 }}>
         {/* Messages */}
         <div ref={listRef} className="flex-1 overflow-y-auto p-3 space-y-2">
-          {messages.length === 0 && (
+          {visible.length === 0 && (
             <div className="flex items-center justify-center h-full">
               <p className="text-xs text-muted-foreground">No messages yet — start the conversation!</p>
             </div>
           )}
-          {messages.map((msg) => {
+          {visible.map((msg) => {
             const isMe = msg.sender_email === user.email;
             // Host messages on a business-hosted event show the business identity.
             const asBusiness = msg.is_host && hostIsBusiness;
@@ -85,13 +96,28 @@ export default function EventChat({ eventId, user, canPost = false, hostIsBusine
                       <span className="text-[9px] bg-primary/20 text-primary px-1.5 py-0.5 rounded-full font-semibold">Host</span>
                     )}
                   </div>
-                  <div className={`px-3 py-2 rounded-2xl text-sm leading-snug ${
-                    isMe
-                      ? "bg-primary text-primary-foreground rounded-tr-sm"
-                      : "bg-secondary text-foreground rounded-tl-sm"
-                  }`}>
+                  <button
+                    type="button"
+                    disabled={isMe}
+                    onClick={() => setSelectedId(selectedId === msg.id ? null : msg.id)}
+                    className={`text-left px-3 py-2 rounded-2xl text-sm leading-snug ${
+                      isMe
+                        ? "bg-primary text-primary-foreground rounded-tr-sm"
+                        : "bg-secondary text-foreground rounded-tl-sm"
+                    }`}
+                  >
                     {msg.text}
-                  </div>
+                  </button>
+                  {!isMe && selectedId === msg.id && (
+                    <SafetyActions
+                      target={{ type: "message", message_id: msg.id }}
+                      userId={msg.sender_id}
+                      userName={displayName}
+                      onBlocked={() => setBlocked((prev) => new Set(prev).add(msg.sender_id))}
+                      compact
+                      className="justify-start pt-0.5"
+                    />
+                  )}
                 </div>
               </div>
             );
@@ -119,7 +145,7 @@ export default function EventChat({ eventId, user, canPost = false, hostIsBusine
             </>
           ) : (
             <p className="text-xs text-muted-foreground text-center py-2 flex-1">
-              Only the host can send messages here.
+              Only the host can send messages here. Tap a message to report it.
             </p>
           )}
         </div>

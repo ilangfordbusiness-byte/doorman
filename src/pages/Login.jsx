@@ -254,6 +254,7 @@ export default function Login() {
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">@</span>
                 <Input className={`${inputCls} pl-7`} placeholder="Instagram handle" autoComplete="off"
+                  autoCapitalize="none" autoCorrect="off" spellCheck={false}
                   value={instagram} onChange={(e) => setInstagram(e.target.value.replace(/^@/, ""))} required />
               </div>
               <Input className={inputCls} type="password" name="password" placeholder="Password (min 6 characters)"
@@ -345,8 +346,18 @@ export default function Login() {
         {notice && <p className="mt-4 text-sm text-emerald-400">{notice}</p>}
         {error && <p className="mt-4 text-sm text-red-500">{error}</p>}
 
-        <p className="mt-10 text-xs text-muted-foreground/70">
+        <p className="mt-8 text-xs text-muted-foreground">
+          By continuing, you agree to the{" "}
+          <a href="/terms" className="text-foreground underline underline-offset-2">Terms of Use</a>
+          {" "}and{" "}
+          <a href="/privacy" className="text-foreground underline underline-offset-2">Privacy Policy</a>.
+          {" "}DoorMan has no tolerance for objectionable content or abusive users.
+        </p>
+
+        <p className="mt-6 text-xs text-muted-foreground/70">
           © {new Date().getFullYear()} Doorman LTD ·{" "}
+          <a href="/terms" className="hover:text-foreground underline underline-offset-2">Terms of Use</a>
+          {" "}·{" "}
           <a href="/privacy" className="hover:text-foreground underline underline-offset-2">Privacy Policy</a>
         </p>
       </div>

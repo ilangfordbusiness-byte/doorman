@@ -26,6 +26,7 @@ async function uid() {
 supabase.auth.onAuthStateChange((_event, session) => {
   cachedUid = session?.user?.id ?? null;
   emailToId.clear();
+  blockedCache = null;
 });
 
 const emailToId = new Map();
@@ -58,6 +59,27 @@ const PROFILE_JOIN = "email, full_name, avatar_url";
 // DJ lineup, search) so they disappear instead of lingering as "Deleted user".
 const isDeletedEmail = (email) => /@deleted\.doorman$/i.test(String(email || ""));
 const isDeletedProfile = (p) => !!p && (isDeletedEmail(p.email) || p.full_name === "Deleted user");
+
+// Users the signed-in user has blocked (App Store Guideline 1.2). Their events,
+// chat messages and profiles are hidden from lists and search, like deleted
+// accounts above. A direct link still opens (the page shows a "blocked"
+// banner), so a ticket the blocker already holds keeps working. The database
+// itself stops a blocked pair from sending friend requests.
+let blockedCache = null;
+async function blockedSets() {
+  if (blockedCache) return blockedCache;
+  const me = await uid();
+  if (!me) return { ids: new Set(), emails: new Set() };
+  const { data } = await supabase
+    .from("user_blocks").select("blocked_id, blocked:profiles!user_blocks_blocked_id_fkey(email)")
+    .eq("blocker_id", me);
+  blockedCache = {
+    ids: new Set((data ?? []).map((b) => b.blocked_id)),
+    emails: new Set((data ?? []).map((b) => b.blocked?.email?.toLowerCase()).filter(Boolean)),
+  };
+  return blockedCache;
+}
+const isBlockedEmail = (sets, email) => !!email && sets.emails.has(String(email).toLowerCase());
 
 const ENTITIES = {
   Event: {
@@ -203,6 +225,8 @@ const ENTITIES = {
       if (key === "host_email") return ["host_id", await resolveUserId(value)];
       return [key, value];
     },
+    // Lists drop events hosted by a blocked user; a lookup by id still returns it.
+    hideBlocked: (r, sets, query) => !("id" in query) && sets.ids.has(r.host_id),
     // Managers additionally get invite_code / staff_code / host_notes.
     async enrich(rows) {
       // Business-hosted events show the business's name + picture as the host.
@@ -351,6 +375,7 @@ const ENTITIES = {
     toApp: (r) => ({
       ...base(r),
       event_id: r.event_id,
+      sender_id: r.sender_id,
       text: r.text,
       sender_email: r.sender?.email ?? null,
       sender_name: r.sender?.full_name ?? "",
@@ -359,6 +384,7 @@ const ENTITIES = {
     }),
     // Hide chat messages from users who deleted their account.
     hideRow: (r) => isDeletedEmail(r.sender_email),
+    hideBlocked: (r, sets) => sets.ids.has(r.sender_id),
     async fromApp(obj, isCreate) {
       const out = {};
       if ("event_id" in obj) out.event_id = obj.event_id;
@@ -703,6 +729,10 @@ function makeEntity(name) {
     throwOn(error);
     let rows = (data ?? []).map(def.toApp);
     if (def.hideRow) rows = rows.filter((row) => !def.hideRow(row));
+    if (def.hideBlocked && rows.length) {
+      const sets = await blockedSets();
+      if (sets.ids.size) rows = rows.filter((row) => !def.hideBlocked(row, sets, query));
+    }
     if (def.enrich) rows = await def.enrich(rows);
     return rows;
   }
@@ -887,7 +917,8 @@ const auth = {
     }
     const { data, error } = await q.limit(limit);
     throwOn(error);
-    return (data ?? []).map(profileToUser);
+    const sets = await blockedSets();
+    return (data ?? []).filter((p) => !sets.ids.has(p.id)).map(profileToUser);
   },
   // Search business accounts by name (via the anon-readable business_public
   // view). Tagged is_business so search UIs can render them distinctly.
@@ -1119,22 +1150,45 @@ const functions = {
         return rpc("get_guest_dashboard");
       case "getNotifications":
         return rpc("get_notifications");
-      case "getEventAttendees":
-        return rpc("get_event_attendees", {
+      case "getEventAttendees": {
+        const res = await rpc("get_event_attendees", {
           p_event_id: body.event_id,
           p_offset: body.offset ?? 0,
           p_limit: body.limit ?? 50,
         });
-      case "getFriendSuggestions":
-        return rpc("get_friend_suggestions", {
+        const sets = await blockedSets();
+        if (Array.isArray(res.data?.attendees)) {
+          res.data.attendees = res.data.attendees.filter((a) => !isBlockedEmail(sets, a?.email));
+        }
+        return res;
+      }
+      case "getFriendSuggestions": {
+        const res = await rpc("get_friend_suggestions", {
           p_offset: body.offset ?? 0,
           p_limit: body.limit ?? 20,
         });
-      case "getActivityFeed":
-        return rpc("get_activity_feed", {
+        const sets = await blockedSets();
+        if (Array.isArray(res.data?.items)) {
+          res.data.items = res.data.items.filter((u) => !isBlockedEmail(sets, u?.email));
+        }
+        return res;
+      }
+      case "getActivityFeed": {
+        const res = await rpc("get_activity_feed", {
           p_offset: body.offset ?? 0,
           p_limit: body.limit ?? 20,
         });
+        // Drop blocked people from each item, and items left with no one.
+        const sets = await blockedSets();
+        if (sets.emails.size && Array.isArray(res.data?.items)) {
+          res.data.items = res.data.items
+            .map((it) => (Array.isArray(it?.actors)
+              ? { ...it, actors: it.actors.filter((a) => !isBlockedEmail(sets, a?.email)) }
+              : it))
+            .filter((it) => !Array.isArray(it?.actors) || it.actors.length > 0);
+        }
+        return res;
+      }
       case "resolvePromoterRef": {
         const res = await rpc("resolve_promoter_ref", {
           p_event_id: body.event_id,
@@ -1276,6 +1330,28 @@ const admin = {
   },
   deleteMessage(messageId) {
     return invokeEdge("adminEvents", { action: "delete_message", message_id: messageId });
+  },
+  async listReports({ status = "open" } = {}) {
+    let q = supabase
+      .from("content_reports")
+      .select(`id, target_type, event_id, message_id, reported_user_id, message_text, reason,
+        details, status, created_at, resolved_at,
+        reporter:profiles!content_reports_reporter_id_fkey(${PROFILE_JOIN}),
+        reported:profiles!content_reports_reported_user_id_fkey(${PROFILE_JOIN}),
+        event:events(title)`)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (status) q = q.eq("status", status);
+    const { data, error } = await q;
+    throwOn(error);
+    return data ?? [];
+  },
+  async setReportStatus(reportId, status) {
+    const { error } = await supabase
+      .from("content_reports")
+      .update({ status, resolved_at: status === "open" ? null : new Date().toISOString(), resolved_by: status === "open" ? null : await uid() })
+      .eq("id", reportId);
+    throwOn(error);
   },
   async listAuditLog() {
     const { data, error } = await supabase
@@ -1439,4 +1515,56 @@ const djs = {
   },
 };
 
-export const api = { entities, auth, functions, integrations, admin, businesses, push, djs };
+// ---------------------------------------------------------------------------
+// Safety: report content and block users (App Store Guideline 1.2).
+// ---------------------------------------------------------------------------
+const safety = {
+  // target: { type: "event" | "message" | "user", event_id?, message_id?, user_id? }
+  report(target, reason, details = "") {
+    const { type, ...ids } = target;
+    return invokeEdge("reportContent", { target_type: type, ...ids, reason, details });
+  },
+  async listBlocked() {
+    const me = await uid();
+    if (!me) return [];
+    const { data, error } = await supabase
+      .from("user_blocks")
+      .select(`blocked_id, created_at, blocked:profiles!user_blocks_blocked_id_fkey(${PROFILE_JOIN})`)
+      .eq("blocker_id", me)
+      .order("created_at", { ascending: false });
+    throwOn(error);
+    return (data ?? []).map((b) => ({
+      id: b.blocked_id,
+      email: b.blocked?.email ?? null,
+      full_name: b.blocked?.full_name ?? "",
+      picture: b.blocked?.avatar_url ?? "",
+      blocked_at: b.created_at,
+    }));
+  },
+  async blockedIds() {
+    return new Set((await blockedSets()).ids);
+  },
+  async isBlocked(userId) {
+    return !!userId && (await blockedSets()).ids.has(userId);
+  },
+  // Blocking also ends any friendship or pending request between the two.
+  async block(userId) {
+    const me = await uid();
+    if (!me || !userId || userId === me) throw new Error("Cannot block this user");
+    const { error } = await supabase
+      .from("user_blocks").upsert({ blocker_id: me, blocked_id: userId }, { onConflict: "blocker_id,blocked_id", ignoreDuplicates: true });
+    throwOn(error);
+    await supabase.from("friend_requests").delete()
+      .or(`and(sender_id.eq.${me},receiver_id.eq.${userId}),and(sender_id.eq.${userId},receiver_id.eq.${me})`);
+    blockedCache = null;
+  },
+  async unblock(userId) {
+    const me = await uid();
+    const { error } = await supabase
+      .from("user_blocks").delete().eq("blocker_id", me).eq("blocked_id", userId);
+    throwOn(error);
+    blockedCache = null;
+  },
+};
+
+export const api = { entities, auth, functions, integrations, admin, businesses, push, djs, safety };
