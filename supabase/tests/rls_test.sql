@@ -383,6 +383,43 @@ begin
   end;
   perform pg_temp.ok('anon sees only published events, nothing else');
 
+  -- ---- logged-out event preview (get_event_people / get_event_by_invite) ----
+  execute 'reset role';
+  insert into public.events (host_id, title, date, start_time, status, is_public)
+    values (alice, 'Public Preview', '2026-09-10', '21:00', 'published', true)
+    returning id into v_id;
+  perform pg_temp.go_anon();
+  if public.get_event_people(v_id) is null then
+    raise exception 'FAIL: anon cannot preview a public published event' using errcode = 'assert_failure';
+  end if;
+  if (public.get_event_people(v_id) ->> 'host_name') is distinct from 'Alice Host' then
+    raise exception 'FAIL: get_event_people host_name wrong: %', public.get_event_people(v_id) ->> 'host_name';
+  end if;
+  perform pg_temp.ok('anon can preview a public event''s host / DJ / co-hosts');
+
+  -- draft and private events are NOT previewable by id (public links only)
+  if public.get_event_people(v_draft) is not null then
+    raise exception 'FAIL: get_event_people returned a draft event' using errcode = 'assert_failure';
+  end if;
+  execute 'reset role';
+  update public.events set is_public = false where id = v_id;
+  perform pg_temp.go_anon();
+  if public.get_event_people(v_id) is not null then
+    raise exception 'FAIL: get_event_people returned a private event by id' using errcode = 'assert_failure';
+  end if;
+  perform pg_temp.ok('draft / private events are not previewable by id');
+
+  -- private events still preview through their invite code, host name included
+  execute 'reset role';
+  select invite_code into v_text from public.events where id = v_id;
+  perform pg_temp.go_anon();
+  if (public.get_event_by_invite(v_text) ->> 'host_name') is distinct from 'Alice Host' then
+    raise exception 'FAIL: get_event_by_invite is missing the host display' using errcode = 'assert_failure';
+  end if;
+  perform pg_temp.ok('invite-code preview carries the host display');
+  execute 'reset role';
+  delete from public.events where id = v_id;
+
   -- ---- staff added by phone: access + backlink ----
   perform pg_temp.impersonate(alice, 'alice@test.dev');
   insert into public.event_staff (event_id, phone, name, role, created_by)

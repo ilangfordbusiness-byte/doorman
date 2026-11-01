@@ -225,6 +225,15 @@ const ENTITIES = {
       if (key === "host_email") return ["host_id", await resolveUserId(value)];
       return [key, value];
     },
+    // Host / DJ / co-host display for a PUBLIC published event, readable while
+    // logged out (the event-preview page uses it to fill in the people that
+    // profiles/event_dj_lineup/event_co_hosts hide from anon). Returns null when
+    // the event isn't a public published one.
+    async people(eventId) {
+      const { data, error } = await supabase.rpc("get_event_people", { p_event_id: eventId });
+      if (error) throw error;
+      return data || null;
+    },
     // Lists drop events hosted by a blocked user; a lookup by id still returns it.
     hideBlocked: (r, sets, query) => !("id" in query) && sets.ids.has(r.host_id),
     // Managers additionally get invite_code / staff_code / host_notes.
@@ -737,7 +746,7 @@ function makeEntity(name) {
     return rows;
   }
 
-  return {
+  const entity = {
     filter: runFilter,
     list: (sort, limit, skip) => runFilter({}, sort, limit, skip),
     async get(id) {
@@ -834,6 +843,21 @@ function makeEntity(name) {
       return () => supabase.removeChannel(channel);
     },
   };
+
+  // Expose any extra helper methods declared on the entity definition (e.g.
+  // TicketTier.doorTiers / doorToken, Event.people) — anything beyond the
+  // standard CRUD and the mapping/RLS hooks handled above. Without this they
+  // live on the raw def but never reach api.entities.<Name>.
+  const RESERVED = new Set([
+    "table", "readTable", "select", "toApp", "fromApp", "enrich", "afterWrite",
+    "filterKey", "hideRow", "hideBlocked", "create", "update", "delete",
+  ]);
+  for (const [key, fn] of Object.entries(def)) {
+    if (typeof fn === "function" && !RESERVED.has(key) && !(key in entity)) {
+      entity[key] = (...args) => fn.apply(def, args);
+    }
+  }
+  return entity;
 }
 
 const entities = Object.fromEntries(

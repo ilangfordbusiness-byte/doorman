@@ -12,7 +12,6 @@ import { api } from "@/api/data";
 import { shareUrl } from "@/lib/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { tierSoldOut, tierScheduled, nextTierRelease, formatReleaseAt } from "@/lib/tiers";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useStripeStatus } from "@/hooks/useStripeStatus";
 import { useBusinessStripeStatus } from "@/hooks/useBusinessStripeStatus";
 import {
@@ -40,7 +39,11 @@ import { loadPixel, trackPixel, captureMetaClick } from "@/lib/metaPixel";
 // Shared classes for the host dashboard action buttons so they line up as a uniform grid.
 const HOST_ACTION_BUTTON = "w-full h-12 rounded-xl gap-2 font-semibold";
 
-async function loadEvent(id, me) {
+async function loadEvent(id, authed) {
+  // Signed-out visitors get a read-only preview (see below); signed-in users
+  // get the full page (guestlist, their pass, manager tools…).
+  if (!authed) return loadEventPreview(id);
+  const me = await api.auth.me();
   const events = await api.entities.Event.filter({ id });
   if (!events.length) return { notFound: true };
   let evt = events[0];
@@ -85,16 +88,62 @@ async function loadEvent(id, me) {
   };
 }
 
+// Read-only preview shown to a signed-out visitor who opens a shared link.
+// Only PUBLIC published events open this way (private events preview through
+// their invite link). Host/DJ/co-host come from the anon-readable people RPC
+// since those relations are otherwise hidden from logged-out users.
+async function loadEventPreview(id) {
+  const events = await api.entities.Event.filter({ id });
+  if (!events.length) return { notFound: true };
+  const evt = events[0];
+  if (evt.status !== "published" || !evt.is_public) return { preview: true, locked: true };
+  const [people, tierList] = await Promise.all([
+    api.entities.Event.people(id).catch(() => null),
+    api.entities.TicketTier.filter({ event_id: id }).catch(() => []),
+  ]);
+  const publicTiers = tierList
+    .filter((t) => !t.door_only)
+    .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+  const event = people
+    ? {
+        ...evt,
+        ...people,
+        co_host_emails: (people.co_hosts || [])
+          .filter((c) => c.status === "accepted")
+          .map((c) => c.email),
+      }
+    : evt;
+  return {
+    notFound: false,
+    preview: true,
+    event,
+    user: null,
+    myEntry: null,
+    stats: { total: 0, invited: 0, approved: 0, checked_in: 0 },
+    staff: [],
+    tiers: publicTiers,
+  };
+}
+
 export default function EventDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { data: me } = useCurrentUser();
+  // null while we check for a session; the query waits for this so a logged-out
+  // visitor loads the preview path rather than briefly trying the full page.
+  const [authed, setAuthed] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    api.auth.isAuthenticated()
+      .then((ok) => { if (alive) setAuthed(ok); })
+      .catch(() => { if (alive) setAuthed(false); });
+    return () => { alive = false; };
+  }, []);
   const { data, isLoading: loading, isError } = useQuery({
-    queryKey: ["event", id],
-    queryFn: () => loadEvent(id, me),
-    enabled: !!me,
+    queryKey: ["event", id, authed],
+    queryFn: () => loadEvent(id, authed),
+    enabled: authed !== null,
     staleTime: 30 * 1000,
   });
 
@@ -161,7 +210,7 @@ export default function EventDetails() {
   const { data: hostBlocked = false } = useQuery({
     queryKey: ["blocked", hostId],
     queryFn: () => api.safety.isBlocked(hostId),
-    enabled: !!hostId && !canManage,
+    enabled: !!hostId && !canManage && !!user,
   });
 
   async function handleUnblockHost() {
@@ -256,7 +305,17 @@ export default function EventDetails() {
     setTimeout(() => setCopied(false), 2000);
   }
 
-  if (loading) return <LoadingSpinner fullScreen />;
+  if (authed === null || loading) return <LoadingSpinner fullScreen />;
+
+  // Signed-out visitor opened a private / not-yet-public event by id: there's
+  // nothing to preview, so point them at sign-in (or their invite link).
+  if (data?.locked) return (
+    <div className="max-w-lg mx-auto px-4 pt-20 text-center">
+      <h2 className="font-heading font-bold text-lg mb-2">Sign in to view this event</h2>
+      <p className="text-sm text-muted-foreground mb-6">This event is private or not public yet. Sign in to see it, or open it from your invite link.</p>
+      <Button onClick={() => api.auth.redirectToLogin(window.location.href)}>Sign in</Button>
+    </div>
+  );
 
   if (loadError) return (
     <div className="max-w-lg mx-auto px-4 pt-20 text-center">
@@ -634,7 +693,7 @@ export default function EventDetails() {
               </div>
             )}
             <EventJoinActions event={event} me={user} myEntry={myEntry} soldOut={allSoldOut} onSaleFrom={onSaleFrom} onChanged={() => queryClient.invalidateQueries(["event", id])} />
-            {event.visibility !== "none" && (myEntry || event.is_paid) && (
+            {user && event.visibility !== "none" && (myEntry || event.is_paid) && (
               <WhoIsGoing
                 eventId={id}
                 myEmail={user?.email}
@@ -644,7 +703,7 @@ export default function EventDetails() {
             )}
           </div>
         )}
-        {!canManage && !hostBlocked && (
+        {user && !canManage && !hostBlocked && (
           <SafetyActions
             target={{ type: "event", event_id: id }}
             userId={hostId}

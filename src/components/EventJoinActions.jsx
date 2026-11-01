@@ -19,10 +19,38 @@ export default function EventJoinActions({ event, me, myEntry, soldOut = false, 
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
 
-  if (!me || !event) return null;
+  if (!event) return null;
 
   const isPaid = !!event.is_paid;
   const isPublic = !!event.is_public;
+
+  // Signed-out preview: show the real primary CTA, but tapping it sends the
+  // visitor to sign up and then straight back here to actually join or buy.
+  if (!me) {
+    const promptSignup = () => api.auth.redirectToLogin(window.location.href);
+    if (isPaid) {
+      if (soldOut || onSaleFrom) {
+        return (
+          <Button disabled className="w-full h-14 rounded-xl font-bold text-base gap-2 opacity-60">
+            {soldOut
+              ? <><Ticket className="w-5 h-5" /> Sold Out</>
+              : <><Clock className="w-5 h-5" /> On sale {formatReleaseAt(onSaleFrom)}</>}
+          </Button>
+        );
+      }
+      return (
+        <CtaButton onClick={promptSignup}>
+          <Ticket className="w-5 h-5" /> Buy Tickets
+        </CtaButton>
+      );
+    }
+    return (
+      <Button className="w-full h-14 rounded-xl font-bold text-base gap-2 bg-primary hover:bg-primary/90" onClick={promptSignup}>
+        <UserPlus className="w-5 h-5" /> {isPublic ? "Join" : "Request to Join"}
+      </Button>
+    );
+  }
+
   const status = myEntry?.status;
   const active = status && ["approved", "invited", "checked_in", "requested"].includes(status);
 
