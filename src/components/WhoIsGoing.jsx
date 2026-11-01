@@ -15,7 +15,7 @@ const PREVIEW = 10;
 // Served by the get_event_attendees RPC (client RLS only exposes your own
 // entry). Shows a 10-person preview; "View all" opens the full list. Typing in
 // the search box loads the complete list once and filters it inline.
-export default function WhoIsGoing({ eventId, myEmail, visibility = "show_names", unlocked = false }) {
+export default function WhoIsGoing({ eventId, myEmail, visibility = "show_names", unlocked = false, anon = false, onPrompt }) {
   const { data: me } = useCurrentUser();
   const [preview, setPreview] = useState([]);
   const [goingCount, setGoingCount] = useState(0);
@@ -36,6 +36,9 @@ export default function WhoIsGoing({ eventId, myEmail, visibility = "show_names"
   const hiddenCount = searching ? matches.length - shown.length : goingCount - preview.length;
 
   useEffect(() => {
+    // Signed-out preview: don't call the attendees RPC (it's authenticated-only
+    // and would 401) — the section renders a sign-up prompt instead.
+    if (anon) { setLoading(false); return; }
     (async () => {
       try {
         const [res, sent, received] = await Promise.all([
@@ -72,7 +75,30 @@ export default function WhoIsGoing({ eventId, myEmail, visibility = "show_names"
     setSentSet((s) => new Set(s).add(target.email));
   }
 
-  if (loading || visibility === "none") return null;
+  if (visibility === "none") return null;
+
+  // Signed-out preview: show the section exactly as a signed-in non-attendee
+  // would see it, but the locked box prompts sign-up rather than revealing who's
+  // going.
+  if (anon) {
+    return (
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <Users className="w-4 h-4 text-muted-foreground" />
+          <h3 className="font-heading font-semibold text-sm">Who's Going</h3>
+        </div>
+        <button
+          onClick={onPrompt}
+          className="w-full bg-secondary/40 rounded-xl px-4 py-3 border border-border/50 flex items-center gap-2 text-left hover:bg-secondary/60 transition-colors"
+        >
+          <Lock className="w-3.5 h-3.5 text-muted-foreground" />
+          <p className="text-xs text-muted-foreground">Sign up to see who's going.</p>
+        </button>
+      </div>
+    );
+  }
+
+  if (loading) return null;
 
   // count_only: the RPC's going_count excludes the caller and only counts
   // approved/checked-in/invited entries, so a guest who has just requested a
