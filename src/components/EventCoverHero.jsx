@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback } from "react";
+import { useRef, useEffect, useCallback, useState } from "react";
 import { COVERS } from "./CoverPicker";
 
 // Preset gradient covers are stored as "__cover__<id>" and rendered from COVERS;
@@ -83,6 +83,14 @@ export default function EventCoverHero({ event, topBar }) {
   }
 
   const coverStyle = getCoverStyle(event.cover_image);
+  const isPhoto = !!event.cover_image && !event.cover_image.startsWith("__cover__");
+  // An uploaded photo sizes the card to its own shape (clamped to a sane range)
+  // so the whole image is shown — portrait or landscape, nothing cut off.
+  // Preset gradients and the placeholder stay square.
+  const [photoAspect, setPhotoAspect] = useState(null);
+  const cardAspect = coverStyle || !isPhoto || !photoAspect
+    ? "1 / 1"
+    : String(Math.min(1.6, Math.max(0.66, photoAspect)));
   const handlers = reduced ? {} : {
     onPointerMove: onMove, onPointerLeave: onRest, onPointerUp: onRest, onPointerCancel: onRest,
   };
@@ -91,16 +99,21 @@ export default function EventCoverHero({ event, topBar }) {
     <div className="px-4 pt-4" style={{ perspective: 1200 }}>
       <div
         ref={cardRef}
-        className="relative aspect-square rounded-3xl overflow-hidden ring-1 ring-white/10 will-change-transform shadow-[0_26px_50px_-12px_rgba(0,0,0,0.8),0_12px_40px_-10px_hsl(270_90%_55%/0.35)]"
-        style={{ touchAction: "pan-y", transformStyle: "preserve-3d" }}
+        className="relative rounded-3xl overflow-hidden ring-1 ring-white/10 will-change-transform shadow-[0_26px_50px_-12px_rgba(0,0,0,0.8),0_12px_40px_-10px_hsl(270_90%_55%/0.35)]"
+        style={{ touchAction: "pan-y", transformStyle: "preserve-3d", aspectRatio: cardAspect }}
         {...handlers}
       >
         {coverStyle ? (
           <div className="w-full h-full" style={coverStyle}>
             <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: "repeating-linear-gradient(0deg, rgba(255,255,255,0.8) 0px, rgba(255,255,255,0.8) 1px, transparent 1px, transparent 3px)" }} />
           </div>
-        ) : event.cover_image && !event.cover_image.startsWith("__cover__") ? (
-          <img src={event.cover_image} alt={event.title} className="w-full h-full object-cover" />
+        ) : isPhoto ? (
+          <img
+            src={event.cover_image}
+            alt={event.title}
+            onLoad={(e) => setPhotoAspect(e.currentTarget.naturalWidth / e.currentTarget.naturalHeight)}
+            className="w-full h-full object-cover"
+          />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-primary/40 via-primary/20 to-accent/20" />
         )}
