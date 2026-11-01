@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/api/data";
 import { QRCodeSVG } from "qrcode.react";
-import { ArrowLeft, Shield, Send, ChevronLeft, ChevronRight, Clock as ClockIcon } from "lucide-react";
+import { ArrowLeft, Shield, Send, ChevronLeft, ChevronRight, Clock as ClockIcon, ScanLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import StatusBadge from "../components/StatusBadge";
 import LoadingSpinner from "../components/LoadingSpinner";
@@ -28,6 +28,8 @@ export default function GuestPass() {
   const { toast } = useToast();
   const intervalRef = useRef(null);
   const watchIdRef = useRef(null);
+  const liveBatchRef = useRef(null);
+  const liveFetchingRef = useRef(false);
   const tiltRef = useTilt({ max: 14 });
 
   useEffect(() => {
@@ -64,7 +66,7 @@ export default function GuestPass() {
       setEntry(allEntries[0]);
 
       if (["approved", "invited"].includes(allEntries[0].status)) {
-        generateQR(allEntries[0]);
+        generateQR(allEntries[0], events[0]);
       }
 
       loadPendingTransfer(allEntries[0].id);
@@ -95,7 +97,7 @@ export default function GuestPass() {
     setEntryIndex(idx);
     setEntry(e);
     setQrData("");
-    if (["approved", "invited"].includes(e.status)) generateQR(e);
+    if (["approved", "invited"].includes(e.status)) generateQR(e, event);
     loadPendingTransfer(e.id);
     stopLocationWatch();
     if (e.status === "checked_in" && !e.checked_out_at) {
@@ -151,9 +153,20 @@ export default function GuestPass() {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
-  async function generateQR(entry) {
-    // The QR secret never reaches the browser; the payload is minted
-    // server-side for the ticket's owner.
+  function stopLiveQr() {
+    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+    liveBatchRef.current = null;
+    liveFetchingRef.current = false;
+  }
+
+  async function generateQR(entry, evt) {
+    stopLiveQr();
+    if (evt?.live_qr) {
+      startLiveQr(entry);
+      return;
+    }
+    // Static single-use pass: the QR secret never reaches the browser; the
+    // payload is minted server-side for the ticket's owner.
     try {
       const res = await api.functions.invoke("myQrPayload", { entry_id: entry.id });
       setQrData(res.data || "");
@@ -161,6 +174,47 @@ export default function GuestPass() {
       console.error("Failed to generate QR payload:", e);
       setQrData("");
     }
+  }
+
+  // Live (rotating) pass: fetch a batch of time-windowed signatures once, then
+  // render the current window's code locally and rotate it every second. The
+  // code itself only changes each period (~10s), so a screenshot goes stale
+  // quickly; the batch lets it keep rotating through a brief signal drop.
+  function startLiveQr(entry) {
+    setQrData("");
+    fetchLiveBatch(entry.id);
+    intervalRef.current = setInterval(() => renderLiveToken(entry.id), 1000);
+  }
+
+  async function fetchLiveBatch(entryId) {
+    if (liveFetchingRef.current) return;
+    liveFetchingRef.current = true;
+    try {
+      const res = await api.functions.invoke("liveQrBatch", { entry_id: entryId });
+      if (res?.data?.sigs?.length) {
+        liveBatchRef.current = { ...res.data, entryId };
+        renderLiveToken(entryId);
+      }
+    } catch (e) {
+      console.error("Failed to load live pass:", e);
+    } finally {
+      liveFetchingRef.current = false;
+    }
+  }
+
+  function renderLiveToken(entryId) {
+    const b = liveBatchRef.current;
+    if (!b || b.entryId !== entryId) return;
+    const win = Math.floor(Date.now() / b.period_ms);
+    const idx = win - b.start_window;
+    if (idx < 0) return; // our clock is behind the batch; wait for it to catch up
+    if (idx >= b.sigs.length) {
+      fetchLiveBatch(entryId); // batch spent — refetch, keep last code until it arrives
+      return;
+    }
+    setQrData(btoa(JSON.stringify({ v: 2, eid: b.eid, gid: b.gid, c: win, sig: b.sigs[idx] })));
+    // Refetch a little before the batch runs out so rotation never stalls.
+    if (idx >= b.sigs.length - 7) fetchLiveBatch(entryId);
   }
 
   async function cancelPendingTransfer() {
@@ -245,9 +299,21 @@ export default function GuestPass() {
                 </div>
                 <div className="flex items-center gap-1.5 mt-5 text-xs text-muted-foreground">
                   <Shield className="w-3.5 h-3.5" />
-                  <span>Single-use code · Valid until first scan</span>
+                  <span>{event.live_qr ? "Live code · refreshes every few seconds" : "Single-use code · Valid until first scan"}</span>
                 </div>
               </>
+            )}
+
+            {/* Live pass still loading (or offline): the code can't rotate without
+                one connection first, so nudge the guest to get signal. */}
+            {isApproved && !qrData && event.live_qr && (
+              <div className="py-10 text-center">
+                <div className="w-16 h-16 rounded-full bg-primary/15 flex items-center justify-center mx-auto mb-4">
+                  <ScanLine className="w-7 h-7 text-primary animate-pulse" />
+                </div>
+                <p className="font-heading font-semibold text-base text-foreground">Loading your live pass…</p>
+                <p className="text-sm text-muted-foreground mt-1">This event uses live codes — connect to the internet to load it.</p>
+              </div>
             )}
 
             {isCheckedIn && (
@@ -358,8 +424,10 @@ export default function GuestPass() {
             )}
           </div>
 
-          {/* Transfer section — only for usable, unscanned tickets */}
-          {isApproved && (
+          {/* Transfer section — only for usable, unscanned paid tickets.
+              Free guestlist spots are tied to the approved guest and can't be
+              handed off (also enforced server-side in initiateTicketTransfer). */}
+          {isApproved && event.is_paid && (
             <div className="px-5 pb-5">
               {pendingTransfer ? (
                 <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-3">
