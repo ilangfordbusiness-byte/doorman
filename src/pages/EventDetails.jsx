@@ -93,26 +93,17 @@ async function loadEvent(id, authed) {
 // their invite link). Host/DJ/co-host come from the anon-readable people RPC
 // since those relations are otherwise hidden from logged-out users.
 async function loadEventPreview(id) {
-  const events = await api.entities.Event.filter({ id });
-  if (!events.length) return { notFound: true };
-  const evt = events[0];
-  if (evt.status !== "published" || !evt.is_public) return { preview: true, locked: true };
-  const [people, tierList] = await Promise.all([
-    api.entities.Event.people(id).catch(() => null),
-    api.entities.TicketTier.filter({ event_id: id }).catch(() => []),
-  ]);
+  // Embed-free fetch (anon can't read the profiles/co-host/DJ embeds the normal
+  // Event.filter uses). Only PUBLIC published events preview by id; a private or
+  // draft event — or one anon can't read — falls to the sign-in prompt.
+  const event = await api.entities.Event.publicPreview(id);
+  if (!event || event.status !== "published" || !event.is_public) {
+    return { preview: true, locked: true };
+  }
+  const tierList = await api.entities.TicketTier.filter({ event_id: id }).catch(() => []);
   const publicTiers = tierList
     .filter((t) => !t.door_only)
     .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-  const event = people
-    ? {
-        ...evt,
-        ...people,
-        co_host_emails: (people.co_hosts || [])
-          .filter((c) => c.status === "accepted")
-          .map((c) => c.email),
-      }
-    : evt;
   return {
     notFound: false,
     preview: true,
