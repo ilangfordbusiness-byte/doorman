@@ -234,12 +234,12 @@ const ENTITIES = {
       if (error) throw error;
       return data || null;
     },
-    // Logged-out preview fetch. The normal Event.filter select embeds
-    // profiles / event_co_hosts / event_dj_lineup, and anon has no grant on
-    // profiles, so those embeds 401 for a signed-out visitor. Here we read only
-    // the anon-granted event columns (no embeds), then fill host / DJ / co-host
-    // display from the security-definer people RPC.
-    async publicPreview(eventId) {
+    // Logged-out preview: the anon-granted event columns only, with no
+    // profiles / event_co_hosts / event_dj_lineup embeds (anon has no grant on
+    // profiles, so those embeds 401). Host / DJ / co-host display is merged in
+    // by the caller — from get_event_people for public events, or from the
+    // invite RPC (bearer code) for private ones.
+    async previewBase(eventId) {
       const cols =
         "id, host_id, business_id, title, cover_image_url, date, start_time, end_time, " +
         "timezone, venue_name, address, venue_lat, venue_lng, dress_code, description, " +
@@ -250,17 +250,7 @@ const ENTITIES = {
         .from("events").select(cols).eq("id", eventId).maybeSingle();
       if (error) throw error;
       if (!ev) return null;
-      const base = ENTITIES.Event.toApp({ ...ev, host: null, co_host_rows: [], dj_rows: [] });
-      const { data: people } = await supabase.rpc("get_event_people", { p_event_id: eventId });
-      return people
-        ? {
-            ...base,
-            ...people,
-            co_host_emails: (people.co_hosts || [])
-              .filter((c) => c.status === "accepted")
-              .map((c) => c.email),
-          }
-        : base;
+      return ENTITIES.Event.toApp({ ...ev, host: null, co_host_rows: [], dj_rows: [] });
     },
     // Lists drop events hosted by a blocked user; a lookup by id still returns it.
     hideBlocked: (r, sets, query) => !("id" in query) && sets.ids.has(r.host_id),
