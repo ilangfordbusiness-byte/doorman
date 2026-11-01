@@ -764,7 +764,7 @@ function DetailChip({ icon, label, value }) {
         {icon}
         <span className="text-[10px] uppercase tracking-wider">{label}</span>
       </div>
-      <p className="text-sm font-medium text-foreground truncate">{value}</p>
+      <p className="text-sm font-medium text-foreground break-words">{value}</p>
     </div>
   );
 }
