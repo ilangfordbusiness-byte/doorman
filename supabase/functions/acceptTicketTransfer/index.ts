@@ -27,6 +27,12 @@ Deno.serve(async (req) => {
     const { data: entry } = await svc.from('guestlist_entries').select('*')
       .eq('id', transfer.guestlist_entry_id).maybeSingle();
     if (!entry) return json({ error: 'Ticket not found.' }, 404);
+    // Defense in depth: initiateTicketTransfer blocks free-event transfers, so a
+    // pending one shouldn't exist, but never move a free ticket even if it does.
+    const { data: event } = await svc.from('events').select('is_paid').eq('id', entry.event_id).maybeSingle();
+    if (!event?.is_paid) {
+      return json({ error: "Tickets for free events can't be transferred." }, 400);
+    }
     if (entry.status === 'checked_in') {
       return json({ error: "This ticket has already been used and can't be transferred." }, 400);
     }

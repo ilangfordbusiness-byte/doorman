@@ -75,6 +75,48 @@ export function buildQrImageUrl(entry: any): string {
   return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(payload)}&bgcolor=FFFFFF&color=000000`;
 }
 
+// --- Live (rotating) QR codes, for events with live_qr on ---
+//
+// The displayed code changes every LIVE_QR_PERIOD_MS. Each code is an HMAC
+// signature over the window counter, keyed by the entry's qr_secret, so it
+// can only be minted by the server and only verified by validateQR (which can
+// read qr_secret). The door accepts a presented window within ±LIVE_QR_TOL
+// windows of its own clock, which both tolerates clock skew between the two
+// phones and bounds how long a screenshot stays valid (~LIVE_QR_TOL periods).
+
+export const LIVE_QR_PERIOD_MS = 10_000;        // code rotates every 10s
+export const LIVE_QR_TOL = 6;                   // accept ±6 windows (~±60s) of skew
+export const LIVE_QR_VERSION = 2;
+
+export function liveQrWindow(nowMs: number = Date.now()): number {
+  return Math.floor(nowMs / LIVE_QR_PERIOD_MS);
+}
+
+// Hex HMAC-SHA256(qr_secret, "v2.<eid>.<gid>.<window>"). Shared by the minting
+// function and the door so the two never drift. Returns lowercase hex.
+export async function liveQrSig(
+  qrSecret: string,
+  eid: string,
+  gid: string,
+  window: number,
+): Promise<string> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw', enc.encode(qrSecret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
+  );
+  const msg = `v${LIVE_QR_VERSION}.${eid}.${gid}.${window}`;
+  const buf = await crypto.subtle.sign('HMAC', key, enc.encode(msg));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Constant-time-ish compare of two equal-purpose hex strings.
+export function sigEqual(a: string, b: string): boolean {
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 // deno-lint-ignore no-explicit-any
 export function buildTicketEmailHtml(entryOrEntries: any, event: any, tierName?: string | null): string {
   const entries = Array.isArray(entryOrEntries) ? entryOrEntries : [entryOrEntries];
@@ -86,8 +128,17 @@ export function buildTicketEmailHtml(entryOrEntries: any, event: any, tierName?:
   const guestName = escapeHtml(String(entries[0].guest_name || '').replace(/\s*\(\d+ of \d+\)$/, ''));
   const timeRange = formatTimeRange(event);
 
-  // deno-lint-ignore no-explicit-any
-  const qrBlocks = entries.map((entry: any, i: number) => `
+  // Live-pass events don't embed a scannable QR in email: the door only accepts
+  // the rotating code, which has to be opened in the app. Static events keep the
+  // single-use QR image so the email alone gets the guest in.
+  const qrBlocks = event.live_qr
+    ? `
+    <div style="background:#15151f;border:1px solid #2a2a3a;border-radius:16px;padding:24px;text-align:center;">
+      <p style="margin:0 0 8px;font-size:15px;font-weight:700;color:#ffffff;">${entries.length > 1 ? `You have ${entries.length} tickets` : 'Your ticket is ready'}</p>
+      <p style="margin:0;font-size:13px;color:#b0b0c8;line-height:1.6;">This event uses live passes. Open your pass in the app at the door to get your entry code — it refreshes every few seconds, so there's nothing to screenshot.</p>
+    </div>`
+    // deno-lint-ignore no-explicit-any
+    : entries.map((entry: any, i: number) => `
     <div style="background:#15151f;border:1px solid #2a2a3a;border-radius:16px;padding:24px;text-align:center;${i > 0 ? 'margin-top:16px;' : ''}">
       ${entries.length > 1 ? `<p style="margin:0 0 12px;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#7a7a9a;">Ticket ${i + 1} of ${entries.length}</p>` : ''}
       <img src="${buildQrImageUrl(entry)}" alt="QR ticket ${i + 1}" width="240" height="240" style="display:block;margin:0 auto 16px;border-radius:12px;background:#ffffff;padding:8px;" />

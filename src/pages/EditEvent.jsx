@@ -7,7 +7,7 @@ import CoverPhotoUpload from "../components/CoverPhotoUpload";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/data";
-import { ArrowLeft, Ticket, AtSign, UserPlus } from "lucide-react";
+import { ArrowLeft, Ticket, AtSign, UserPlus, ScanLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import HomeButton from "@/components/HomeButton";
 import { Input } from "@/components/ui/input";
@@ -56,6 +56,7 @@ export default function EditEvent() {
     is_public: false,
     discoverable: false,
     plus_one_allowed: false,
+    live_qr: false,
     capacity: "",
     is_paid: false,
     currency: "gbp",
@@ -100,6 +101,7 @@ export default function EditEvent() {
         is_public: evt.is_public || false,
         discoverable: evt.discoverable || false,
         plus_one_allowed: evt.plus_one_allowed || false,
+        live_qr: evt.live_qr || false,
         capacity: evt.capacity ? String(evt.capacity) : "",
         is_paid: evt.is_paid || false,
         currency: evt.currency || "gbp",
@@ -355,6 +357,20 @@ export default function EditEvent() {
               </div>
             </div>
             <Switch checked={form.plus_one_allowed} onCheckedChange={(v) => updateForm("plus_one_allowed", v)} />
+          </div>
+        </div>
+
+        {/* Live passes */}
+        <div className="space-y-4 bg-secondary/30 rounded-2xl p-4 border border-border/50">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <ScanLine className="w-4 h-4 text-muted-foreground" />
+              <div>
+                <p className="text-sm font-medium">Live passes</p>
+                <p className="text-xs text-muted-foreground">Guest QR codes refresh every few seconds, so a screenshot can't be shared. Guests need signal to load their pass.</p>
+              </div>
+            </div>
+            <Switch checked={form.live_qr} onCheckedChange={(v) => updateForm("live_qr", v)} />
           </div>
         </div>
 

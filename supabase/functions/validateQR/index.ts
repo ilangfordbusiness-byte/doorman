@@ -3,6 +3,7 @@
 // of that event may scan. QR wire format is unchanged from the original app.
 import { getCaller, json, preflight, serviceClient } from '../_shared/db.ts';
 import { eventZone } from '../_shared/eventTime.ts';
+import { LIVE_QR_TOL, LIVE_QR_VERSION, liveQrSig, liveQrWindow, sigEqual } from '../_shared/tickets.ts';
 
 Deno.serve(async (req) => {
   const pre = preflight(req);
@@ -19,6 +20,9 @@ Deno.serve(async (req) => {
     // path skips the qr_secret/forgery check — the caller is authorized below and
     // can't read qr_secret anyway — but is otherwise identical.
     let entry, eid, gid;
+    // Whether this scan carried a current rotating (live) code. Used below to
+    // reject the old static code on events that opted into live passes.
+    let liveCode = false;
     if (guestlist_entry_id) {
       const { data: e } = await svc.from('guestlist_entries').select('*').eq('id', guestlist_entry_id).maybeSingle();
       if (!e) return json({ valid: false, error: 'Guest not found' });
@@ -34,21 +38,48 @@ Deno.serve(async (req) => {
         return json({ valid: false, error: 'Invalid QR code format' });
       }
       ({ eid, gid } = payload);
-      const sec = payload.sec;
-      if (!eid || !gid || !sec) return json({ valid: false, error: 'Incomplete QR data' });
+      if (!eid || !gid) return json({ valid: false, error: 'Incomplete QR data' });
 
       const { data: e } = await svc.from('guestlist_entries').select('*').eq('id', gid).maybeSingle();
       if (!e) return json({ valid: false, error: 'Guest not found' });
-      if (e.qr_secret !== sec) {
-        return json({ valid: false, error: 'Invalid QR code. Possible forgery.' });
-      }
       if (e.event_id !== eid) {
         return json({ valid: false, error: 'QR code is for a different event' });
+      }
+
+      if (payload.v === LIVE_QR_VERSION) {
+        // Rotating live code: the window must be current (bounds how long a
+        // screenshot stays valid and absorbs clock skew), and the HMAC must
+        // verify against the entry's server-only qr_secret.
+        const { c, sig } = payload;
+        if (typeof c !== 'number' || typeof sig !== 'string') {
+          return json({ valid: false, error: 'Incomplete QR data' });
+        }
+        if (Math.abs(c - liveQrWindow()) > LIVE_QR_TOL) {
+          return json({ valid: false, expired: true, error: 'This pass has expired — ask the guest to refresh their code.' });
+        }
+        const expected = await liveQrSig(e.qr_secret, eid, gid, c);
+        if (!sigEqual(expected, sig)) {
+          return json({ valid: false, error: 'Invalid QR code. Possible forgery.' });
+        }
+        liveCode = true;
+      } else {
+        // Static single-use code.
+        if (!payload.sec) return json({ valid: false, error: 'Incomplete QR data' });
+        if (e.qr_secret !== payload.sec) {
+          return json({ valid: false, error: 'Invalid QR code. Possible forgery.' });
+        }
       }
       entry = e;
     }
 
     const { data: event } = await svc.from('events').select('*').eq('id', eid).single();
+
+    // A live-QR event rejects the static code: otherwise a guest could screenshot
+    // their static pass and pass it on, which is exactly what live passes prevent.
+    // (The name-based staff check-in path, guestlist_entry_id, is unaffected.)
+    if (event?.live_qr && !guestlist_entry_id && !liveCode) {
+      return json({ valid: false, error: 'This event uses live passes — open the pass in the app for a fresh code.' });
+    }
 
     // Authorization: host, accepted co-host, or registered staff.
     let isStaff = !!event && event.host_id === user.id;

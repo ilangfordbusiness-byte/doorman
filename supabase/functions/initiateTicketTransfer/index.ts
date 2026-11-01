@@ -68,7 +68,12 @@ Deno.serve(async (req) => {
       return json({ error: 'This ticket already has a pending transfer. Cancel it first.' }, 409);
     }
 
-    const { data: event } = await svc.from('events').select('id, title').eq('id', entry.event_id).single();
+    const { data: event } = await svc.from('events').select('id, title, is_paid').eq('id', entry.event_id).single();
+    // Only paid tickets can be transferred. Free guestlist spots are tied to the
+    // person the host approved, so they can't be handed off to someone else.
+    if (!event?.is_paid) {
+      return json({ error: "Tickets for free events can't be transferred." }, 400);
+    }
     const eventTitle = event?.title || 'your event';
 
     // Link the recipient's account if they already have one.
