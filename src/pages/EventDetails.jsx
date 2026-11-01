@@ -7,7 +7,7 @@ import EventStatusChip from "../components/EventStatusChip";
 import ShimmerText from "../components/ShimmerText";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { normalizePhone, formatPhoneDisplay } from "@/lib/phone";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/api/data";
 import { shareUrl } from "@/lib/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -39,10 +39,10 @@ import { loadPixel, trackPixel, captureMetaClick } from "@/lib/metaPixel";
 // Shared classes for the host dashboard action buttons so they line up as a uniform grid.
 const HOST_ACTION_BUTTON = "w-full h-12 rounded-xl gap-2 font-semibold";
 
-async function loadEvent(id, authed) {
+async function loadEvent(id, authed, inviteCode) {
   // Signed-out visitors get a read-only preview (see below); signed-in users
   // get the full page (guestlist, their pass, manager tools…).
-  if (!authed) return loadEventPreview(id);
+  if (!authed) return loadEventPreview(id, inviteCode);
   const me = await api.auth.me();
   const events = await api.entities.Event.filter({ id });
   if (!events.length) return { notFound: true };
@@ -92,14 +92,41 @@ async function loadEvent(id, authed) {
 // Only PUBLIC published events open this way (private events preview through
 // their invite link). Host/DJ/co-host come from the anon-readable people RPC
 // since those relations are otherwise hidden from logged-out users.
-async function loadEventPreview(id) {
-  // Embed-free fetch (anon can't read the profiles/co-host/DJ embeds the normal
-  // Event.filter uses). Only PUBLIC published events preview by id; a private or
-  // draft event — or one anon can't read — falls to the sign-in prompt.
-  const event = await api.entities.Event.publicPreview(id);
-  if (!event || event.status !== "published" || !event.is_public) {
-    return { preview: true, locked: true };
+async function loadEventPreview(id, inviteCode) {
+  // Signed-out, full-page preview. The event's base columns are anon-readable by
+  // id (published events, public or private). Host / DJ / co-host come from the
+  // people RPC for public events, or from the invite RPC — authorised by the
+  // event's secret invite code — for private ones. No embeds (anon can't read
+  // profiles). A private event with no/invalid code falls to the sign-in prompt.
+  const base = await api.entities.Event.previewBase(id);
+  if (!base || base.status !== "published") return { preview: true, locked: true };
+
+  let people = null;
+  if (base.is_public) {
+    people = await api.entities.Event.people(id).catch(() => null);
+  } else {
+    if (!inviteCode) return { preview: true, locked: true };
+    const [inv] = await api.entities.Event.filter({ invite_code: inviteCode }).catch(() => []);
+    if (!inv || inv.id !== id) return { preview: true, locked: true };
+    people = {
+      host_is_business: inv.host_is_business,
+      host_name: inv.host_name,
+      host_picture: inv.host_picture,
+      host_email: inv.host_email,
+      dj_lineup: inv.dj_lineup || [],
+      co_hosts: inv.co_hosts || [],
+    };
   }
+
+  const event = people
+    ? {
+        ...base,
+        ...people,
+        co_host_emails: (people.co_hosts || [])
+          .filter((c) => c.status === "accepted")
+          .map((c) => c.email),
+      }
+    : base;
   const tierList = await api.entities.TicketTier.filter({ event_id: id }).catch(() => []);
   const publicTiers = tierList
     .filter((t) => !t.door_only)
@@ -121,6 +148,10 @@ export default function EventDetails() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  // A private event opened from its invite link redirects here as
+  // /event/:id?invite=<code>; the code authorises the signed-out preview.
+  const [searchParams] = useSearchParams();
+  const inviteCode = searchParams.get("invite");
   // null while we check for a session; the query waits for this so a logged-out
   // visitor loads the preview path rather than briefly trying the full page.
   const [authed, setAuthed] = useState(null);
@@ -132,8 +163,8 @@ export default function EventDetails() {
     return () => { alive = false; };
   }, []);
   const { data, isLoading: loading, isError } = useQuery({
-    queryKey: ["event", id, authed],
-    queryFn: () => loadEvent(id, authed),
+    queryKey: ["event", id, authed, inviteCode],
+    queryFn: () => loadEvent(id, authed, inviteCode),
     enabled: authed !== null,
     staleTime: 30 * 1000,
   });
@@ -287,9 +318,12 @@ export default function EventDetails() {
     // Public events share the event page itself (recipients can scroll down and
     // buy a ticket). Private events aren't reachable without an invite, so they
     // keep the invite link. No promotional text — just the title + link.
+    // A manager has the real invite_code; a signed-out previewer arrived with
+    // it in the URL (?invite=) — use whichever we have for a private event.
+    const code = event.invite_code || inviteCode;
     const url = event.is_public
       ? `${getLinkDomain()}/event/${event.id}`
-      : `${getLinkDomain()}/invite/${event.invite_code}`;
+      : `${getLinkDomain()}/invite/${code}`;
     // Native share sheet in the iOS app, Web Share API elsewhere, clipboard
     // as the last resort (see shareUrl).
     const result = await shareUrl({ title: event.title, url });
