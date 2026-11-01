@@ -140,6 +140,9 @@ export default function EventDetails() {
 
   const event = data?.event ?? null;
   const user = data?.user ?? null;
+  // Signed-out preview: anything that needs an account sends the visitor to
+  // sign up, then straight back to this event.
+  const promptSignup = () => api.auth.redirectToLogin(window.location.href);
   const myEntry = data?.myEntry ?? null;
   const stats = data?.stats ?? { invited: 0, approved: 0, checked_in: 0, total: 0 };
   const staff = data?.staff ?? [];
@@ -356,7 +359,9 @@ export default function EventDetails() {
           <div className="flex items-center gap-2 mt-2 flex-wrap">
             <button
               onClick={() =>
-                event.host_is_business && event.business_id
+                !user
+                  ? promptSignup()
+                  : event.host_is_business && event.business_id
                   ? navigate(`/b/${event.business_id}`)
                   : setShowHostModal(true)
               }
@@ -684,12 +689,14 @@ export default function EventDetails() {
               </div>
             )}
             <EventJoinActions event={event} me={user} myEntry={myEntry} soldOut={allSoldOut} onSaleFrom={onSaleFrom} onChanged={() => queryClient.invalidateQueries(["event", id])} />
-            {user && event.visibility !== "none" && (myEntry || event.is_paid) && (
+            {event.visibility !== "none" && (myEntry || event.is_paid) && (
               <WhoIsGoing
                 eventId={id}
                 myEmail={user?.email}
                 visibility={event.visibility}
                 unlocked={!!myEntry && ["approved", "checked_in"].includes(myEntry.status)}
+                anon={!user}
+                onPrompt={promptSignup}
               />
             )}
           </div>
