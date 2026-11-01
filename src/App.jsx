@@ -115,6 +115,19 @@ const AuthenticatedApp = () => {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
     } else if (authError.type === 'auth_required') {
+      // Logged-out visitors can PREVIEW a shared event and sign up only when
+      // they try to join. Only the bare event/invite pages open this way; every
+      // deeper or unrelated route still shows the sign-in screen.
+      if (/^\/(event|invite)\/[^/]+$/.test(pathname)) {
+        return (
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/event/:id" element={<EventDetails />} />
+              <Route path="/invite/:code" element={<InvitePage />} />
+            </Routes>
+          </Suspense>
+        );
+      }
       return <Login />;
     }
   }

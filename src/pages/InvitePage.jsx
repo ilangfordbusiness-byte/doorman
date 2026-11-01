@@ -28,7 +28,11 @@ export default function InvitePage() {
 
   async function loadInvite() {
     try {
-      const me = await api.auth.me();
+      // Works logged out: the invite code itself authorises the preview (the
+      // lookup goes through the anon get_event_by_invite RPC). Only read the
+      // viewer's own guestlist entry when there's actually a session.
+      const authed = await api.auth.isAuthenticated();
+      const me = authed ? await api.auth.me().catch(() => null) : null;
       setUser(me);
 
       const events = await api.entities.Event.filter({ invite_code: code });
@@ -38,11 +42,13 @@ export default function InvitePage() {
       setEvent(evt);
 
       // Check if already on guestlist
-      const entries = await api.entities.GuestlistEntry.filter({
-        event_id: evt.id,
-        guest_email: me.email,
-      });
-      if (entries.length) setMyEntry(entries[0]);
+      if (me) {
+        const entries = await api.entities.GuestlistEntry.filter({
+          event_id: evt.id,
+          guest_email: me.email,
+        });
+        if (entries.length) setMyEntry(entries[0]);
+      }
     } catch (e) {
       console.error(e);
     } finally {
