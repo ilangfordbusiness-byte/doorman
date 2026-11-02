@@ -46,6 +46,9 @@ export default function GuestlistManagement() {
   const [addOpen, setAddOpen] = useState(false);
   const [newGuest, setNewGuest] = useState({ name: "", email: "", phone: "" });
   const [adding, setAdding] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [importing, setImporting] = useState(false);
+  const csvRef = useRef(null);
   const [friends, setFriends] = useState([]);
   const [me, setMe] = useState(null);
   const [viewProfile, setViewProfile] = useState(null);
@@ -264,6 +267,78 @@ export default function GuestlistManagement() {
     loadData();
   }
 
+  // Parse pasted/CSV lines into {name, email}. A line is "Name, email", just an
+  // email, or just a name; the email is whichever column contains an "@".
+  function parseGuestLines(text) {
+    return text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map((line) => {
+      const cols = line.split(/[,\t;]/).map((c) => c.trim()).filter(Boolean);
+      const email = (cols.find((c) => c.includes("@")) || "").toLowerCase();
+      const name = cols.find((c) => !c.includes("@")) || (email ? email.split("@")[0] : "");
+      return { name, email };
+    });
+  }
+
+  async function importGuests(parsed) {
+    if (importing) return;
+    // Dedupe within the batch and against the current list (by email); keep
+    // email-less rows (a name-only door entry) since they can't collide.
+    const have = new Set(guests.map((g) => (g.guest_email || "").toLowerCase()).filter(Boolean));
+    const seen = new Set();
+    const rows = [];
+    for (const r of parsed) {
+      if (r.email) {
+        if (have.has(r.email) || seen.has(r.email)) continue;
+        seen.add(r.email);
+      } else if (!r.name) {
+        continue;
+      }
+      rows.push({
+        event_id: id,
+        guest_email: r.email,
+        guest_name: r.name,
+        guest_phone: "",
+        status: "invited",
+        source: "manual",
+        qr_secret: crypto.randomUUID(),
+      });
+    }
+    if (!rows.length) {
+      toast({ title: "No new guests to add", description: "They were blank or already on the list.", variant: "destructive" });
+      return;
+    }
+    setImporting(true);
+    try {
+      await api.entities.GuestlistEntry.bulkCreate(rows);
+      const skipped = parsed.length - rows.length;
+      toast({
+        title: `${rows.length} added to the guestlist`,
+        description: skipped > 0 ? `${skipped} skipped (blank or already on the list)` : undefined,
+      });
+      setImportText("");
+      setAddOpen(false);
+      await loadData();
+    } catch (e) {
+      toast({ title: e?.message || "Import failed", variant: "destructive" });
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  function onCsvFile(e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = ""; // allow re-picking the same file later
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const lines = String(reader.result || "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+      // Drop a header row like "name,email" (no @, mentions a column name).
+      if (lines.length && !lines[0].includes("@") && /name|email|guest/i.test(lines[0])) lines.shift();
+      importGuests(parseGuestLines(lines.join("\n")));
+    };
+    reader.onerror = () => toast({ title: "Couldn't read that file", variant: "destructive" });
+    reader.readAsText(file);
+  }
+
   async function exportCsv() {
     const day = new Date().toISOString().slice(0, 10);
     try {
@@ -366,38 +441,16 @@ export default function GuestlistManagement() {
 
   if (loading) return <LoadingSpinner fullScreen />;
 
-  const Row = (g) => {
-    const picture = profiles?.[g.guest_email?.toLowerCase()]?.picture;
-    const sub = formatPhoneDisplay(g.guest_phone) || g.guest_email || "No contact details";
-    const checked = selected.has(g.id);
-    return (
-      <button
-        key={g.id}
-        type="button"
-        onClick={() => (selectMode ? toggleSel(g) : setActionTarget(g))}
-        className="w-full flex items-center gap-3 p-3 rounded-xl bg-card border border-border/60 text-left transition-colors hover:border-border active:scale-[0.995]"
-      >
-        {selectMode ? (
-          <span className={cn("w-10 h-10 rounded-full border-2 grid place-items-center shrink-0 transition-colors", checked ? "bg-primary border-primary text-primary-foreground" : "border-border")}>
-            {checked && <Check className="w-5 h-5" />}
-          </span>
-        ) : (
-          <Avatar src={picture} name={g.guest_name || g.guest_email} size="w-10 h-10" textClass="text-sm" />
-        )}
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold text-sm text-foreground truncate">{g.guest_name || "Unknown"}</p>
-          <p className="text-xs text-muted-foreground truncate">{sub}</p>
-          {g.plus_one && (
-            <span className="inline-flex items-center gap-1 text-[11px] text-accent mt-0.5 truncate">
-              <UserPlus className="w-3 h-3 shrink-0" />
-              <span className="truncate">{g.plus_one_name ? `+1 · ${g.plus_one_name}` : "+1"}</span>
-            </span>
-          )}
-        </div>
-        {!selectMode && <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
-      </button>
-    );
-  };
+  const rowProps = (g) => ({
+    guest: g,
+    picture: profiles?.[g.guest_email?.toLowerCase()]?.picture,
+    selectMode,
+    selected: selected.has(g.id),
+    onOpen: setActionTarget,
+    onToggle: toggleSel,
+  });
+  const swipeApprove = (g) => updateStatus(g, "approved");
+  const swipeDeny = (g) => updateStatus(g, "denied");
 
   return (
     <div className={cn("max-w-lg mx-auto px-4 pt-4", selectMode ? "pb-28" : "pb-8")}>
@@ -495,6 +548,31 @@ export default function GuestlistManagement() {
                   <Button className="w-full h-11 rounded-xl bg-primary" onClick={addGuest} disabled={adding}>
                     {adding ? "Adding..." : "Add to Guestlist"}
                   </Button>
+
+                  <div className="border-t border-border/50 my-1" />
+                  <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Import a list</p>
+                  <textarea
+                    value={importText}
+                    onChange={(e) => setImportText(e.target.value)}
+                    placeholder={"Paste one per line — name, email\nMaya Osei, maya@email.com\ntom@email.com"}
+                    className="w-full min-h-[84px] bg-secondary/50 border border-border rounded-xl p-3 text-sm resize-none outline-none focus:border-primary/50"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      className="flex-1 h-11 rounded-xl bg-primary"
+                      onClick={() => importGuests(parseGuestLines(importText))}
+                      disabled={importing || !importText.trim()}
+                    >
+                      {importing ? "Adding…" : "Add list"}
+                    </Button>
+                    <Button variant="outline" className="h-11 rounded-xl" onClick={() => csvRef.current?.click()} disabled={importing}>
+                      Upload CSV
+                    </Button>
+                  </div>
+                  <input ref={csvRef} type="file" accept=".csv,text/csv" hidden onChange={onCsvFile} />
+                  <p className="text-[11px] text-muted-foreground text-center">
+                    Matches existing accounts by email, skips duplicates, adds everyone as invited.
+                  </p>
                 </div>
               </DialogContent>
             </Dialog>
@@ -543,21 +621,33 @@ export default function GuestlistManagement() {
 
       {/* List */}
       <div className="pt-3 space-y-2">
-        {activeTab === "requests" && (requests.length === 0 ? <EmptyTab message="No pending requests" /> : requests.map(Row))}
-        {activeTab === "approved" && (approved.length === 0 ? <EmptyTab message="No approved guests yet" /> : approved.map(Row))}
-        {activeTab === "checked" && (checkedIn.length === 0 ? <EmptyTab message="No check-ins yet" /> : checkedIn.map(Row))}
+        {activeTab === "requests" && (requests.length === 0 ? <EmptyTab message="No pending requests" /> : (
+          <>
+            {!selectMode && (
+              <div className="flex items-center justify-center gap-2 pb-1">
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full text-emerald-400 bg-emerald-500/10 border border-emerald-500/25">Approve <span className="text-sm leading-none">→</span></span>
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full text-red-400 bg-red-500/10 border border-red-500/25"><span className="text-sm leading-none">←</span> Remove</span>
+              </div>
+            )}
+            {requests.map((g, i) => (
+              <GuestRow key={g.id} {...rowProps(g)} canSwipe onApprove={swipeApprove} onDeny={swipeDeny} nudge={i === 0 && !selectMode} />
+            ))}
+          </>
+        ))}
+        {activeTab === "approved" && (approved.length === 0 ? <EmptyTab message="No approved guests yet" /> : approved.map((g) => <GuestRow key={g.id} {...rowProps(g)} />))}
+        {activeTab === "checked" && (checkedIn.length === 0 ? <EmptyTab message="No check-ins yet" /> : checkedIn.map((g) => <GuestRow key={g.id} {...rowProps(g)} />))}
         {activeTab === "other" && (
           <>
             {waitlist.length > 0 && (
               <>
                 <p className="text-xs text-muted-foreground uppercase font-semibold px-1">Waitlist</p>
-                {waitlist.map(Row)}
+                {waitlist.map((g) => <GuestRow key={g.id} {...rowProps(g)} canSwipe onApprove={swipeApprove} onDeny={swipeDeny} />)}
               </>
             )}
             {denied.length > 0 && (
               <>
                 <p className="text-xs text-muted-foreground uppercase font-semibold px-1 mt-4">Denied / Revoked</p>
-                {denied.map(Row)}
+                {denied.map((g) => <GuestRow key={g.id} {...rowProps(g)} />)}
               </>
             )}
             {waitlist.length === 0 && denied.length === 0 && <EmptyTab message="No waitlisted or denied guests" />}
@@ -694,6 +784,132 @@ function EmptyTab({ message }) {
   return (
     <div className="py-12 text-center">
       <p className="text-sm text-muted-foreground">{message}</p>
+    </div>
+  );
+}
+
+// A guest row. Tap opens the action sheet (or toggles selection in select
+// mode). When canSwipe, a horizontal drag reveals Approve (right) / Remove
+// (left) and commits past a threshold. The opaque card hides the action layers
+// at rest; vertical drags fall through to page scroll (touch-action: pan-y).
+function GuestRow({ guest: g, picture, selectMode, selected, onOpen, onToggle, canSwipe = false, onApprove = (_g) => {}, onDeny = (_g) => {}, nudge = false }) {
+  const fg = useRef(null);
+  const apRef = useRef(null);
+  const dnRef = useRef(null);
+  const drag = useRef({ x: 0, y: 0, dir: null, active: false, moved: false });
+  const sub = formatPhoneDisplay(g.guest_phone) || g.guest_email || "No contact details";
+
+  // One-time teaching nudge on the first request row: flash Approve then Remove.
+  useEffect(() => {
+    if (!nudge || !canSwipe) return;
+    const rm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const f = fg.current, ap = apRef.current, dn = dnRef.current;
+    if (rm || !f || !ap || !dn) return;
+    f.style.transition = "transform .3s ease";
+    const timers = [
+      setTimeout(() => { ap.style.opacity = "1"; f.style.transform = "translateX(56px)"; }, 450),
+      setTimeout(() => { f.style.transform = "translateX(0)"; }, 920),
+      setTimeout(() => { ap.style.opacity = "0"; }, 1220),
+      setTimeout(() => { dn.style.opacity = "1"; f.style.transform = "translateX(-56px)"; }, 1360),
+      setTimeout(() => { f.style.transform = "translateX(0)"; }, 1830),
+      setTimeout(() => { dn.style.opacity = "0"; }, 2130),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, [nudge, canSwipe]);
+
+  const reveal = (dx) => {
+    if (apRef.current) apRef.current.style.opacity = dx > 0 ? "1" : "0";
+    if (dnRef.current) dnRef.current.style.opacity = dx < 0 ? "1" : "0";
+  };
+  const snapBack = () => {
+    const f = fg.current; if (!f) return;
+    f.style.transition = "transform .2s ease";
+    f.style.transform = "translateX(0)";
+    reveal(0);
+  };
+
+  const onDown = (e) => {
+    if (selectMode || !canSwipe) return;
+    drag.current = { x: e.clientX, y: e.clientY, dir: null, active: true, moved: false };
+    if (fg.current) fg.current.style.transition = "none";
+  };
+  const onMove = (e) => {
+    const d = drag.current; if (!d.active) return;
+    const dx = e.clientX - d.x, dy = e.clientY - d.y;
+    if (d.dir === null) {
+      if (Math.abs(dx) > 6 && Math.abs(dx) > Math.abs(dy)) {
+        d.dir = "h";
+        try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
+      } else if (Math.abs(dy) > 6) { d.dir = "v"; d.active = false; return; }
+      else return;
+    }
+    d.moved = true;
+    e.preventDefault();
+    if (fg.current) fg.current.style.transform = `translateX(${dx}px)`;
+    reveal(dx);
+  };
+  const onUp = (e) => {
+    const d = drag.current; if (!d.active) return;
+    const dx = e.clientX - d.x;
+    d.active = false;
+    if (d.dir === "h" && Math.abs(dx) > 88) {
+      const approve = dx > 0;
+      const f = fg.current;
+      if (f) { f.style.transition = "transform .18s ease"; f.style.transform = `translateX(${approve ? "110%" : "-110%"})`; }
+      setTimeout(() => (approve ? onApprove(g) : onDeny(g)), 170);
+    } else if (d.dir === "h") {
+      snapBack();
+    }
+  };
+  const onClick = () => {
+    if (selectMode) { onToggle(g); return; }
+    if (canSwipe && drag.current.moved) { drag.current.moved = false; return; } // was a swipe, not a tap
+    onOpen(g);
+  };
+
+  return (
+    <div className="relative rounded-xl overflow-hidden">
+      {canSwipe && !selectMode && (
+        <>
+          <div ref={apRef} className="absolute inset-0 flex items-center justify-start gap-2 px-5 bg-emerald-600 text-white text-sm font-semibold opacity-0 transition-opacity pointer-events-none">
+            <Check className="w-4 h-4" /> Approve
+          </div>
+          <div ref={dnRef} className="absolute inset-0 flex items-center justify-end gap-2 px-5 bg-red-600 text-white text-sm font-semibold opacity-0 transition-opacity pointer-events-none">
+            Remove <X className="w-4 h-4" />
+          </div>
+        </>
+      )}
+      <div
+        ref={fg}
+        role="button"
+        tabIndex={0}
+        onPointerDown={onDown}
+        onPointerMove={onMove}
+        onPointerUp={onUp}
+        onPointerCancel={snapBack}
+        onClick={onClick}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}
+        className="relative w-full flex items-center gap-3 p-3 rounded-xl bg-card border border-border/60 text-left touch-pan-y select-none cursor-pointer hover:border-border"
+      >
+        {selectMode ? (
+          <span className={cn("w-10 h-10 rounded-full border-2 grid place-items-center shrink-0 transition-colors", selected ? "bg-primary border-primary text-primary-foreground" : "border-border")}>
+            {selected && <Check className="w-5 h-5" />}
+          </span>
+        ) : (
+          <Avatar src={picture} name={g.guest_name || g.guest_email} size="w-10 h-10" textClass="text-sm" />
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-sm text-foreground truncate">{g.guest_name || "Unknown"}</p>
+          <p className="text-xs text-muted-foreground truncate">{sub}</p>
+          {g.plus_one && (
+            <span className="inline-flex items-center gap-1 text-[11px] text-accent mt-0.5 truncate">
+              <UserPlus className="w-3 h-3 shrink-0" />
+              <span className="truncate">{g.plus_one_name ? `+1 · ${g.plus_one_name}` : "+1"}</span>
+            </span>
+          )}
+        </div>
+        {!selectMode && <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
+      </div>
     </div>
   );
 }
