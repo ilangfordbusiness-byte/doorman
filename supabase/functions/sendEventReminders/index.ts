@@ -52,8 +52,15 @@ Deno.serve(async (req) => {
           bodyHtml: emailCard('Event Details', detailRows([
             ['📅 Date', formatEventDateLong(event.date)],
             ['🕐 Time', formatTimeRange(event)],
-            ['📍 Venue', event.venue_name],
-            ['🗺️ Address', event.address],
+            // Reminders go to invited guests too, who aren't "approved" for a
+            // hidden-location event — so don't put the venue in the email.
+            // Approved guests still have it in the app / on their pass.
+            ...(event.hide_location_until_approved
+              ? [['📍 Location', 'See the app once you’re approved'] as [string, unknown]]
+              : [
+                  ['📍 Venue', event.venue_name] as [string, unknown],
+                  ['🗺️ Address', event.address] as [string, unknown],
+                ]),
             ['👔 Dress code', event.dress_code],
             ['📋 Entry notes', event.entry_notes],
           ])),

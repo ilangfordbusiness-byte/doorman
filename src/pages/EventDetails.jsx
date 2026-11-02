@@ -503,6 +503,15 @@ export default function EventDetails() {
           </a>
         )}
 
+        {/* Location withheld until the host approves this guest (server masks
+            venue/address to null for everyone who isn't approved yet). */}
+        {event.hide_location_until_approved && !event.venue_name && !event.address && (
+          <div className="flex items-center gap-2.5 bg-secondary/50 rounded-xl p-3 border border-dashed border-border">
+            <MapPin className="w-4 h-4 text-muted-foreground shrink-0" />
+            <p className="text-sm text-muted-foreground">The location is revealed once the host approves you onto the guestlist.</p>
+          </div>
+        )}
+
         {event.description && (
           <div>
             <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5">About</p>
