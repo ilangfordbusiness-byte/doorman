@@ -1,7 +1,11 @@
 // Inspired by react-hot-toast library
 import { useState, useEffect } from "react";
 
-const TOAST_LIMIT = 20;
+// Only one toast on screen at a time: a new toast replaces the current one
+// instead of stacking. Firing several in quick succession (e.g. approving
+// guests one after another) used to pile up to TOAST_LIMIT toasts that lingered
+// for `duration` each and covered the screen.
+const TOAST_LIMIT = 1;
 const TOAST_REMOVE_DELAY = 1000000;
 
 const actionTypes = {
