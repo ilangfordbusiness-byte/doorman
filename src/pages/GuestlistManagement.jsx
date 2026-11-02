@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/api/data";
-import { ArrowLeft, Search, UserPlus, Download } from "lucide-react";
+import {
+  ArrowLeft, Search, UserPlus, Download, Check, X, Clock, RotateCcw, ChevronRight, User,
+} from "lucide-react";
 import { buildGuestlistCsv } from "@/lib/eventExport";
 import { downloadCsv, slugForFilename } from "@/lib/csv";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -16,13 +18,21 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import GuestCard from "../components/GuestCard";
+import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import LoadingSpinner from "../components/LoadingSpinner";
 import Avatar from "../components/Avatar";
 import { useProfiles } from "@/hooks/useProfiles";
 import PhoneInput from "@/components/PhoneInput";
-import { normalizePhone } from "@/lib/phone";
+import { normalizePhone, formatPhoneDisplay } from "@/lib/phone";
 import FriendProfile from "../components/FriendProfile";
+
+// Tinted icon chip per action tone, used in the per-guest action sheet.
+const TONE = {
+  approve: "bg-emerald-500/15 text-emerald-400",
+  wait: "bg-amber-500/15 text-amber-400",
+  deny: "bg-red-500/15 text-red-400",
+  muted: "bg-secondary text-muted-foreground",
+};
 
 export default function GuestlistManagement() {
   const { id } = useParams();
@@ -39,20 +49,20 @@ export default function GuestlistManagement() {
   const [friends, setFriends] = useState([]);
   const [me, setMe] = useState(null);
   const [viewProfile, setViewProfile] = useState(null);
-  // Guest whose pass is about to be revoked; set by the X button, cleared by the confirm dialog.
+  // Guest whose pass is about to be revoked; set by the action sheet, cleared by the confirm dialog.
   const [revokeTarget, setRevokeTarget] = useState(null);
   const [revoking, setRevoking] = useState(false);
   const [plusOneTarget, setPlusOneTarget] = useState(null);
   const [plusOneName, setPlusOneName] = useState("");
   const [savingPlusOne, setSavingPlusOne] = useState(false);
-  // Per-row in-flight lock so a fast double-tap can't fire the same action
-  // twice (e.g. approving a guest sends ONE ticket email, not two). Keyed by
-  // entry id for row actions, and by email for the friend quick-add (which has
-  // no entry yet). Different rows can still act concurrently.
-  //
-  // The ref is the source of truth for the guard: it updates synchronously, so
-  // a second tap in the same frame (before React re-renders and disables the
-  // button) is still blocked. The state mirror only drives the disabled UI.
+  // The guest whose action sheet (bottom drawer) is open.
+  const [actionTarget, setActionTarget] = useState(null);
+  // Multi-select / bulk actions.
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState(() => new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  // Per-row in-flight lock so a fast double-tap can't fire the same action twice
+  // (e.g. approving a guest sends ONE ticket email). Ref = synchronous guard.
   const busyRef = useRef(new Set());
   const [busyKeys, setBusyKeys] = useState(() => new Set());
   const markBusy = (key, on) => {
@@ -105,7 +115,7 @@ export default function GuestlistManagement() {
         updates.qr_secret = crypto.randomUUID();
       }
       await api.entities.GuestlistEntry.update(guest.id, updates);
-      const statusLabel = { waitlist: "moved to waitlist", approved: "approved", denied: "denied", revoked: "revoked" }[status] || status;
+      const statusLabel = { waitlist: "moved to waitlist", approved: "approved", denied: "removed", revoked: "revoked" }[status] || status;
       toast({ title: `Guest ${statusLabel}` });
       // Email the guest their free ticket (QR + pass link) once approved.
       if (status === "approved" && guest.guest_email && !event?.is_paid) {
@@ -120,7 +130,7 @@ export default function GuestlistManagement() {
   // A guest's +1 is captured with the plus-one's name so it shows under the
   // guest on the list, on their pass, and at the door. The guest stays a single
   // entry (one person) that carries the +1; validateQR gates the door reveal on
-  // event.plus_one_allowed too. Tapping the +1 control opens this dialog.
+  // event.plus_one_allowed too.
   function openPlusOne(guest) {
     setPlusOneTarget(guest);
     setPlusOneName(guest.plus_one_name || "");
@@ -263,6 +273,71 @@ export default function GuestlistManagement() {
     }
   }
 
+  // ---- selection / bulk ----
+  const exitSelect = () => { setSelectMode(false); setSelected(new Set()); };
+  const toggleSel = (g) => setSelected((prev) => {
+    const next = new Set(prev);
+    if (next.has(g.id)) next.delete(g.id); else next.add(g.id);
+    return next;
+  });
+  async function bulkApply(status) {
+    if (bulkBusy || selected.size === 0) return;
+    setBulkBusy(true);
+    const targets = guests.filter((g) => selected.has(g.id));
+    try {
+      for (const g of targets) {
+        const updates = { status };
+        if (status === "approved" && !g.qr_secret) updates.qr_secret = crypto.randomUUID();
+        await api.entities.GuestlistEntry.update(g.id, updates);
+        if (status === "approved" && g.guest_email && !event?.is_paid) {
+          api.functions.invoke("sendTicketEmail", { entry_id: g.id }).catch(() => {});
+        }
+      }
+      const label = { approved: "approved", waitlist: "moved to waitlist", denied: "removed" }[status] || status;
+      toast({ title: `${targets.length} guest${targets.length === 1 ? "" : "s"} ${label}` });
+      exitSelect();
+      await loadData();
+    } catch (e) {
+      toast({ title: e?.message || "Bulk action failed", variant: "destructive" });
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  // ---- per-guest action sheet ----
+  // Close the sheet, then run the action (a short defer lets the drawer finish
+  // closing before another dialog — plus-one / revoke — opens over it).
+  function runAction(fn) {
+    setActionTarget(null);
+    setTimeout(fn, 160);
+  }
+  function actionsFor(g) {
+    const a = [];
+    if (["requested", "waitlist", "denied", "revoked"].includes(g.status)) {
+      const reapprove = g.status === "denied" || g.status === "revoked";
+      a.push({ key: "approve", label: reapprove ? "Re-approve" : "Approve", tone: "approve", Icon: Check, run: () => updateStatus(g, "approved") });
+    }
+    if (["approved", "invited"].includes(g.status)) {
+      a.push({ key: "checkin", label: "Check in", tone: "approve", Icon: Check, run: () => checkIn(g) });
+    }
+    if (g.status === "checked_in") {
+      a.push({ key: "undo", label: "Undo check-in", tone: "muted", Icon: RotateCcw, run: () => checkIn(g, true) });
+    }
+    if (["requested", "approved", "invited"].includes(g.status)) {
+      a.push({ key: "waitlist", label: "Move to waitlist", tone: "wait", Icon: Clock, run: () => updateStatus(g, "waitlist") });
+    }
+    if (event?.plus_one_allowed && g.status !== "checked_in") {
+      a.push({ key: "plus", label: g.plus_one ? "Edit plus-one" : "Add a plus-one", tone: "muted", Icon: UserPlus, run: () => openPlusOne(g) });
+    }
+    a.push({ key: "profile", label: "View profile", tone: "muted", Icon: User, run: () => setViewProfile(g) });
+    if (["requested", "waitlist"].includes(g.status)) {
+      a.push({ key: "deny", label: "Remove", tone: "deny", Icon: X, run: () => updateStatus(g, "denied") });
+    } else if (["approved", "invited"].includes(g.status)) {
+      a.push({ key: "revoke", label: "Revoke pass", tone: "deny", Icon: X, run: () => setRevokeTarget(g) });
+    }
+    return a;
+  }
+
   const filtered = guests.filter((g) => {
     const q = search.toLowerCase();
     // Digits-only match lets "07700" find a stored "+447700…".
@@ -284,229 +359,263 @@ export default function GuestlistManagement() {
   // Default to Requests when any are pending, else Approved — until the user taps a tab.
   const activeTab = glTab ?? (requests.length > 0 ? "requests" : "approved");
 
+  // Capacity header (counts the whole list, not the search filter).
+  const admitted = guests.filter((g) => ["approved", "invited", "checked_in"].includes(g.status)).length;
+  const pending = guests.filter((g) => g.status === "requested").length;
+  const capacity = event?.capacity || null;
+
   if (loading) return <LoadingSpinner fullScreen />;
 
+  const Row = (g) => {
+    const picture = profiles?.[g.guest_email?.toLowerCase()]?.picture;
+    const sub = formatPhoneDisplay(g.guest_phone) || g.guest_email || "No contact details";
+    const checked = selected.has(g.id);
+    return (
+      <button
+        key={g.id}
+        type="button"
+        onClick={() => (selectMode ? toggleSel(g) : setActionTarget(g))}
+        className="w-full flex items-center gap-3 p-3 rounded-xl bg-card border border-border/60 text-left transition-colors hover:border-border active:scale-[0.995]"
+      >
+        {selectMode ? (
+          <span className={cn("w-10 h-10 rounded-full border-2 grid place-items-center shrink-0 transition-colors", checked ? "bg-primary border-primary text-primary-foreground" : "border-border")}>
+            {checked && <Check className="w-5 h-5" />}
+          </span>
+        ) : (
+          <Avatar src={picture} name={g.guest_name || g.guest_email} size="w-10 h-10" textClass="text-sm" />
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-sm text-foreground truncate">{g.guest_name || "Unknown"}</p>
+          <p className="text-xs text-muted-foreground truncate">{sub}</p>
+          {g.plus_one && (
+            <span className="inline-flex items-center gap-1 text-[11px] text-accent mt-0.5 truncate">
+              <UserPlus className="w-3 h-3 shrink-0" />
+              <span className="truncate">{g.plus_one_name ? `+1 · ${g.plus_one_name}` : "+1"}</span>
+            </span>
+          )}
+        </div>
+        {!selectMode && <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
+      </button>
+    );
+  };
+
   return (
-    <div className="max-w-lg mx-auto px-4 pt-4 pb-8">
+    <div className={cn("max-w-lg mx-auto px-4 pt-4", selectMode ? "pb-28" : "pb-8")}>
       {/* Header */}
-      <div className="flex items-center gap-3 mb-4">
-        <Button variant="ghost" size="icon" className="rounded-full" onClick={() => navigate(-1)}>
+      <div className="flex items-center gap-2 mb-3">
+        <Button variant="ghost" size="icon" className="rounded-full" onClick={() => (selectMode ? exitSelect() : navigate(-1))}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <h1 className="font-heading font-bold text-lg">Guestlist</h1>
-          <p className="text-xs text-muted-foreground">{event?.title} · {guests.length} guests</p>
+          <p className="text-xs text-muted-foreground truncate">
+            {selectMode ? `${selected.size} selected` : `${event?.title} · ${guests.length} guests`}
+          </p>
         </div>
-        <button
-          type="button"
-          className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "rounded-full")}
-          onClick={exportCsv}
-          disabled={guests.length === 0}
-          aria-label="Export guestlist as CSV"
-          title="Export CSV"
-        >
-          <Download className="w-4 h-4" />
-        </button>
-        <Dialog open={addOpen} onOpenChange={setAddOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="rounded-full gap-1.5 bg-primary hover:bg-primary/90">
-              <UserPlus className="w-4 h-4" /> Add
+        {selectMode ? (
+          <Button variant="ghost" size="sm" className="rounded-full" onClick={exitSelect}>Cancel</Button>
+        ) : (
+          <>
+            <button
+              type="button"
+              className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "rounded-full")}
+              onClick={exportCsv}
+              disabled={guests.length === 0}
+              aria-label="Export guestlist as CSV"
+              title="Export CSV"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+            <Button variant="ghost" size="sm" className="rounded-full" onClick={() => setSelectMode(true)} disabled={guests.length === 0}>
+              Select
             </Button>
-          </DialogTrigger>
-          <DialogContent className="bg-card border-border max-w-sm">
-            <DialogHeader>
-              <DialogTitle className="font-heading">Add Guest</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-3 pt-2">
-              <div>
-                  <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-2">Quick Add from Friends</p>
-                  {friends.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-3 bg-secondary/40 rounded-xl border border-border/50">No friends on the app yet — add friends from the Friends tab</p>
-                  ) : (
-                  <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                    {friends.map((f) => {
-                      const alreadyAdded = guests.some((g) => g.guest_email === f.email);
-                      const inviting = busyKeys.has(f.email);
-                      return (
-                        <div key={f.email} className="flex items-center gap-3 bg-secondary/50 rounded-xl px-3 py-2 border border-border/50">
-                          <Avatar src={f.picture} name={f.name || f.email} size="w-7 h-7" textClass="text-xs" />
-                          <span className="flex-1 text-sm font-medium text-foreground truncate">{f.name || f.email}</span>
-                          <button
-                            onClick={() => addFriendToGuestlist(f)}
-                            disabled={alreadyAdded || inviting}
-                            className={`text-xs font-semibold px-3 py-1 rounded-lg transition-colors ${
-                              alreadyAdded || inviting
-                                ? "text-muted-foreground bg-muted cursor-not-allowed"
-                                : "text-primary-foreground bg-primary hover:bg-primary/80"
-                            }`}
-                          >
-                            {alreadyAdded ? "Added" : inviting ? "Inviting…" : "Invite"}
-                          </button>
-                        </div>
-                      );
-                    })}
+            <Dialog open={addOpen} onOpenChange={setAddOpen}>
+              <DialogTrigger asChild>
+                <Button size="icon" className="rounded-full bg-primary hover:bg-primary/90" aria-label="Add guests">
+                  <UserPlus className="w-4 h-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="bg-card border-border max-w-sm">
+                <DialogHeader>
+                  <DialogTitle className="font-heading">Add Guest</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3 pt-2">
+                  <div>
+                    <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-2">Quick Add from Friends</p>
+                    {friends.length === 0 ? (
+                      <p className="text-xs text-muted-foreground text-center py-3 bg-secondary/40 rounded-xl border border-border/50">No friends on the app yet — add friends from the Friends tab</p>
+                    ) : (
+                      <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                        {friends.map((f) => {
+                          const alreadyAdded = guests.some((g) => g.guest_email === f.email);
+                          const inviting = busyKeys.has(f.email);
+                          return (
+                            <div key={f.email} className="flex items-center gap-3 bg-secondary/50 rounded-xl px-3 py-2 border border-border/50">
+                              <Avatar src={f.picture} name={f.name || f.email} size="w-7 h-7" textClass="text-xs" />
+                              <span className="flex-1 text-sm font-medium text-foreground truncate">{f.name || f.email}</span>
+                              <button
+                                onClick={() => addFriendToGuestlist(f)}
+                                disabled={alreadyAdded || inviting}
+                                className={`text-xs font-semibold px-3 py-1 rounded-lg transition-colors ${
+                                  alreadyAdded || inviting
+                                    ? "text-muted-foreground bg-muted cursor-not-allowed"
+                                    : "text-primary-foreground bg-primary hover:bg-primary/80"
+                                }`}
+                              >
+                                {alreadyAdded ? "Added" : inviting ? "Inviting…" : "Invite"}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <div className="border-t border-border/50 my-3" />
+                    <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-2">Add Manually</p>
                   </div>
-                  )}
-                  <div className="border-t border-border/50 my-3" />
-                  <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-2">Add Manually</p>
+                  <Input
+                    placeholder="Name"
+                    value={newGuest.name}
+                    onChange={(e) => setNewGuest((p) => ({ ...p, name: e.target.value }))}
+                    className="bg-secondary/50 border-border h-11 rounded-xl"
+                  />
+                  <Input
+                    placeholder="Email (or leave blank)"
+                    type="email"
+                    value={newGuest.email}
+                    onChange={(e) => setNewGuest((p) => ({ ...p, email: e.target.value }))}
+                    className="bg-secondary/50 border-border h-11 rounded-xl"
+                  />
+                  <PhoneInput
+                    value={newGuest.phone}
+                    onChange={(v) => setNewGuest((p) => ({ ...p, phone: v }))}
+                    placeholder="Phone (or leave blank)"
+                    className="h-11"
+                  />
+                  <p className="text-xs text-muted-foreground text-center">At least one of email or phone is required</p>
+                  <Button className="w-full h-11 rounded-xl bg-primary" onClick={addGuest} disabled={adding}>
+                    {adding ? "Adding..." : "Add to Guestlist"}
+                  </Button>
                 </div>
-              <Input
-                placeholder="Name"
-                value={newGuest.name}
-                onChange={(e) => setNewGuest((p) => ({ ...p, name: e.target.value }))}
-                className="bg-secondary/50 border-border h-11 rounded-xl"
-              />
-              <Input
-                placeholder="Email (or leave blank)"
-                type="email"
-                value={newGuest.email}
-                onChange={(e) => setNewGuest((p) => ({ ...p, email: e.target.value }))}
-                className="bg-secondary/50 border-border h-11 rounded-xl"
-              />
-              <PhoneInput
-                value={newGuest.phone}
-                onChange={(v) => setNewGuest((p) => ({ ...p, phone: v }))}
-                placeholder="Phone (or leave blank)"
-                className="h-11"
-              />
-              <p className="text-xs text-muted-foreground text-center">At least one of email or phone is required</p>
-              <Button className="w-full h-11 rounded-xl bg-primary" onClick={addGuest} disabled={adding}>
-                {adding ? "Adding..." : "Add to Guestlist"}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+              </DialogContent>
+            </Dialog>
+          </>
+        )}
       </div>
 
-      {/* Search */}
-      <div className="relative mb-4">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Search guests..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9 bg-secondary/50 border-border h-11 rounded-xl"
+      {/* Sticky frosted header: capacity + search + tabs. Rows scroll underneath. */}
+      <div className="sticky top-0 z-20 -mx-4 px-4 pt-2 pb-3 bg-background/80 backdrop-blur-xl border-b border-border/50 space-y-3">
+        <div>
+          <div className="flex items-center justify-between text-[13px] mb-1.5">
+            <span>
+              <span className="text-foreground font-bold tabular-nums">{admitted}</span>
+              <span className="text-muted-foreground"> {capacity ? `/ ${capacity} approved` : "approved · no limit set"}</span>
+            </span>
+            {pending > 0 && <span className="text-amber-400 font-semibold">{pending} waiting</span>}
+          </div>
+          {capacity && (
+            <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
+              <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.min(100, Math.round((admitted / capacity) * 100))}%` }} />
+            </div>
+          )}
+        </div>
+
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search guests..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 bg-secondary/50 border-border h-11 rounded-xl"
+          />
+        </div>
+
+        <SlidingTabs
+          value={activeTab}
+          onChange={(t) => { setGlTab(t); setSelected(new Set()); }}
+          tabs={[
+            { id: "requests", label: "Requests", badge: requests.length },
+            { id: "approved", label: "Approved", badge: approved.length },
+            { id: "checked", label: "In", badge: checkedIn.length },
+            { id: "other", label: "Other" },
+          ]}
         />
       </div>
 
-      {/* Tabs */}
-      <SlidingTabs
-        className="mb-4"
-        value={activeTab}
-        onChange={setGlTab}
-        tabs={[
-          { id: "requests", label: "Requests", badge: requests.length },
-          { id: "approved", label: "Approved", badge: approved.length },
-          { id: "checked", label: "In", badge: checkedIn.length },
-          { id: "other", label: "Other" },
-        ]}
-      />
+      {/* List */}
+      <div className="pt-3 space-y-2">
+        {activeTab === "requests" && (requests.length === 0 ? <EmptyTab message="No pending requests" /> : requests.map(Row))}
+        {activeTab === "approved" && (approved.length === 0 ? <EmptyTab message="No approved guests yet" /> : approved.map(Row))}
+        {activeTab === "checked" && (checkedIn.length === 0 ? <EmptyTab message="No check-ins yet" /> : checkedIn.map(Row))}
+        {activeTab === "other" && (
+          <>
+            {waitlist.length > 0 && (
+              <>
+                <p className="text-xs text-muted-foreground uppercase font-semibold px-1">Waitlist</p>
+                {waitlist.map(Row)}
+              </>
+            )}
+            {denied.length > 0 && (
+              <>
+                <p className="text-xs text-muted-foreground uppercase font-semibold px-1 mt-4">Denied / Revoked</p>
+                {denied.map(Row)}
+              </>
+            )}
+            {waitlist.length === 0 && denied.length === 0 && <EmptyTab message="No waitlisted or denied guests" />}
+          </>
+        )}
+      </div>
 
-      {activeTab === "requests" && (
-        <div className="space-y-2">
-          {requests.length === 0 ? (
-            <EmptyTab message="No pending requests" />
-          ) : (
-            requests.map((g) => (
-              <GuestCard
-                key={g.id}
-                guest={g}
-                picture={profiles?.[g.guest_email?.toLowerCase()]?.picture}
-                onViewProfile={setViewProfile}
-                showStatus={false}
-                busy={busyKeys.has(g.id)}
-                onApprove={(g) => updateStatus(g, "approved")}
-                onDeny={(g) => updateStatus(g, "denied")}
-                onWaitlist={(g) => updateStatus(g, "waitlist")}
-                plusOneAllowed={!!event?.plus_one_allowed}
-                onTogglePlusOne={openPlusOne}
-              />
-            ))
-          )}
+      {/* Bulk action bar (select mode) */}
+      {selectMode && (
+        <div className="fixed inset-x-0 bottom-0 z-40 px-4 pt-6 pb-[calc(12px+env(safe-area-inset-bottom,0px))] bg-gradient-to-t from-background via-background to-transparent pointer-events-none">
+          <div className="max-w-lg mx-auto flex gap-2 rounded-2xl border border-border bg-card p-2 shadow-xl pointer-events-auto">
+            <Button onClick={() => bulkApply("approved")} disabled={!selected.size || bulkBusy} className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white">
+              Approve{selected.size ? ` ${selected.size}` : ""}
+            </Button>
+            <Button onClick={() => bulkApply("waitlist")} disabled={!selected.size || bulkBusy} variant="secondary" className="flex-1 rounded-xl">
+              Waitlist
+            </Button>
+            <Button onClick={() => bulkApply("denied")} disabled={!selected.size || bulkBusy} className="flex-1 rounded-xl bg-red-600 hover:bg-red-500 text-white">
+              Remove
+            </Button>
+          </div>
         </div>
       )}
 
-      {activeTab === "approved" && (
-        <div className="space-y-2">
-          {approved.length === 0 ? (
-            <EmptyTab message="No approved guests yet" />
-          ) : (
-            approved.map((g) => (
-              <GuestCard
-                key={g.id}
-                guest={g}
-                picture={profiles?.[g.guest_email?.toLowerCase()]?.picture}
-                onViewProfile={setViewProfile}
-                showStatus={false}
-                busy={busyKeys.has(g.id)}
-                onCheckIn={(g) => checkIn(g)}
-                onWaitlist={(g) => updateStatus(g, "waitlist")}
-                onDeny={(g) => setRevokeTarget(g)}
-                plusOneAllowed={!!event?.plus_one_allowed}
-                onTogglePlusOne={openPlusOne}
-                showActions={true}
-              />
-            ))
+      {/* Per-guest action sheet */}
+      <Drawer open={!!actionTarget} onOpenChange={(open) => { if (!open) setActionTarget(null); }}>
+        <DrawerContent className="bg-card border-border">
+          {actionTarget && (
+            <div className="max-w-lg mx-auto w-full px-4 pb-6 pt-1">
+              <div className="flex items-center gap-3 mb-4">
+                <Avatar src={profiles?.[actionTarget.guest_email?.toLowerCase()]?.picture} name={actionTarget.guest_name || actionTarget.guest_email} size="w-11 h-11" textClass="text-base" />
+                <div className="min-w-0">
+                  <p className="font-heading font-bold truncate">{actionTarget.guest_name || "Guest"}</p>
+                  <p className="text-xs text-muted-foreground truncate">{formatPhoneDisplay(actionTarget.guest_phone) || actionTarget.guest_email}</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {actionsFor(actionTarget).map((a) => (
+                  <button
+                    key={a.key}
+                    type="button"
+                    onClick={() => runAction(a.run)}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-3.5 py-3 rounded-xl bg-secondary/50 border border-border/50 text-sm font-semibold transition-colors hover:bg-secondary",
+                      a.tone === "deny" && "text-red-400"
+                    )}
+                  >
+                    <span className={cn("w-8 h-8 rounded-lg grid place-items-center shrink-0", TONE[a.tone])}>
+                      <a.Icon className="w-4 h-4" />
+                    </span>
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
-        </div>
-      )}
-
-      {activeTab === "checked" && (
-        <div className="space-y-2">
-          {checkedIn.length === 0 ? (
-            <EmptyTab message="No check-ins yet" />
-          ) : (
-            checkedIn.map((g) => (
-              <GuestCard key={g.id} guest={g} picture={profiles?.[g.guest_email?.toLowerCase()]?.picture}
-                onViewProfile={setViewProfile} showStatus={false} busy={busyKeys.has(g.id)} onUncheck={(g) => checkIn(g, true)} showActions={true} />
-            ))
-          )}
-        </div>
-      )}
-
-      {activeTab === "other" && (
-        <div className="space-y-2">
-          {waitlist.length > 0 && (
-            <>
-              <p className="text-xs text-muted-foreground uppercase font-semibold px-1">Waitlist</p>
-              {waitlist.map((g) => (
-                <GuestCard
-                  key={g.id}
-                  guest={g}
-                  picture={profiles?.[g.guest_email?.toLowerCase()]?.picture}
-                onViewProfile={setViewProfile}
-                  showStatus={false}
-                  busy={busyKeys.has(g.id)}
-                  onApprove={(g) => updateStatus(g, "approved")}
-                  onDeny={(g) => updateStatus(g, "denied")}
-                  plusOneAllowed={!!event?.plus_one_allowed}
-                  onTogglePlusOne={openPlusOne}
-                />
-              ))}
-            </>
-          )}
-          {denied.length > 0 && (
-            <>
-              <p className="text-xs text-muted-foreground uppercase font-semibold px-1 mt-4">Denied / Revoked</p>
-              {denied.map((g) => (
-                <GuestCard
-                  key={g.id}
-                  guest={g}
-                  picture={profiles?.[g.guest_email?.toLowerCase()]?.picture}
-                onViewProfile={setViewProfile}
-                  showStatus={false}
-                  busy={busyKeys.has(g.id)}
-                  onApprove={(g) => updateStatus(g, "approved")}
-                  showActions={true}
-                />
-              ))}
-            </>
-          )}
-          {waitlist.length === 0 && denied.length === 0 && (
-            <EmptyTab message="No waitlisted or denied guests" />
-          )}
-        </div>
-      )}
+        </DrawerContent>
+      </Drawer>
 
       <AlertDialog open={!!revokeTarget} onOpenChange={(open) => { if (!open && !revoking) setRevokeTarget(null); }}>
         <AlertDialogContent className="bg-card border-border max-w-sm rounded-xl">
