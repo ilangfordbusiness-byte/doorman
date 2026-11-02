@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { api } from "@/api/data";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Users, Lock, Loader2 } from "lucide-react";
@@ -62,17 +62,35 @@ export default function WhoIsGoing({ eventId, myEmail, visibility = "show_names"
     })();
   }, [eventId, myEmail]);
 
+  // Guard a double-tap: the DB rejects a duplicate friend request, but the
+  // second call would throw unhandled. The sent email was only recorded AFTER
+  // the await, so a fast second tap slipped through and the button stayed
+  // active. Lock synchronously via a ref, mark sent optimistically, roll back
+  // if the insert fails.
+  const sendingRef = useRef(new Set());
   async function sendRequest(target) {
-    await api.entities.FriendRequest.create({
-      sender_email: me.email,
-      sender_name: me.full_name,
-      sender_picture: me.profile_picture || "",
-      receiver_email: target.email,
-      receiver_name: target.full_name,
-      receiver_picture: target.profile_picture || "",
-      status: "pending",
-    });
+    if (sentSet.has(target.email) || sendingRef.current.has(target.email)) return;
+    sendingRef.current.add(target.email);
     setSentSet((s) => new Set(s).add(target.email));
+    try {
+      await api.entities.FriendRequest.create({
+        sender_email: me.email,
+        sender_name: me.full_name,
+        sender_picture: me.profile_picture || "",
+        receiver_email: target.email,
+        receiver_name: target.full_name,
+        receiver_picture: target.profile_picture || "",
+        status: "pending",
+      });
+    } catch {
+      setSentSet((s) => {
+        const next = new Set(s);
+        next.delete(target.email);
+        return next;
+      });
+    } finally {
+      sendingRef.current.delete(target.email);
+    }
   }
 
   if (visibility === "none") return null;

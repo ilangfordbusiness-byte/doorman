@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/data";
@@ -55,6 +55,18 @@ export default function Friends() {
   const [sugLoading, setSugLoading] = useState(false);
   const [sugTotal, setSugTotal] = useState(0);
   const [sugPage, setSugPage] = useState(0); // 0-based
+  // In-flight lock so a double-tap doesn't fire a second friend-request
+  // insert/response. The DB's unique(sender_id, receiver_id) already rejects a
+  // duplicate request, but the second call would surface as an uncaught
+  // rejection and a stray toast. Ref = synchronous guard; state = disabled UI.
+  // Keyed by target email for sends, by request id for responses.
+  const busyRef = useRef(new Set());
+  const [busyKeys, setBusyKeys] = useState(() => new Set());
+  const markBusy = (key, on) => {
+    if (on) busyRef.current.add(key);
+    else busyRef.current.delete(key);
+    setBusyKeys(new Set(busyRef.current));
+  };
 
   useEffect(() => {
     loadPage(0);
@@ -78,25 +90,41 @@ export default function Friends() {
   }
 
   async function sendRequest(target) {
-    await api.entities.FriendRequest.create({
-      sender_email: me.email,
-      sender_name: me.full_name,
-      sender_picture: me.profile_picture || "",
-      receiver_email: target.email,
-      receiver_name: target.full_name,
-      receiver_picture: target.profile_picture || "",
-      status: "pending",
-    });
-    queryClient.invalidateQueries(["friendsData"]);
-    toast({ title: "Friend request sent!" });
+    if (busyRef.current.has(target.email)) return;
+    markBusy(target.email, true);
+    try {
+      await api.entities.FriendRequest.create({
+        sender_email: me.email,
+        sender_name: me.full_name,
+        sender_picture: me.profile_picture || "",
+        receiver_email: target.email,
+        receiver_name: target.full_name,
+        receiver_picture: target.profile_picture || "",
+        status: "pending",
+      });
+      queryClient.invalidateQueries(["friendsData"]);
+      toast({ title: "Friend request sent!" });
+    } catch (e) {
+      toast({ title: e?.message || "Couldn't send request", variant: "destructive" });
+    } finally {
+      markBusy(target.email, false);
+    }
   }
 
   async function respond(req, status) {
-    await api.entities.FriendRequest.update(req.id, { status });
-    queryClient.invalidateQueries(["friendsData"]);
-    queryClient.invalidateQueries(["notifications"]);
-    if (status === "accepted") {
-      toast({ title: "Friend added!" });
+    if (busyRef.current.has(req.id)) return;
+    markBusy(req.id, true);
+    try {
+      await api.entities.FriendRequest.update(req.id, { status });
+      queryClient.invalidateQueries(["friendsData"]);
+      queryClient.invalidateQueries(["notifications"]);
+      if (status === "accepted") {
+        toast({ title: "Friend added!" });
+      }
+    } catch (e) {
+      toast({ title: e?.message || "Couldn't update request", variant: "destructive" });
+    } finally {
+      markBusy(req.id, false);
     }
   }
 
@@ -203,7 +231,7 @@ export default function Friends() {
                     {sentSet.has(u.email) ? (
                       <span className="text-xs text-muted-foreground font-medium">Sent</span>
                     ) : (
-                      <Button size="sm" className="rounded-full h-8 gap-1 text-xs" onClick={(e) => { e.stopPropagation(); sendRequest(u); }}>
+                      <Button size="sm" disabled={busyKeys.has(u.email)} className="rounded-full h-8 gap-1 text-xs" onClick={(e) => { e.stopPropagation(); sendRequest(u); }}>
                         <UserPlus className="w-3.5 h-3.5" /> Add
                       </Button>
                     )}
@@ -240,10 +268,10 @@ export default function Friends() {
               {requests.map((req) => (
                 <UserRow key={req.id} user={{ full_name: req.sender_name, email: req.sender_email, profile_picture: req.sender_picture }} reason="Wants to be friends" onClick={() => setViewingRequest(req)}>
                   <div className="flex gap-1.5">
-                    <button onClick={(e) => { e.stopPropagation(); respond(req, "accepted"); }} className="w-8 h-8 rounded-full bg-emerald-500/15 flex items-center justify-center text-emerald-400 hover:bg-emerald-500/25 transition-colors">
+                    <button disabled={busyKeys.has(req.id)} onClick={(e) => { e.stopPropagation(); respond(req, "accepted"); }} className="w-8 h-8 rounded-full bg-emerald-500/15 flex items-center justify-center text-emerald-400 hover:bg-emerald-500/25 transition-colors disabled:opacity-50">
                       <Check className="w-4 h-4" />
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); respond(req, "declined"); }} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+                    <button disabled={busyKeys.has(req.id)} onClick={(e) => { e.stopPropagation(); respond(req, "declined"); }} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
