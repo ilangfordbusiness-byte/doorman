@@ -4,7 +4,7 @@ import StatusBadge from "./StatusBadge";
 import Avatar from "./Avatar";
 import { formatPhoneDisplay } from "@/lib/phone";
 
-export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, onCheckIn, onUncheck, showActions = true, picture, onViewProfile, plusOneAllowed = false, onTogglePlusOne = null }) {
+export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, onCheckIn, onUncheck, showActions = true, picture, onViewProfile, plusOneAllowed = false, onTogglePlusOne = null, busy = false }) {
   const canApprove = ["requested", "waitlist", "denied"].includes(guest.status);
   const canDeny = ["requested", "waitlist", "approved", "invited"].includes(guest.status);
   const canWaitlist = ["requested"].includes(guest.status);
@@ -59,6 +59,7 @@ export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, onChec
             {canCheckIn && (
               <Button
                 size="sm"
+                disabled={busy}
                 className="h-11 rounded-lg gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
                 onClick={(e) => { e.stopPropagation(); onCheckIn(guest); }}
               >
@@ -69,6 +70,7 @@ export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, onChec
               <Button
                 size="sm"
                 variant="ghost"
+                disabled={busy}
                 className="h-11 rounded-lg gap-1.5 text-muted-foreground hover:text-foreground"
                 onClick={(e) => { e.stopPropagation(); onUncheck(guest); }}
               >
@@ -79,6 +81,7 @@ export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, onChec
               <Button
                 size="icon"
                 variant="ghost"
+                disabled={busy}
                 className="h-11 w-11 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300"
                 onClick={(e) => { e.stopPropagation(); onApprove?.(guest); }}
               >
@@ -89,6 +92,7 @@ export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, onChec
               <Button
                 size="icon"
                 variant="ghost"
+                disabled={busy}
                 className="h-11 w-11 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300"
                 onClick={(e) => { e.stopPropagation(); onWaitlist?.(guest); }}
               >
@@ -99,6 +103,7 @@ export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, onChec
               <Button
                 size="icon"
                 variant="ghost"
+                disabled={busy}
                 className="h-11 w-11 text-red-400 hover:bg-red-500/20 hover:text-red-300"
                 onClick={(e) => { e.stopPropagation(); onDeny?.(guest); }}
               >
