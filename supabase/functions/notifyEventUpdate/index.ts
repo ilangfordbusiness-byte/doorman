@@ -44,8 +44,10 @@ Deno.serve(async (req) => {
     if (changed.includes('date')) rows.push(['📅 Date', formatEventDateLong(event.date)]);
     if (changed.includes('start_time')) rows.push(['🕐 Start time', fmt(event.start_time)]);
     if (changed.includes('end_time')) rows.push(['🕐 End time', fmt(event.end_time)]);
-    if (changed.includes('venue_name')) rows.push(['📍 Venue', event.venue_name]);
-    if (changed.includes('address')) rows.push(['🗺️ Address', event.address]);
+    // Invited (not-yet-approved) guests are notified too, so don't email the
+    // venue/address of a hidden-location event; approved guests see it in-app.
+    if (!event.hide_location_until_approved && changed.includes('venue_name')) rows.push(['📍 Venue', event.venue_name]);
+    if (!event.hide_location_until_approved && changed.includes('address')) rows.push(['🗺️ Address', event.address]);
     if (changed.includes('dress_code')) rows.push(['👔 Dress code', event.dress_code]);
     if (changed.includes('entry_notes')) rows.push(['📋 Entry notes', event.entry_notes]);
     if (changed.includes('status')) rows.push(['🔔 Status', event.status]);

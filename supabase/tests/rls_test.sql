@@ -990,6 +990,56 @@ begin
   end if;
   perform pg_temp.ok('owner can remove members and their access ends');
 
+  -- ---- hide_location_until_approved -------------------------------------
+  -- Turn on location hiding for the (published, non-paid) event and give it a
+  -- real venue/address, then check who get_events_location reveals it to.
+  execute 'reset role';
+  update public.events
+    set hide_location_until_approved = true, is_paid = false, status = 'published',
+        venue_name = 'Hidden Club', address = '10 Secret St', venue_lat = 51.5, venue_lng = -0.1
+    where id = v_event;
+  update public.guestlist_entries set status = 'requested'
+    where event_id = v_event and guest_user_id = bob;
+
+  perform pg_temp.impersonate(bob, 'bob@test.dev');
+  select address into v_text from public.get_events_location(array[v_event]);
+  if v_text is not null then
+    raise exception 'FAIL: hidden location leaked to an unapproved guest: %', v_text;
+  end if;
+  perform pg_temp.ok('hidden location is NULL for an unapproved guest');
+
+  -- The underlying column grant is revoked, so a direct read can't reach it.
+  begin
+    perform 1 from (select address from public.events where id = v_event) s;
+    raise exception 'FAIL: address column is still directly selectable';
+  exception when insufficient_privilege then
+    perform pg_temp.ok('location column grant revoked (direct select blocked)');
+  end;
+
+  execute 'reset role';
+  update public.guestlist_entries set status = 'approved'
+    where event_id = v_event and guest_user_id = bob;
+  perform pg_temp.impersonate(bob, 'bob@test.dev');
+  select address into v_text from public.get_events_location(array[v_event]);
+  if v_text is distinct from '10 Secret St' then
+    raise exception 'FAIL: approved guest cannot see the location: %', v_text;
+  end if;
+  perform pg_temp.ok('approved guest can see the hidden location');
+
+  perform pg_temp.impersonate(alice, 'alice@test.dev');
+  select address into v_text from public.get_events_location(array[v_event]);
+  if v_text is distinct from '10 Secret St' then
+    raise exception 'FAIL: host cannot see the location of their own hidden event';
+  end if;
+  perform pg_temp.ok('host can see the hidden location');
+
+  perform pg_temp.go_anon();
+  select address into v_text from public.get_events_location(array[v_event]);
+  if v_text is not null then
+    raise exception 'FAIL: hidden location leaked to anon: %', v_text;
+  end if;
+  perform pg_temp.ok('hidden location is NULL for anon');
+
   execute 'reset role';
   raise notice '';
   raise notice 'ALL % CHECKS PASSED', currval('pg_temp.t_pass');

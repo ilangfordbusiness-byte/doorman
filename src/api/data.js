@@ -84,11 +84,15 @@ const isBlockedEmail = (sets, email) => !!email && sets.emails.has(String(email)
 const ENTITIES = {
   Event: {
     table: "events",
+    // Location columns (venue_name/address/venue_lat/venue_lng) are intentionally
+    // absent: their client SELECT grant is revoked so a hidden event can't leak
+    // them. They're fetched (masked) via get_events_location and merged in enrich.
     select: `id, host_id, business_id, title, cover_image_url, date, start_time,
-      end_time, timezone, venue_name, address, venue_lat, venue_lng, dress_code,
+      end_time, timezone, dress_code,
       description, entry_notes, instagram, is_public, discoverable, capacity,
       requests_open, plus_one_allowed, status, is_paid, currency, fee_mode,
-      visibility, lineup_style, live_qr, created_at, updated_at,
+      visibility, lineup_style, live_qr, hide_location_until_approved,
+      created_at, updated_at,
       host:profiles!events_host_id_fkey(${PROFILE_JOIN}),
       co_host_rows:event_co_hosts(id, email, status, user_id,
         profile:profiles(full_name, avatar_url, email)),
@@ -150,6 +154,7 @@ const ENTITIES = {
         visibility: r.visibility,
         lineup_style: r.lineup_style,
         live_qr: r.live_qr,
+        hide_location_until_approved: r.hide_location_until_approved,
         business_id: r.business_id,
         host_id: r.host_id,
         host_email: r.host?.email ?? null,
@@ -169,6 +174,7 @@ const ENTITIES = {
         "is_public", "discoverable", "capacity", "requests_open",
         "plus_one_allowed", "status", "is_paid", "currency", "fee_mode",
         "visibility", "business_id", "lineup_style", "live_qr",
+        "hide_location_until_approved",
       ];
       for (const k of copy) if (k in obj) out[k] = obj[k];
       // The legacy platform tolerated "" in typed columns; Postgres uuid/numeric/date do not.
@@ -244,17 +250,23 @@ const ENTITIES = {
     // by the caller — from get_event_people for public events, or from the
     // invite RPC (bearer code) for private ones.
     async previewBase(eventId) {
+      // Location columns are excluded (grant revoked) and fetched masked below.
       const cols =
         "id, host_id, business_id, title, cover_image_url, date, start_time, end_time, " +
-        "timezone, venue_name, address, venue_lat, venue_lng, dress_code, description, " +
+        "timezone, dress_code, description, " +
         "entry_notes, instagram, is_public, discoverable, capacity, requests_open, " +
         "plus_one_allowed, status, is_paid, currency, fee_mode, visibility, lineup_style, " +
-        "live_qr, created_at, updated_at";
+        "live_qr, hide_location_until_approved, created_at, updated_at";
       const { data: ev, error } = await supabase
         .from("events").select(cols).eq("id", eventId).maybeSingle();
       if (error) throw error;
       if (!ev) return null;
-      return ENTITIES.Event.toApp({ ...ev, host: null, co_host_rows: [], dj_rows: [] });
+      const base = ENTITIES.Event.toApp({ ...ev, host: null, co_host_rows: [], dj_rows: [] });
+      const { data: locs } = await supabase.rpc("get_events_location", { p_event_ids: [eventId] });
+      const l = (locs ?? [])[0];
+      return l
+        ? { ...base, venue_name: l.venue_name, address: l.address, venue_lat: l.venue_lat, venue_lng: l.venue_lng }
+        : base;
     },
     // Lists drop events hosted by a blocked user; a lookup by id still returns it.
     hideBlocked: (r, sets, query) => !("id" in query) && sets.ids.has(r.host_id),
@@ -279,6 +291,23 @@ const ENTITIES = {
               // The business's Meta Pixel, loaded on this event's pages (src/lib/metaPixel.js).
               meta_pixel_id: b.meta_pixel_id || null,
             }
+            : r;
+        });
+      }
+
+      // Location isn't granted on the direct read (so a hidden event can't leak
+      // it); fetch it masked in one batch call and merge. Returns real values
+      // for managers/staff and approved guests, NULL otherwise. Runs for anon
+      // too (before the early return below), so public pages still show the
+      // location of non-hidden events.
+      const locIds = rows.map((r) => r.id).filter(Boolean);
+      if (locIds.length) {
+        const { data: locs } = await supabase.rpc("get_events_location", { p_event_ids: locIds });
+        const lm = new Map((locs ?? []).map((l) => [l.event_id, l]));
+        rows = rows.map((r) => {
+          const l = lm.get(r.id);
+          return l
+            ? { ...r, venue_name: l.venue_name, address: l.address, venue_lat: l.venue_lat, venue_lng: l.venue_lng }
             : r;
         });
       }

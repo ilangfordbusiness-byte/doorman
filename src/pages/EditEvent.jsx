@@ -7,7 +7,7 @@ import CoverPhotoUpload from "../components/CoverPhotoUpload";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/data";
-import { ArrowLeft, Ticket, AtSign, UserPlus, ScanLine } from "lucide-react";
+import { ArrowLeft, Ticket, AtSign, UserPlus, ScanLine, MapPinOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import HomeButton from "@/components/HomeButton";
 import { Input } from "@/components/ui/input";
@@ -57,6 +57,7 @@ export default function EditEvent() {
     discoverable: false,
     plus_one_allowed: false,
     live_qr: false,
+    hide_location_until_approved: false,
     capacity: "",
     is_paid: false,
     currency: "gbp",
@@ -102,6 +103,7 @@ export default function EditEvent() {
         discoverable: evt.discoverable || false,
         plus_one_allowed: evt.plus_one_allowed || false,
         live_qr: evt.live_qr || false,
+        hide_location_until_approved: evt.hide_location_until_approved || false,
         capacity: evt.capacity ? String(evt.capacity) : "",
         is_paid: evt.is_paid || false,
         currency: evt.currency || "gbp",
@@ -233,6 +235,22 @@ export default function EditEvent() {
           <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Venue</Label>
           <Input placeholder="Venue name" value={form.venue_name} onChange={(e) => updateForm("venue_name", e.target.value)} className="bg-secondary/50 border-border h-12 rounded-xl mb-2" />
           <Input placeholder="Full address" value={form.address} onChange={(e) => updateForm("address", e.target.value)} className="bg-secondary/50 border-border h-12 rounded-xl" />
+          {/* Free events only: paid events always show the venue to buyers. */}
+          {!form.is_paid && (
+            <div className="flex items-center justify-between gap-3 mt-3 bg-secondary/30 rounded-xl p-3 border border-border/50">
+              <div className="flex items-center gap-3">
+                <MapPinOff className="w-4 h-4 text-muted-foreground shrink-0" />
+                <div>
+                  <p className="text-sm font-medium">Hide location until approved</p>
+                  <p className="text-xs text-muted-foreground">Guests only see the venue and address once you approve them onto the guestlist.</p>
+                </div>
+              </div>
+              <Switch
+                checked={form.hide_location_until_approved}
+                onCheckedChange={(v) => updateForm("hide_location_until_approved", v)}
+              />
+            </div>
+          )}
         </div>
 
         {/* Instagram */}

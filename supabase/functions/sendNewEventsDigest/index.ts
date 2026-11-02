@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
     // Same visibility rule as the Discover tab: published and either public or
     // listed on Discover. Only upcoming events — nothing that already happened.
     const { data: events, error: eventsError } = await svc.from('events')
-      .select('id, title, date, start_time, end_time, timezone, venue_name, address, cover_image_url')
+      .select('id, title, date, start_time, end_time, timezone, venue_name, address, cover_image_url, hide_location_until_approved')
       .eq('status', 'published')
       .or('is_public.eq.true,discoverable.eq.true')
       .gte('published_at', since)
@@ -81,8 +81,15 @@ function digestBody(events: EventRow[]): string {
       ${detailRows([
         ['📅 Date', formatEventDateLong(event.date)],
         ['🕐 Time', formatTimeRange(event)],
-        ['📍 Venue', event.venue_name],
-        ['🗺️ Address', event.address],
+        // Don't broadcast the venue/address of an event whose host chose to
+        // hide the location until a guest is approved — digest recipients are
+        // not approved guests.
+        ...(event.hide_location_until_approved
+          ? [['📍 Location', 'Revealed once the host approves you'] as [string, unknown]]
+          : [
+              ['📍 Venue', event.venue_name] as [string, unknown],
+              ['🗺️ Address', event.address] as [string, unknown],
+            ]),
       ])}
       <p style="margin:12px 0 0;"><a href="${url}" style="color:#a78bfa;font-weight:600;text-decoration:none;">View event →</a></p>`);
   }).join('');
