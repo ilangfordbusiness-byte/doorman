@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/api/data";
 import { ArrowLeft, Search, UserPlus, Download } from "lucide-react";
@@ -45,6 +45,21 @@ export default function GuestlistManagement() {
   const [plusOneTarget, setPlusOneTarget] = useState(null);
   const [plusOneName, setPlusOneName] = useState("");
   const [savingPlusOne, setSavingPlusOne] = useState(false);
+  // Per-row in-flight lock so a fast double-tap can't fire the same action
+  // twice (e.g. approving a guest sends ONE ticket email, not two). Keyed by
+  // entry id for row actions, and by email for the friend quick-add (which has
+  // no entry yet). Different rows can still act concurrently.
+  //
+  // The ref is the source of truth for the guard: it updates synchronously, so
+  // a second tap in the same frame (before React re-renders and disables the
+  // button) is still blocked. The state mirror only drives the disabled UI.
+  const busyRef = useRef(new Set());
+  const [busyKeys, setBusyKeys] = useState(() => new Set());
+  const markBusy = (key, on) => {
+    if (on) busyRef.current.add(key);
+    else busyRef.current.delete(key);
+    setBusyKeys(new Set(busyRef.current));
+  };
   const { data: profiles } = useProfiles(guests.map((g) => g.guest_email).filter(Boolean));
 
   useEffect(() => {
@@ -82,17 +97,23 @@ export default function GuestlistManagement() {
   }
 
   async function updateStatus(guest, status) {
-    const updates = { status };
-    if (status === "approved" && !guest.qr_secret) {
-      updates.qr_secret = crypto.randomUUID();
+    if (busyRef.current.has(guest.id)) return;
+    markBusy(guest.id, true);
+    try {
+      const updates = { status };
+      if (status === "approved" && !guest.qr_secret) {
+        updates.qr_secret = crypto.randomUUID();
+      }
+      await api.entities.GuestlistEntry.update(guest.id, updates);
+      toast({ title: `Guest ${status}` });
+      // Email the guest their free ticket (QR + pass link) once approved.
+      if (status === "approved" && guest.guest_email && !event?.is_paid) {
+        api.functions.invoke("sendTicketEmail", { entry_id: guest.id }).catch(() => {});
+      }
+      await loadData();
+    } finally {
+      markBusy(guest.id, false);
     }
-    await api.entities.GuestlistEntry.update(guest.id, updates);
-    toast({ title: `Guest ${status}` });
-    // Email the guest their free ticket (QR + pass link) once approved.
-    if (status === "approved" && guest.guest_email && !event?.is_paid) {
-      api.functions.invoke("sendTicketEmail", { entry_id: guest.id }).catch(() => {});
-    }
-    loadData();
   }
 
   // A guest's +1 is captured with the plus-one's name so it shows under the
@@ -153,6 +174,8 @@ export default function GuestlistManagement() {
 
   // Check a guest in (or undo) by name via the atomic, authorized validateQR path.
   async function checkIn(guest, undo = false) {
+    if (busyRef.current.has(guest.id)) return;
+    markBusy(guest.id, true);
     try {
       const { data } = await api.functions.invoke("validateQR", {
         guestlist_entry_id: guest.id,
@@ -160,29 +183,37 @@ export default function GuestlistManagement() {
       });
       if (data?.valid === false && !data?.already_used) throw new Error(data.error || "Check-in failed");
       toast({ title: undo ? "Check-in undone" : data?.already_used ? "Already checked in" : "Checked in" });
+      await loadData();
     } catch (e) {
       toast({ title: e?.message || "Check-in failed", variant: "destructive" });
+    } finally {
+      markBusy(guest.id, false);
     }
-    loadData();
   }
 
   async function addFriendToGuestlist(friend) {
+    if (busyRef.current.has(friend.email)) return;
     const existing = guests.find((g) => g.guest_email === friend.email);
     if (existing) {
       toast({ title: "Already on guestlist", variant: "destructive" });
       return;
     }
-    await api.entities.GuestlistEntry.create({
-      event_id: id,
-      guest_email: friend.email,
-      guest_name: friend.name,
-      guest_phone: "",
-      status: "invited",
-      source: "manual",
-      qr_secret: crypto.randomUUID(),
-    });
-    toast({ title: `${friend.name} invited!` });
-    loadData();
+    markBusy(friend.email, true);
+    try {
+      await api.entities.GuestlistEntry.create({
+        event_id: id,
+        guest_email: friend.email,
+        guest_name: friend.name,
+        guest_phone: "",
+        status: "invited",
+        source: "manual",
+        qr_secret: crypto.randomUUID(),
+      });
+      toast({ title: `${friend.name} invited!` });
+      await loadData();
+    } finally {
+      markBusy(friend.email, false);
+    }
   }
 
   async function addGuest() {
@@ -294,20 +325,21 @@ export default function GuestlistManagement() {
                   <div className="space-y-1.5 max-h-40 overflow-y-auto">
                     {friends.map((f) => {
                       const alreadyAdded = guests.some((g) => g.guest_email === f.email);
+                      const inviting = busyKeys.has(f.email);
                       return (
                         <div key={f.email} className="flex items-center gap-3 bg-secondary/50 rounded-xl px-3 py-2 border border-border/50">
                           <Avatar src={f.picture} name={f.name || f.email} size="w-7 h-7" textClass="text-xs" />
                           <span className="flex-1 text-sm font-medium text-foreground truncate">{f.name || f.email}</span>
                           <button
                             onClick={() => addFriendToGuestlist(f)}
-                            disabled={alreadyAdded}
+                            disabled={alreadyAdded || inviting}
                             className={`text-xs font-semibold px-3 py-1 rounded-lg transition-colors ${
-                              alreadyAdded
+                              alreadyAdded || inviting
                                 ? "text-muted-foreground bg-muted cursor-not-allowed"
                                 : "text-primary-foreground bg-primary hover:bg-primary/80"
                             }`}
                           >
-                            {alreadyAdded ? "Added" : "Invite"}
+                            {alreadyAdded ? "Added" : inviting ? "Inviting…" : "Invite"}
                           </button>
                         </div>
                       );
@@ -380,6 +412,7 @@ export default function GuestlistManagement() {
                 guest={g}
                 picture={profiles?.[g.guest_email?.toLowerCase()]?.picture}
                 onViewProfile={setViewProfile}
+                busy={busyKeys.has(g.id)}
                 onApprove={(g) => updateStatus(g, "approved")}
                 onDeny={(g) => updateStatus(g, "denied")}
                 onWaitlist={(g) => updateStatus(g, "waitlist")}
@@ -402,6 +435,7 @@ export default function GuestlistManagement() {
                 guest={g}
                 picture={profiles?.[g.guest_email?.toLowerCase()]?.picture}
                 onViewProfile={setViewProfile}
+                busy={busyKeys.has(g.id)}
                 onCheckIn={(g) => checkIn(g)}
                 onDeny={(g) => setRevokeTarget(g)}
                 plusOneAllowed={!!event?.plus_one_allowed}
@@ -420,7 +454,7 @@ export default function GuestlistManagement() {
           ) : (
             checkedIn.map((g) => (
               <GuestCard key={g.id} guest={g} picture={profiles?.[g.guest_email?.toLowerCase()]?.picture}
-                onViewProfile={setViewProfile} onUncheck={(g) => checkIn(g, true)} showActions={true} />
+                onViewProfile={setViewProfile} busy={busyKeys.has(g.id)} onUncheck={(g) => checkIn(g, true)} showActions={true} />
             ))
           )}
         </div>
@@ -437,6 +471,7 @@ export default function GuestlistManagement() {
                   guest={g}
                   picture={profiles?.[g.guest_email?.toLowerCase()]?.picture}
                 onViewProfile={setViewProfile}
+                  busy={busyKeys.has(g.id)}
                   onApprove={(g) => updateStatus(g, "approved")}
                   onDeny={(g) => updateStatus(g, "denied")}
                   plusOneAllowed={!!event?.plus_one_allowed}
@@ -454,6 +489,7 @@ export default function GuestlistManagement() {
                   guest={g}
                   picture={profiles?.[g.guest_email?.toLowerCase()]?.picture}
                 onViewProfile={setViewProfile}
+                  busy={busyKeys.has(g.id)}
                   onApprove={(g) => updateStatus(g, "approved")}
                   showActions={true}
                 />
