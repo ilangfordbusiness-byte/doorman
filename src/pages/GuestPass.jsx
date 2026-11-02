@@ -30,6 +30,7 @@ export default function GuestPass() {
   const watchIdRef = useRef(null);
   const liveBatchRef = useRef(null);
   const liveFetchingRef = useRef(false);
+  const [liveError, setLiveError] = useState(false); // live-pass batch failed to load
   const tiltRef = useTilt({ max: 14 });
   // Track the active entry + last-seen live_qr mode so the pass can switch
   // itself when the host toggles live passes mid-event (see the poll below).
@@ -214,6 +215,7 @@ export default function GuestPass() {
   // quickly; the batch lets it keep rotating through a brief signal drop.
   function startLiveQr(entry) {
     setQrData("");
+    setLiveError(false);
     fetchLiveBatch(entry.id);
     intervalRef.current = setInterval(() => renderLiveToken(entry.id), 1000);
   }
@@ -225,13 +227,24 @@ export default function GuestPass() {
       const res = await api.functions.invoke("liveQrBatch", { entry_id: entryId });
       if (res?.data?.sigs?.length) {
         liveBatchRef.current = { ...res.data, entryId };
+        setLiveError(false);
         renderLiveToken(entryId);
+      } else {
+        setLiveError(true);
       }
     } catch (e) {
       console.error("Failed to load live pass:", e);
+      setLiveError(true);
     } finally {
       liveFetchingRef.current = false;
     }
+  }
+
+  function retryLiveQr() {
+    if (!entry) return;
+    setLiveError(false);
+    liveBatchRef.current = null;
+    fetchLiveBatch(entry.id);
   }
 
   function renderLiveToken(entryId) {
@@ -338,13 +351,29 @@ export default function GuestPass() {
 
             {/* Live pass still loading (or offline): the code can't rotate without
                 one connection first, so nudge the guest to get signal. */}
-            {isApproved && !qrData && event.live_qr && (
+            {isApproved && !qrData && event.live_qr && !liveError && (
               <div className="py-10 text-center">
                 <div className="w-16 h-16 rounded-full bg-primary/15 flex items-center justify-center mx-auto mb-4">
                   <ScanLine className="w-7 h-7 text-primary animate-pulse" />
                 </div>
                 <p className="font-heading font-semibold text-base text-foreground">Loading your live pass…</p>
                 <p className="text-sm text-muted-foreground mt-1">This event uses live codes — connect to the internet to load it.</p>
+              </div>
+            )}
+
+            {isApproved && !qrData && event.live_qr && liveError && (
+              <div className="py-10 text-center">
+                <div className="w-16 h-16 rounded-full bg-destructive/15 flex items-center justify-center mx-auto mb-4">
+                  <ScanLine className="w-7 h-7 text-destructive" />
+                </div>
+                <p className="font-heading font-semibold text-base text-foreground">Couldn't load your live pass</p>
+                <p className="text-sm text-muted-foreground mt-1 mb-4">Check your connection and try again. If it keeps failing, show this screen at the door — staff can check you in by name.</p>
+                <button
+                  onClick={retryLiveQr}
+                  className="inline-flex items-center justify-center h-10 px-5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90"
+                >
+                  Try again
+                </button>
               </div>
             )}
 
