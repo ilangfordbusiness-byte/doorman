@@ -31,12 +31,41 @@ export default function GuestPass() {
   const liveBatchRef = useRef(null);
   const liveFetchingRef = useRef(false);
   const tiltRef = useTilt({ max: 14 });
+  // Track the active entry + last-seen live_qr mode so the pass can switch
+  // itself when the host toggles live passes mid-event (see the poll below).
+  const entryRef = useRef(null);
+  const liveModeRef = useRef(null);
 
   useEffect(() => {
     loadPass();
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
+  }, [id]);
+
+  // If the host turns live passes on/off while the pass is open, switch the
+  // displayed code without the guest having to reopen it. Polls the event flag
+  // every 30s and only regenerates when the mode actually changes.
+  useEffect(() => {
+    const poll = setInterval(async () => {
+      try {
+        const events = await api.entities.Event.filter({ id });
+        const next = events[0];
+        if (!next) return;
+        const nextLive = !!next.live_qr;
+        if (liveModeRef.current !== null && nextLive !== liveModeRef.current) {
+          liveModeRef.current = nextLive;
+          setEvent(next);
+          const active = entryRef.current;
+          if (active && ["approved", "invited"].includes(active.status)) {
+            generateQR(active, next);
+          }
+        }
+      } catch {
+        // offline / transient — try again next tick
+      }
+    }, 30_000);
+    return () => clearInterval(poll);
   }, [id]);
 
   async function loadPass() {
@@ -50,6 +79,7 @@ export default function GuestPass() {
       const events = await api.entities.Event.filter({ id });
       if (!events.length) return navigate("/");
       setEvent(events[0]);
+      liveModeRef.current = !!events[0].live_qr;
 
       const allEntries = await api.entities.GuestlistEntry.filter({
         event_id: id,
@@ -64,6 +94,7 @@ export default function GuestPass() {
       setEntries(allEntries);
       setEntryIndex(0);
       setEntry(allEntries[0]);
+      entryRef.current = allEntries[0];
 
       if (["approved", "invited"].includes(allEntries[0].status)) {
         generateQR(allEntries[0], events[0]);
@@ -96,6 +127,7 @@ export default function GuestPass() {
     if (!e) return;
     setEntryIndex(idx);
     setEntry(e);
+    entryRef.current = e;
     setQrData("");
     if (["approved", "invited"].includes(e.status)) generateQR(e, event);
     loadPendingTransfer(e.id);
