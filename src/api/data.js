@@ -103,7 +103,10 @@ const ENTITIES = {
           return {
             id: d.id,
             user_id: deleted ? null : d.dj_user_id,
-            name: (deleted ? null : d.profile?.full_name) || d.dj_name,
+            // The host-entered name wins, even when linked to an account — the
+            // host can display a DJ under any name and still link their profile.
+            // Fall back to the linked account's name only if no name was set.
+            name: d.dj_name || (deleted ? "" : d.profile?.full_name) || "",
             picture: deleted ? "" : (d.profile?.avatar_url || ""),
             set_time: d.set_time || "",
             sort_order: d.sort_order ?? 0,

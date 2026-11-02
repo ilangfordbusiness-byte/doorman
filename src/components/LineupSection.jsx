@@ -90,26 +90,29 @@ export default function LineupSection({ event, onUpdated }) {
   }
 
   function pick(u) {
-    setName(u.full_name || u.email);
-    setLinked({ user_id: u.id, picture: u.profile_picture || "" });
+    // Linking doesn't lock the name: keep whatever the host typed, and only
+    // pre-fill the account's name when the field is still empty.
+    setName((prev) => prev.trim() || u.full_name || u.email);
+    setLinked({ user_id: u.id, picture: u.profile_picture || "", accountName: u.full_name || u.email });
     setResults([]);
   }
 
   function startEditRow(i) {
     const d = lineup[i];
     setEditIdx(i);
-    setEditFields({ name: d.name || "", email: "", set_time: d.set_time || "" });
+    setEditFields({ name: d.name || "", email: "", set_time: d.set_time || "", unlink: false });
   }
 
-  // Save an edited row. An entered email (re)links the DJ to that DoorMan
-  // account; blank keeps the row's existing link.
+  // Save an edited row. The name is always the host's chosen display name. An
+  // entered email (re)links the DJ to that DoorMan account; blank keeps the
+  // row's existing link, unless "unlink" was chosen.
   async function saveEditRow(i) {
     const d = lineup[i];
     const nm = editFields.name.trim() || d.name;
     const em = editFields.email.trim().toLowerCase();
-    let user_id = d.user_id || null;
-    let picture = d.picture || "";
-    if (em) {
+    let user_id = editFields.unlink ? null : (d.user_id || null);
+    let picture = editFields.unlink ? "" : (d.picture || "");
+    if (!editFields.unlink && em) {
       setSaving(true);
       try {
         const profile = await api.auth.getProfile(em);
@@ -130,7 +133,7 @@ export default function LineupSection({ event, onUpdated }) {
         <Disc3 className="w-4 h-4 text-primary" /> DJ Lineup
       </h3>
       <p className="text-xs text-muted-foreground mb-3">
-        Add the DJs playing and their set times. Link a DoorMan account so their name opens their DJ profile, or just type a name.
+        Add the DJs playing and their set times. Linking a DoorMan account is optional — it makes their name open their DJ profile. Either way, you choose the name guests see.
       </p>
 
       {/* Lineup name style */}
@@ -168,10 +171,26 @@ export default function LineupSection({ event, onUpdated }) {
                     type="email"
                     value={editFields.email}
                     onChange={(e) => setEditFields((s) => ({ ...s, email: e.target.value }))}
-                    placeholder={d.user_id ? "Email to re-link (leave blank to keep)" : "Their DoorMan email — links their profile"}
-                    className="w-full h-9 pl-8 pr-3 text-sm bg-secondary/60 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    placeholder={d.user_id ? "Email to re-link (leave blank to keep)" : "Their DoorMan email (optional) — links their profile"}
+                    disabled={editFields.unlink}
+                    className="w-full h-9 pl-8 pr-3 text-sm bg-secondary/60 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
                   />
                 </div>
+                {d.user_id && (
+                  <div className="flex items-center justify-between text-[11px]">
+                    {editFields.unlink ? (
+                      <>
+                        <span className="text-muted-foreground">Account will be unlinked.</span>
+                        <button onClick={() => setEditFields((s) => ({ ...s, unlink: false }))} className="text-primary hover:underline">Keep link</button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-primary">Linked to an account.</span>
+                        <button onClick={() => setEditFields((s) => ({ ...s, unlink: true, email: "" }))} className="flex items-center gap-0.5 text-muted-foreground hover:text-destructive"><X className="w-3 h-3" /> Unlink</button>
+                      </>
+                    )}
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <div className="relative flex-1">
                     <Clock className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
@@ -212,12 +231,13 @@ export default function LineupSection({ event, onUpdated }) {
           <div className="relative">
             <input
               value={name}
-              onChange={(e) => { setName(e.target.value); setLinked(null); }}
+              onChange={(e) => setName(e.target.value)}
               placeholder="DJ name..."
               className="w-full h-10 px-3 text-sm bg-secondary/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
             {results.length > 0 && (
               <div className="absolute z-20 left-0 right-0 mt-1 bg-card border border-border rounded-xl shadow-lg overflow-hidden">
+                <p className="px-3 pt-2 pb-1 text-[10px] text-muted-foreground uppercase tracking-wider">Link a DoorMan account (optional)</p>
                 {results.map((u) => (
                   <button key={u.email} onClick={() => pick(u)} className="w-full flex items-center gap-2 px-3 py-2 hover:bg-secondary/60 text-left">
                     <Avatar src={u.profile_picture} name={u.full_name || u.email} size="w-7 h-7" textClass="text-[10px]" />
@@ -225,6 +245,10 @@ export default function LineupSection({ event, onUpdated }) {
                     <span className="ml-auto text-[10px] text-primary">Link</span>
                   </button>
                 ))}
+                <button onClick={() => setResults([])} className="w-full flex items-center gap-2 px-3 py-2 border-t border-border/60 hover:bg-secondary/60 text-left">
+                  <span className="text-sm truncate">Add “{q}” without linking</span>
+                  <Plus className="ml-auto w-3.5 h-3.5 text-muted-foreground" />
+                </button>
               </div>
             )}
           </div>
@@ -256,7 +280,15 @@ export default function LineupSection({ event, onUpdated }) {
           </div>
         </div>
         {linked
-          ? <p className="text-[10px] text-primary mt-1">Will link to the selected DoorMan profile.</p>
+          ? (
+            <div className="flex items-center gap-2 mt-1.5 text-[11px] text-primary">
+              <Avatar src={linked.picture} name={linked.accountName} size="w-5 h-5" textClass="text-[8px]" />
+              <span className="truncate">Linked to {linked.accountName}. The name above is what guests see.</span>
+              <button onClick={() => setLinked(null)} className="ml-auto flex items-center gap-0.5 text-muted-foreground hover:text-destructive flex-shrink-0">
+                <X className="w-3 h-3" /> Unlink
+              </button>
+            </div>
+          )
           : email.trim() && <p className="text-[10px] text-muted-foreground mt-1">If this email has a DoorMan account, their profile will be linked.</p>}
       </div>
     </div>
