@@ -31,7 +31,7 @@ export default function DoorList() {
     try {
       const [events, entries, me] = await Promise.all([
         api.entities.Event.filter({ id }),
-        api.entities.GuestlistEntry.filter({ event_id: id }, "guest_name"),
+        api.entities.GuestlistEntry.filterAll({ event_id: id }, "guest_name"),
         api.auth.me().catch(() => null),
       ]);
       const ev = events[0] || null;

@@ -72,7 +72,7 @@ export default function GuestlistManagement() {
     try {
       const events = await api.entities.Event.filter({ id });
       if (events.length) setEvent(events[0]);
-      const entries = await api.entities.GuestlistEntry.filter({ event_id: id }, "-created_date");
+      const entries = await api.entities.GuestlistEntry.filterAll({ event_id: id }, "-created_date");
       setGuests(entries);
     } catch (e) {
       console.error(e);

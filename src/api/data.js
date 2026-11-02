@@ -754,8 +754,11 @@ function makeEntity(name) {
       }
     }
     q = applySort(q, sort);
-    if (limit) q = q.limit(limit);
-    if (skip) q = q.range(skip, skip + (limit || 100) - 1);
+    // range and limit together would both constrain the query ambiguously, so
+    // apply exactly one: a window [skip, skip+limit) when paging, otherwise a
+    // plain cap. (skip defaults the page size to 1000 when no limit is given.)
+    if (skip) q = q.range(skip, skip + (limit || 1000) - 1);
+    else if (limit) q = q.limit(limit);
     const { data, error } = await q;
     throwOn(error);
     let rows = (data ?? []).map(def.toApp);
@@ -771,6 +774,22 @@ function makeEntity(name) {
   const entity = {
     filter: runFilter,
     list: (sort, limit, skip) => runFilter({}, sort, limit, skip),
+    // Fetch EVERY matching row by paging past Postgres' 1000-row cap
+    // (supabase max_rows). A plain filter() silently truncates at 1000 with no
+    // error; use this where completeness matters (money totals, the full door
+    // list). Pages until a short page, with a hard safety bound. Only safe on
+    // entities that don't drop rows post-fetch (no hideRow/hideBlocked) — a
+    // dropped row would shorten a page and stop paging early; the callers
+    // (TicketOrder, GuestlistEntry) have no such hooks.
+    async filterAll(query, sort, pageSize = 1000) {
+      const all = [];
+      for (let skip = 0; skip <= 200000; skip += pageSize) {
+        const rows = await runFilter(query, sort, pageSize, skip);
+        all.push(...rows);
+        if (rows.length < pageSize) break;
+      }
+      return all;
+    },
     async get(id) {
       const rows = await runFilter({ id });
       return rows[0] ?? null;
