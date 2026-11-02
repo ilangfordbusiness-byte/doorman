@@ -4,10 +4,11 @@ import StatusBadge from "./StatusBadge";
 import Avatar from "./Avatar";
 import { formatPhoneDisplay } from "@/lib/phone";
 
-export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, onCheckIn, onUncheck, showActions = true, picture, onViewProfile, plusOneAllowed = false, onTogglePlusOne = null, busy = false }) {
+export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, onCheckIn, onUncheck, showActions = true, showStatus = true, picture, onViewProfile, plusOneAllowed = false, onTogglePlusOne = null, busy = false }) {
   const canApprove = ["requested", "waitlist", "denied"].includes(guest.status);
   const canDeny = ["requested", "waitlist", "approved", "invited"].includes(guest.status);
-  const canWaitlist = ["requested"].includes(guest.status);
+  // Also allow moving an already-approved guest back onto the waitlist.
+  const canWaitlist = ["requested", "approved"].includes(guest.status);
   const canCheckIn = onCheckIn && ["approved", "invited"].includes(guest.status);
   const canUncheck = onUncheck && guest.status === "checked_in";
 
@@ -38,9 +39,11 @@ export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, onChec
         </div>
       </button>
 
-      {/* Status + Actions */}
+      {/* Status + Actions. showStatus is off on the guestlist (the tab already
+          says the status, and the badge squeezed the guest's name); it stays on
+          elsewhere, e.g. the door list. */}
       <div className="flex items-center gap-2 flex-shrink-0">
-        <StatusBadge status={guest.status} />
+        {showStatus && <StatusBadge status={guest.status} />}
         {showActions && (
           <div className="flex gap-1">
             {plusOneAllowed && onTogglePlusOne && (
@@ -50,17 +53,17 @@ export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, onChec
                 aria-pressed={!!guest.plus_one}
                 title={guest.plus_one ? "Edit plus-one" : "Add a plus-one"}
                 aria-label={guest.plus_one ? "Edit plus-one" : "Add a plus-one"}
-                className={`h-11 w-11 ${guest.plus_one ? "text-accent hover:bg-accent/20 hover:text-accent" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}
+                className={`h-9 w-9 ${guest.plus_one ? "text-accent hover:bg-accent/20 hover:text-accent" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}
                 onClick={(e) => { e.stopPropagation(); onTogglePlusOne(guest); }}
               >
-                <UserPlus className="w-5 h-5" />
+                <UserPlus className="w-4 h-4" />
               </Button>
             )}
             {canCheckIn && (
               <Button
                 size="sm"
                 disabled={busy}
-                className="h-11 rounded-lg gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
+                className="h-9 rounded-lg gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
                 onClick={(e) => { e.stopPropagation(); onCheckIn(guest); }}
               >
                 <Check className="w-4 h-4" /> Check in
@@ -71,43 +74,49 @@ export default function GuestCard({ guest, onApprove, onDeny, onWaitlist, onChec
                 size="sm"
                 variant="ghost"
                 disabled={busy}
-                className="h-11 rounded-lg gap-1.5 text-muted-foreground hover:text-foreground"
+                className="h-9 rounded-lg gap-1.5 text-muted-foreground hover:text-foreground"
                 onClick={(e) => { e.stopPropagation(); onUncheck(guest); }}
               >
                 <RotateCcw className="w-4 h-4" /> Undo
               </Button>
             )}
-            {canApprove && (
+            {canApprove && onApprove && (
               <Button
                 size="icon"
                 variant="ghost"
                 disabled={busy}
-                className="h-11 w-11 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300"
-                onClick={(e) => { e.stopPropagation(); onApprove?.(guest); }}
+                title="Approve"
+                aria-label="Approve"
+                className="h-9 w-9 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300"
+                onClick={(e) => { e.stopPropagation(); onApprove(guest); }}
               >
-                <Check className="w-5 h-5" />
+                <Check className="w-4 h-4" />
               </Button>
             )}
-            {canWaitlist && (
+            {canWaitlist && onWaitlist && (
               <Button
                 size="icon"
                 variant="ghost"
                 disabled={busy}
-                className="h-11 w-11 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300"
-                onClick={(e) => { e.stopPropagation(); onWaitlist?.(guest); }}
+                title="Move to waitlist"
+                aria-label="Move to waitlist"
+                className="h-9 w-9 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300"
+                onClick={(e) => { e.stopPropagation(); onWaitlist(guest); }}
               >
-                <Clock className="w-5 h-5" />
+                <Clock className="w-4 h-4" />
               </Button>
             )}
-            {canDeny && (
+            {canDeny && onDeny && (
               <Button
                 size="icon"
                 variant="ghost"
                 disabled={busy}
-                className="h-11 w-11 text-red-400 hover:bg-red-500/20 hover:text-red-300"
-                onClick={(e) => { e.stopPropagation(); onDeny?.(guest); }}
+                title="Remove"
+                aria-label="Remove"
+                className="h-9 w-9 text-red-400 hover:bg-red-500/20 hover:text-red-300"
+                onClick={(e) => { e.stopPropagation(); onDeny(guest); }}
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </Button>
             )}
           </div>
