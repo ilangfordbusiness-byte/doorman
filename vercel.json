@@ -1,5 +1,9 @@
 {
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "rewrites": [
+    { "source": "/event/:id", "destination": "/api/og?type=event&id=:id" },
+    { "source": "/invite/:code", "destination": "/api/og?type=invite&code=:code" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
   "headers": [
     {
       "source": "/.well-known/apple-app-site-association",
