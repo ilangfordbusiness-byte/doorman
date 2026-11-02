@@ -23,7 +23,11 @@ export default function EventChat({ eventId, user, canPost = false, hostIsBusine
   }, [eventId]);
 
   useEffect(() => {
-    api.entities.EventMessage.filter({ event_id: eventId }, "created_date", 100).then(setMessages);
+    // Load the NEWEST 100 (descending), then reverse to oldest-first for the
+    // scroll-to-bottom display. Sorting ascending with a limit would instead
+    // return the oldest 100 and hide all recent history once a chat passes 100.
+    api.entities.EventMessage.filter({ event_id: eventId }, "-created_date", 100)
+      .then((rows) => setMessages(rows.slice().reverse()));
 
     const unsub = api.entities.EventMessage.subscribe((event) => {
       if (event.data?.event_id !== eventId) return;
