@@ -105,7 +105,8 @@ export default function GuestlistManagement() {
         updates.qr_secret = crypto.randomUUID();
       }
       await api.entities.GuestlistEntry.update(guest.id, updates);
-      toast({ title: `Guest ${status}` });
+      const statusLabel = { waitlist: "moved to waitlist", approved: "approved", denied: "denied", revoked: "revoked" }[status] || status;
+      toast({ title: `Guest ${statusLabel}` });
       // Email the guest their free ticket (QR + pass link) once approved.
       if (status === "approved" && guest.guest_email && !event?.is_paid) {
         api.functions.invoke("sendTicketEmail", { entry_id: guest.id }).catch(() => {});
@@ -412,6 +413,7 @@ export default function GuestlistManagement() {
                 guest={g}
                 picture={profiles?.[g.guest_email?.toLowerCase()]?.picture}
                 onViewProfile={setViewProfile}
+                showStatus={false}
                 busy={busyKeys.has(g.id)}
                 onApprove={(g) => updateStatus(g, "approved")}
                 onDeny={(g) => updateStatus(g, "denied")}
@@ -435,8 +437,10 @@ export default function GuestlistManagement() {
                 guest={g}
                 picture={profiles?.[g.guest_email?.toLowerCase()]?.picture}
                 onViewProfile={setViewProfile}
+                showStatus={false}
                 busy={busyKeys.has(g.id)}
                 onCheckIn={(g) => checkIn(g)}
+                onWaitlist={(g) => updateStatus(g, "waitlist")}
                 onDeny={(g) => setRevokeTarget(g)}
                 plusOneAllowed={!!event?.plus_one_allowed}
                 onTogglePlusOne={openPlusOne}
@@ -454,7 +458,7 @@ export default function GuestlistManagement() {
           ) : (
             checkedIn.map((g) => (
               <GuestCard key={g.id} guest={g} picture={profiles?.[g.guest_email?.toLowerCase()]?.picture}
-                onViewProfile={setViewProfile} busy={busyKeys.has(g.id)} onUncheck={(g) => checkIn(g, true)} showActions={true} />
+                onViewProfile={setViewProfile} showStatus={false} busy={busyKeys.has(g.id)} onUncheck={(g) => checkIn(g, true)} showActions={true} />
             ))
           )}
         </div>
@@ -471,6 +475,7 @@ export default function GuestlistManagement() {
                   guest={g}
                   picture={profiles?.[g.guest_email?.toLowerCase()]?.picture}
                 onViewProfile={setViewProfile}
+                  showStatus={false}
                   busy={busyKeys.has(g.id)}
                   onApprove={(g) => updateStatus(g, "approved")}
                   onDeny={(g) => updateStatus(g, "denied")}
@@ -489,6 +494,7 @@ export default function GuestlistManagement() {
                   guest={g}
                   picture={profiles?.[g.guest_email?.toLowerCase()]?.picture}
                 onViewProfile={setViewProfile}
+                  showStatus={false}
                   busy={busyKeys.has(g.id)}
                   onApprove={(g) => updateStatus(g, "approved")}
                   showActions={true}
