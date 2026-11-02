@@ -52,8 +52,8 @@ export default function HostProfileModal({ host, me, onClose, isBusiness = false
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center px-4" onClick={onClose}>
-      <div className="bg-card rounded-2xl border border-border p-6 w-full max-w-sm text-center relative" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center px-4 py-4" onClick={onClose}>
+      <div className="bg-card rounded-2xl border border-border p-6 w-full max-w-sm text-center relative max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <button onClick={onClose} className="absolute top-3 right-3 w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground">
           <X className="w-4 h-4" />
         </button>
