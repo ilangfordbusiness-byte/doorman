@@ -24,6 +24,7 @@ import Avatar from "../components/Avatar";
 import { useProfiles } from "@/hooks/useProfiles";
 import PhoneInput from "@/components/PhoneInput";
 import { normalizePhone, formatPhoneDisplay } from "@/lib/phone";
+import { formatMajor } from "@/lib/money";
 import FriendProfile from "../components/FriendProfile";
 
 // Tinted icon chip per action tone, used in the per-guest action sheet.
@@ -41,6 +42,8 @@ export default function GuestlistManagement() {
   const [event, setEvent] = useState(null);
   const [glTab, setGlTab] = useState(null);
   const [guests, setGuests] = useState([]);
+  const [orders, setOrders] = useState([]); // paid ticket orders (paid events only)
+  const [tiers, setTiers] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
@@ -102,6 +105,19 @@ export default function GuestlistManagement() {
       if (events.length) setEvent(events[0]);
       const entries = await api.entities.GuestlistEntry.filterAll({ event_id: id }, "-created_date");
       setGuests(entries);
+      // Paid events: load the sales side so the header shows tickets/revenue
+      // and each buyer's row can show their tier + amount paid.
+      if (events[0]?.is_paid) {
+        const [t, o] = await Promise.all([
+          api.entities.TicketTier.filter({ event_id: id }),
+          api.entities.TicketOrder.filterAll({ event_id: id }),
+        ]);
+        setTiers(t);
+        setOrders(o.filter((x) => x.status === "paid"));
+      } else {
+        setTiers([]);
+        setOrders([]);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -439,16 +455,30 @@ export default function GuestlistManagement() {
   const pending = guests.filter((g) => g.status === "requested").length;
   const capacity = event?.capacity || null;
 
+  // Paid events: sales summary + a per-entry order lookup for the rows.
+  const isPaid = !!event?.is_paid;
+  const currency = event?.currency || "gbp";
+  const orderByEntry = new Map(orders.filter((o) => o.guestlist_entry_id).map((o) => [o.guestlist_entry_id, o]));
+  const ticketsSold = tiers.reduce((n, t) => n + (t.sold || 0), 0);
+  const allotment = tiers.reduce((n, t) => n + (t.quantity > 0 ? t.quantity : 0), 0);
+  const revenueMajor = orders.reduce((n, o) => n + (Number(o.paid_amount) || 0), 0);
+
   if (loading) return <LoadingSpinner fullScreen />;
 
-  const rowProps = (g) => ({
-    guest: g,
-    picture: profiles?.[g.guest_email?.toLowerCase()]?.picture,
-    selectMode,
-    selected: selected.has(g.id),
-    onOpen: setActionTarget,
-    onToggle: toggleSel,
-  });
+  const rowProps = (g) => {
+    const order = isPaid ? orderByEntry.get(g.id) : null;
+    return {
+      guest: g,
+      picture: profiles?.[g.guest_email?.toLowerCase()]?.picture,
+      selectMode,
+      selected: selected.has(g.id),
+      onOpen: setActionTarget,
+      onToggle: toggleSel,
+      // On a paid event, show what they bought (tier · amount) instead of their
+      // contact line. Attendees with no paid order (comps) keep contact details.
+      subtitle: order ? `${order.tier_name || "Ticket"} · ${formatMajor(order.paid_amount, currency)}` : undefined,
+    };
+  };
   const swipeApprove = (g) => updateStatus(g, "approved");
   const swipeDeny = (g) => updateStatus(g, "denied");
 
@@ -582,20 +612,46 @@ export default function GuestlistManagement() {
 
       {/* Sticky frosted header: capacity + search + tabs. Rows scroll underneath. */}
       <div className="sticky top-0 z-20 -mx-4 px-4 pt-2 pb-3 bg-background/80 backdrop-blur-xl border-b border-border/50 space-y-3">
-        <div>
-          <div className="flex items-center justify-between text-[13px] mb-1.5">
-            <span>
-              <span className="text-foreground font-bold tabular-nums">{admitted}</span>
-              <span className="text-muted-foreground"> {capacity ? `/ ${capacity} approved` : "approved · no limit set"}</span>
-            </span>
-            {pending > 0 && <span className="text-amber-400 font-semibold">{pending} waiting</span>}
-          </div>
-          {capacity && (
-            <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
-              <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.min(100, Math.round((admitted / capacity) * 100))}%` }} />
+        {isPaid ? (
+          <div>
+            <div className="flex items-center justify-between text-[13px] mb-1.5">
+              <span>
+                <span className="text-foreground font-bold tabular-nums">{ticketsSold}</span>
+                <span className="text-muted-foreground"> {allotment > 0 ? `/ ${allotment} sold` : "tickets sold"}</span>
+              </span>
+              <span className="text-emerald-400 font-semibold tabular-nums">{formatMajor(revenueMajor, currency)}</span>
             </div>
-          )}
-        </div>
+            {allotment > 0 && (
+              <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
+                <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.min(100, Math.round((ticketsSold / allotment) * 100))}%` }} />
+              </div>
+            )}
+            {tiers.length > 1 && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {tiers.map((t) => (
+                  <span key={t.id} className="text-[11px] text-muted-foreground bg-secondary/60 border border-border/50 rounded-full px-2 py-0.5 tabular-nums">
+                    {t.name} {t.sold || 0}{t.quantity > 0 ? `/${t.quantity}` : ""}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div>
+            <div className="flex items-center justify-between text-[13px] mb-1.5">
+              <span>
+                <span className="text-foreground font-bold tabular-nums">{admitted}</span>
+                <span className="text-muted-foreground"> {capacity ? `/ ${capacity} approved` : "approved · no limit set"}</span>
+              </span>
+              {pending > 0 && <span className="text-amber-400 font-semibold">{pending} waiting</span>}
+            </div>
+            {capacity && (
+              <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
+                <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.min(100, Math.round((admitted / capacity) * 100))}%` }} />
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -612,7 +668,7 @@ export default function GuestlistManagement() {
           onChange={(t) => { setGlTab(t); setSelected(new Set()); }}
           tabs={[
             { id: "requests", label: "Requests", badge: requests.length },
-            { id: "approved", label: "Approved", badge: approved.length },
+            { id: "approved", label: isPaid ? "Going" : "Approved", badge: approved.length },
             { id: "checked", label: "In", badge: checkedIn.length },
             { id: "other", label: "Other" },
           ]}
@@ -792,12 +848,12 @@ function EmptyTab({ message }) {
 // mode). When canSwipe, a horizontal drag reveals Approve (right) / Remove
 // (left) and commits past a threshold. The opaque card hides the action layers
 // at rest; vertical drags fall through to page scroll (touch-action: pan-y).
-function GuestRow({ guest: g, picture, selectMode, selected, onOpen, onToggle, canSwipe = false, onApprove = (_g) => {}, onDeny = (_g) => {}, nudge = false }) {
+function GuestRow({ guest: g, picture, selectMode, selected, onOpen, onToggle, canSwipe = false, onApprove = (_g) => {}, onDeny = (_g) => {}, nudge = false, subtitle }) {
   const fg = useRef(null);
   const apRef = useRef(null);
   const dnRef = useRef(null);
   const drag = useRef({ x: 0, y: 0, dir: null, active: false, moved: false });
-  const sub = formatPhoneDisplay(g.guest_phone) || g.guest_email || "No contact details";
+  const sub = subtitle || formatPhoneDisplay(g.guest_phone) || g.guest_email || "No contact details";
 
   // One-time teaching nudge on the first request row: flash Approve then Remove.
   useEffect(() => {
