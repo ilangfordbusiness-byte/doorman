@@ -46,6 +46,9 @@ export default function GuestlistManagement() {
   const [addOpen, setAddOpen] = useState(false);
   const [newGuest, setNewGuest] = useState({ name: "", email: "", phone: "" });
   const [adding, setAdding] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [importing, setImporting] = useState(false);
+  const csvRef = useRef(null);
   const [friends, setFriends] = useState([]);
   const [me, setMe] = useState(null);
   const [viewProfile, setViewProfile] = useState(null);
@@ -264,6 +267,78 @@ export default function GuestlistManagement() {
     loadData();
   }
 
+  // Parse pasted/CSV lines into {name, email}. A line is "Name, email", just an
+  // email, or just a name; the email is whichever column contains an "@".
+  function parseGuestLines(text) {
+    return text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map((line) => {
+      const cols = line.split(/[,\t;]/).map((c) => c.trim()).filter(Boolean);
+      const email = (cols.find((c) => c.includes("@")) || "").toLowerCase();
+      const name = cols.find((c) => !c.includes("@")) || (email ? email.split("@")[0] : "");
+      return { name, email };
+    });
+  }
+
+  async function importGuests(parsed) {
+    if (importing) return;
+    // Dedupe within the batch and against the current list (by email); keep
+    // email-less rows (a name-only door entry) since they can't collide.
+    const have = new Set(guests.map((g) => (g.guest_email || "").toLowerCase()).filter(Boolean));
+    const seen = new Set();
+    const rows = [];
+    for (const r of parsed) {
+      if (r.email) {
+        if (have.has(r.email) || seen.has(r.email)) continue;
+        seen.add(r.email);
+      } else if (!r.name) {
+        continue;
+      }
+      rows.push({
+        event_id: id,
+        guest_email: r.email,
+        guest_name: r.name,
+        guest_phone: "",
+        status: "invited",
+        source: "manual",
+        qr_secret: crypto.randomUUID(),
+      });
+    }
+    if (!rows.length) {
+      toast({ title: "No new guests to add", description: "They were blank or already on the list.", variant: "destructive" });
+      return;
+    }
+    setImporting(true);
+    try {
+      await api.entities.GuestlistEntry.bulkCreate(rows);
+      const skipped = parsed.length - rows.length;
+      toast({
+        title: `${rows.length} added to the guestlist`,
+        description: skipped > 0 ? `${skipped} skipped (blank or already on the list)` : undefined,
+      });
+      setImportText("");
+      setAddOpen(false);
+      await loadData();
+    } catch (e) {
+      toast({ title: e?.message || "Import failed", variant: "destructive" });
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  function onCsvFile(e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = ""; // allow re-picking the same file later
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const lines = String(reader.result || "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+      // Drop a header row like "name,email" (no @, mentions a column name).
+      if (lines.length && !lines[0].includes("@") && /name|email|guest/i.test(lines[0])) lines.shift();
+      importGuests(parseGuestLines(lines.join("\n")));
+    };
+    reader.onerror = () => toast({ title: "Couldn't read that file", variant: "destructive" });
+    reader.readAsText(file);
+  }
+
   async function exportCsv() {
     const day = new Date().toISOString().slice(0, 10);
     try {
@@ -473,6 +548,31 @@ export default function GuestlistManagement() {
                   <Button className="w-full h-11 rounded-xl bg-primary" onClick={addGuest} disabled={adding}>
                     {adding ? "Adding..." : "Add to Guestlist"}
                   </Button>
+
+                  <div className="border-t border-border/50 my-1" />
+                  <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Import a list</p>
+                  <textarea
+                    value={importText}
+                    onChange={(e) => setImportText(e.target.value)}
+                    placeholder={"Paste one per line — name, email\nMaya Osei, maya@email.com\ntom@email.com"}
+                    className="w-full min-h-[84px] bg-secondary/50 border border-border rounded-xl p-3 text-sm resize-none outline-none focus:border-primary/50"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      className="flex-1 h-11 rounded-xl bg-primary"
+                      onClick={() => importGuests(parseGuestLines(importText))}
+                      disabled={importing || !importText.trim()}
+                    >
+                      {importing ? "Adding…" : "Add list"}
+                    </Button>
+                    <Button variant="outline" className="h-11 rounded-xl" onClick={() => csvRef.current?.click()} disabled={importing}>
+                      Upload CSV
+                    </Button>
+                  </div>
+                  <input ref={csvRef} type="file" accept=".csv,text/csv" hidden onChange={onCsvFile} />
+                  <p className="text-[11px] text-muted-foreground text-center">
+                    Matches existing accounts by email, skips duplicates, adds everyone as invited.
+                  </p>
                 </div>
               </DialogContent>
             </Dialog>
