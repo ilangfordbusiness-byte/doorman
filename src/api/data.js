@@ -336,6 +336,35 @@ const ENTITIES = {
     },
   },
 
+  // Per-event auto-approve allowlist: emails that skip the Requests queue (a DB
+  // trigger flips a matching request/invite straight to approved).
+  EventAutoApprove: {
+    table: "event_auto_approve",
+    select: "event_id, email, created_at",
+    toApp: (r) => ({ event_id: r.event_id, email: r.email, created_date: r.created_at }),
+    async fromApp(obj) {
+      const out = {};
+      if ("event_id" in obj) out.event_id = obj.event_id;
+      if ("email" in obj) out.email = String(obj.email || "").trim().toLowerCase();
+      return out;
+    },
+    // Add a batch of emails for an event, ignoring any already on the list.
+    async addEmails(eventId, emails) {
+      const rows = [...new Set((emails || []).map((e) => String(e || "").trim().toLowerCase()).filter(Boolean))]
+        .map((email) => ({ event_id: eventId, email }));
+      if (!rows.length) return 0;
+      const { error } = await supabase.from("event_auto_approve")
+        .upsert(rows, { onConflict: "event_id,email", ignoreDuplicates: true });
+      throwOn(error);
+      return rows.length;
+    },
+    async removeEmail(eventId, email) {
+      const { error } = await supabase.from("event_auto_approve")
+        .delete().eq("event_id", eventId).eq("email", String(email || "").trim().toLowerCase());
+      throwOn(error);
+    },
+  },
+
   GuestlistEntry: {
     table: "guestlist_entries",
     readTable: "guestlist_entries_view",
