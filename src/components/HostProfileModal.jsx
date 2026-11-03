@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { api } from "@/api/data";
-import { X, UserPlus, Check, Instagram, Ghost, MapPin } from "lucide-react";
+import { X, UserPlus, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import UserAvatar from "./UserAvatar";
 import Avatar from "./Avatar";
 import SafetyActions from "./SafetyActions";
+import ProfilePanel from "./profile/ProfilePanel";
+import SocialLinks from "./profile/SocialLinks";
 
 // `isBusiness`: the event is hosted by a business account — show the business
 // name + picture only, with no personal email / Instagram / add-friend.
@@ -53,41 +55,26 @@ export default function HostProfileModal({ host, me, onClose, isBusiness = false
 
   return (
     <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center px-4 py-4" onClick={onClose}>
-      <div className="bg-card rounded-2xl border border-border p-6 w-full max-w-sm text-center relative max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <button onClick={onClose} className="absolute top-3 right-3 w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground">
+      <ProfilePanel
+        className="w-full max-w-sm"
+        innerClassName="p-6 text-center"
+        fireConfetti
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button onClick={onClose} className="absolute top-3 right-3 w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground z-10">
           <X className="w-4 h-4" />
         </button>
-        {isBusiness ? (
-          <Avatar src={host.picture} name={host.name} size="w-20 h-20" textClass="text-2xl" className="mx-auto mb-3" enlargeable />
-        ) : (
-          <UserAvatar email={host.email} fallbackSrc={host.picture} name={host.name} size="w-20 h-20" textClass="text-2xl" className="mx-auto mb-3" enlargeable />
-        )}
+        <div className="animate-float mx-auto mb-3 w-fit">
+          {isBusiness ? (
+            <Avatar src={host.picture} name={host.name} size="w-20 h-20" textClass="text-2xl" enlargeable />
+          ) : (
+            <UserAvatar email={host.email} fallbackSrc={host.picture} name={host.name} size="w-20 h-20" textClass="text-2xl" enlargeable />
+          )}
+        </div>
         <h2 className="font-heading font-bold text-lg">{host.name || "Host"}</h2>
         {!isBusiness && <p className="text-sm text-muted-foreground mb-2 truncate">{host.email}</p>}
-        {!isBusiness && instagram && (
-          <a
-            href={`https://instagram.com/${instagram}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 mb-2 text-sm text-pink-400 hover:text-pink-300 transition-colors"
-          >
-            <Instagram className="w-3.5 h-3.5" />@{instagram}
-          </a>
-        )}
-        {!isBusiness && snapchat && (
-          <a
-            href={`https://www.snapchat.com/add/${snapchat}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 mb-2 text-sm text-yellow-400 hover:text-yellow-300 transition-colors"
-          >
-            <Ghost className="w-3.5 h-3.5" />@{snapchat}
-          </a>
-        )}
-        {!isBusiness && location && (
-          <span className="flex items-center justify-center gap-1.5 mb-2 text-sm text-muted-foreground">
-            <MapPin className="w-3.5 h-3.5" />{location}
-          </span>
+        {!isBusiness && (
+          <SocialLinks instagram={instagram} snapchat={snapchat} location={location} align="center" className="mt-1 mb-3" />
         )}
         <span className="block text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full font-semibold mb-4 mt-2 uppercase tracking-wider w-fit mx-auto">Event Host</span>
         {!isBusiness && !isMe && (
@@ -111,7 +98,7 @@ export default function HostProfileModal({ host, me, onClose, isBusiness = false
             className="mt-4"
           />
         )}
-      </div>
+      </ProfilePanel>
     </div>
   );
 }
