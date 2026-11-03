@@ -28,6 +28,7 @@ import Avatar from "../components/Avatar";
 import HostProfileModal from "../components/HostProfileModal";
 import SafetyActions from "../components/SafetyActions";
 import CoHostsSection from "../components/CoHostsSection";
+import UserEmailField from "../components/UserEmailField";
 import LineupSection from "../components/LineupSection";
 import FitText from "../components/FitText";
 import { lineupStyle } from "@/lib/lineupStyles";
@@ -290,10 +291,10 @@ export default function EventDetails() {
     }
   }, [id]);
 
-  async function handleAddStaff() {
-    if (!newStaffEmail.trim()) return;
+  async function handleAddStaff(override) {
+    const val = String(override ?? newStaffEmail).trim();
+    if (!val) return;
     setAddingStaff(true);
-    const val = newStaffEmail.trim();
     const isPhone = /^[\+\d][\d\s\-().]{5,}$/.test(val);
     const phone = isPhone ? normalizePhone(val) : "";
     await api.entities.EventStaff.create({
@@ -684,14 +685,16 @@ export default function EventDetails() {
                 </div>
               )}
               <div className="flex gap-2">
-                <input
+                <UserEmailField
                   value={newStaffEmail}
-                  onChange={(e) => setNewStaffEmail(e.target.value)}
-                  placeholder="Add doorman by email or phone..."
-                  className="flex-1 h-10 px-3 text-sm bg-secondary/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                  onKeyDown={(e) => e.key === "Enter" && handleAddStaff()}
+                  onChange={setNewStaffEmail}
+                  onPick={(em) => handleAddStaff(em)}
+                  onEnter={() => handleAddStaff()}
+                  exclude={staff.map((s) => s.staff_email)}
+                  placeholder="Add doorman by name, email or phone…"
+                  className="w-full h-10 px-3 text-sm bg-secondary/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 />
-                <Button size="sm" className="h-10 rounded-xl" onClick={handleAddStaff} disabled={addingStaff}>
+                <Button size="sm" className="h-10 rounded-xl" onClick={() => handleAddStaff()} disabled={addingStaff}>
                   <Plus className="w-4 h-4" />
                 </Button>
               </div>
