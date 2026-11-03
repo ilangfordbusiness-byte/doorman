@@ -3,14 +3,15 @@ import { api } from "@/api/data";
 import { Plus, X, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import UserAvatar from "./UserAvatar";
+import UserEmailField from "./UserEmailField";
 
 export default function CoHostsSection({ event, onUpdated }) {
   const [email, setEmail] = useState("");
   const [adding, setAdding] = useState(false);
   const coHosts = Array.isArray(event.co_hosts) ? event.co_hosts : [];
 
-  async function invite() {
-    const em = email.trim().toLowerCase();
+  async function invite(override) {
+    const em = String(override ?? email).trim().toLowerCase();
     if (!em) return;
     setEmail("");
     if (em === event.host_email || coHosts.some((c) => c.email === em)) return;
@@ -59,14 +60,16 @@ export default function CoHostsSection({ event, onUpdated }) {
         </div>
       )}
       <div className="flex gap-2">
-        <input
+        <UserEmailField
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Invite co-host by email..."
-          className="flex-1 h-10 px-3 text-sm bg-secondary/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-          onKeyDown={(e) => e.key === "Enter" && invite()}
+          onChange={setEmail}
+          onPick={(em) => invite(em)}
+          onEnter={() => invite()}
+          exclude={[event.host_email, ...coHosts.map((c) => c.email)]}
+          placeholder="Add co-host by name or email…"
+          className="w-full h-10 px-3 text-sm bg-secondary/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
-        <Button size="sm" className="h-10 rounded-xl" onClick={invite} disabled={adding}>
+        <Button size="sm" className="h-10 rounded-xl" onClick={() => invite()} disabled={adding}>
           <Plus className="w-4 h-4" />
         </Button>
       </div>
