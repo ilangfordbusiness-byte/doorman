@@ -51,6 +51,8 @@ export default function GuestlistManagement() {
   const [adding, setAdding] = useState(false);
   const [importText, setImportText] = useState("");
   const [importing, setImporting] = useState(false);
+  const [autoAccept, setAutoAccept] = useState(false);
+  const [emailInvite, setEmailInvite] = useState(false);
   const csvRef = useRef(null);
   const [friends, setFriends] = useState([]);
   const [me, setMe] = useState(null);
@@ -325,11 +327,25 @@ export default function GuestlistManagement() {
     setImporting(true);
     try {
       await api.entities.GuestlistEntry.bulkCreate(rows);
+      const emails = rows.map((r) => r.guest_email).filter(Boolean);
+      const extras = [];
+      // Auto-accept: add their emails to the allowlist so a later request/join
+      // is approved automatically by the DB trigger.
+      if (autoAccept && emails.length) {
+        try { await api.entities.EventAutoApprove.addEmails(id, emails); extras.push("auto-accept on"); }
+        catch { extras.push("auto-accept failed"); }
+      }
+      // Optionally email them an invite to accept.
+      if (emailInvite && emails.length) {
+        try {
+          const { data } = await api.functions.invoke("sendGuestInvites", { event_id: id, emails });
+          const n = data?.sent ?? emails.length;
+          extras.push(`${n} invite${n === 1 ? "" : "s"} emailed`);
+        } catch { extras.push("invites couldn't send"); }
+      }
       const skipped = parsed.length - rows.length;
-      toast({
-        title: `${rows.length} added to the guestlist`,
-        description: skipped > 0 ? `${skipped} skipped (blank or already on the list)` : undefined,
-      });
+      const desc = [skipped > 0 ? `${skipped} skipped` : "", ...extras].filter(Boolean).join(" · ");
+      toast({ title: `${rows.length} added to the guestlist`, description: desc || undefined });
       setImportText("");
       setAddOpen(false);
       await loadData();
@@ -587,6 +603,14 @@ export default function GuestlistManagement() {
                     placeholder={"Paste one per line — name, email\nMaya Osei, maya@email.com\ntom@email.com"}
                     className="w-full min-h-[84px] bg-secondary/50 border border-border rounded-xl p-3 text-sm resize-none outline-none focus:border-primary/50"
                   />
+                  <label className="flex items-start gap-2.5 cursor-pointer py-0.5">
+                    <input type="checkbox" checked={autoAccept} onChange={(e) => setAutoAccept(e.target.checked)} className="mt-0.5 w-4 h-4 accent-primary" />
+                    <span className="text-xs text-foreground">Auto-accept these people<span className="text-muted-foreground"> — if they request to join (or accept an invite), they're approved automatically.</span></span>
+                  </label>
+                  <label className="flex items-start gap-2.5 cursor-pointer py-0.5">
+                    <input type="checkbox" checked={emailInvite} onChange={(e) => setEmailInvite(e.target.checked)} className="mt-0.5 w-4 h-4 accent-primary" />
+                    <span className="text-xs text-foreground">Email them an invite<span className="text-muted-foreground"> — a link to accept and get their pass.</span></span>
+                  </label>
                   <div className="flex gap-2">
                     <Button
                       className="flex-1 h-11 rounded-xl bg-primary"

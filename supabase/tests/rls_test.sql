@@ -1040,6 +1040,41 @@ begin
   end if;
   perform pg_temp.ok('hidden location is NULL for anon');
 
+  -- ---- auto-approve allowlist --------------------------------------------
+  execute 'reset role';
+  update public.events set hide_location_until_approved = false where id = v_event;
+  perform pg_temp.impersonate(alice, 'alice@test.dev');
+  insert into public.event_auto_approve (event_id, email) values (v_event, 'dave@test.dev');
+  perform pg_temp.ok('host can add an email to the auto-approve allowlist');
+
+  -- An allowlisted guest's request is flipped straight to approved by the trigger.
+  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  insert into public.guestlist_entries (event_id, guest_user_id, guest_email, status, source)
+    values (v_event, dave, 'dave@test.dev', 'requested', 'request')
+    returning status into v_text;
+  if v_text is distinct from 'approved' then
+    raise exception 'FAIL: allowlisted request was not auto-approved (got %)', v_text;
+  end if;
+  perform pg_temp.ok('allowlisted guest is auto-approved on request');
+
+  -- A guest NOT on the list stays in the Requests queue.
+  perform pg_temp.impersonate(carol, 'carol@test.dev');
+  insert into public.guestlist_entries (event_id, guest_user_id, guest_email, status, source)
+    values (v_event, carol, 'carol@test.dev', 'requested', 'request')
+    returning status into v_text;
+  if v_text <> 'requested' then
+    raise exception 'FAIL: non-allowlisted request should stay requested (got %)', v_text;
+  end if;
+  perform pg_temp.ok('non-allowlisted request stays in the queue');
+
+  -- Non-managers can't read the allowlist.
+  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  select count(*) into v_count from public.event_auto_approve where event_id = v_event;
+  if v_count <> 0 then
+    raise exception 'FAIL: a non-manager can read the auto-approve allowlist';
+  end if;
+  perform pg_temp.ok('auto-approve allowlist is hidden from non-managers');
+
   execute 'reset role';
   raise notice '';
   raise notice 'ALL % CHECKS PASSED', currval('pg_temp.t_pass');
