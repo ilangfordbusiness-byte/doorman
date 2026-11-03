@@ -19,6 +19,7 @@ import { useNotifications } from "@/hooks/useNotifications";
 import NotificationDot from "../components/NotificationDot";
 import CoHostInvitesSection from "../components/CoHostInvitesSection";
 import BusinessMemberInvitesSection from "../components/BusinessMemberInvitesSection";
+import ProfileBadge from "../components/ProfileBadge";
 import PhoneInput from "@/components/PhoneInput";
 import { normalizePhone, formatPhoneDisplay } from "@/lib/phone";
 
@@ -227,14 +228,8 @@ export default function Profile() {
         </div>
 
         <div className="grid grid-cols-2 gap-3 mt-5">
-          <div className="bg-secondary/50 rounded-xl p-3 text-center border border-border/50">
-            <p className="text-xl font-bold font-heading text-primary">{stats.hosted}</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Events Hosted</p>
-          </div>
-          <div className="bg-secondary/50 rounded-xl p-3 text-center border border-border/50">
-            <p className="text-xl font-bold font-heading text-accent">{stats.attended}</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Events Attended</p>
-          </div>
+          <ProfileBadge variant="hosted" value={stats.hosted} label="Parties Hosted" />
+          <ProfileBadge variant="attended" value={stats.attended} label="Parties Attended" />
         </div>
       </div>
 

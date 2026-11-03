@@ -4,6 +4,7 @@ import { X, Instagram, Ghost, MapPin, PartyPopper } from "lucide-react";
 import { Link } from "react-router-dom";
 import LoadingSpinner from "./LoadingSpinner";
 import UserAvatar from "./UserAvatar";
+import ProfileBadge from "./ProfileBadge";
 import moment from "moment";
 
 export default function FriendProfile({ friend, myEmail, myFriends, onClose }) {
@@ -150,8 +151,8 @@ export default function FriendProfile({ friend, myEmail, myFriends, onClose }) {
             <div>
               <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-2">Stats</p>
               <div className="grid grid-cols-2 gap-2">
-                <StatCard label="Events Hosted" value={stats.hosted} color="text-primary" />
-                <StatCard label="Events Attended" value={stats.attended} color="text-accent" />
+                <ProfileBadge variant="hosted" value={stats.hosted} label="Parties Hosted" />
+                <ProfileBadge variant="attended" value={stats.attended} label="Parties Attended" />
               </div>
             </div>
 
@@ -201,15 +202,6 @@ export default function FriendProfile({ friend, myEmail, myFriends, onClose }) {
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function StatCard({ label, value, color }) {
-  return (
-    <div className="bg-secondary/50 rounded-xl p-3 text-center border border-border/50">
-      <p className={`text-xl font-bold font-heading ${color}`}>{value}</p>
-      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</p>
     </div>
   );
 }
