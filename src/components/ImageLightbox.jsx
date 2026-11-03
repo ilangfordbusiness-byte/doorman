@@ -1,8 +1,12 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 // Full-screen image viewer. Sits above the profile modals (z-[80] vs their
 // z-[60]); dismiss by tapping the backdrop, the X, or pressing Escape.
+// Rendered through a portal to <body> so its `position: fixed` always resolves
+// against the viewport — a transformed ancestor (e.g. the floating avatar)
+// would otherwise become its containing block and trap it in a tiny box.
 export default function ImageLightbox({ src, alt = "", onClose }) {
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose?.(); };
@@ -10,7 +14,7 @@ export default function ImageLightbox({ src, alt = "", onClose }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[80] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
       onClick={onClose}
@@ -30,6 +34,7 @@ export default function ImageLightbox({ src, alt = "", onClose }) {
         onClick={(e) => e.stopPropagation()}
         className="max-w-[90vw] max-h-[85vh] object-contain rounded-2xl"
       />
-    </div>
+    </div>,
+    document.body
   );
 }
