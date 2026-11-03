@@ -106,6 +106,14 @@ module.exports = {
   				'100%': {
   					backgroundPosition: '-200% 0'
   				}
+  			},
+  			'float': {
+  				'0%, 100%': {
+  					transform: 'translateY(0)'
+  				},
+  				'50%': {
+  					transform: 'translateY(-6px)'
+  				}
   			}
   		},
   		animation: {
@@ -113,7 +121,8 @@ module.exports = {
   			'accordion-up': 'accordion-up 0.2s ease-out',
   			'holo-pan': 'holo-pan 6s ease-in-out infinite',
   			'shine': 'shine 3.5s ease-in-out infinite',
-  			'shimmer': 'shimmer 1.3s linear infinite'
+  			'shimmer': 'shimmer 1.3s linear infinite',
+  			'float': 'float 3.4s ease-in-out infinite'
   		}
   	}
   },
