@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { api } from "@/api/data";
-import { X, Instagram, Ghost, MapPin, UserPlus, PartyPopper } from "lucide-react";
-import { Link } from "react-router-dom";
+import { X, UserPlus } from "lucide-react";
 import LoadingSpinner from "./LoadingSpinner";
 import Avatar from "./Avatar";
 import { Button } from "@/components/ui/button";
-import moment from "moment";
+import ProfilePanel from "./profile/ProfilePanel";
+import SocialLinks from "./profile/SocialLinks";
+import EventsInCommon from "./profile/EventsInCommon";
 
 // Pre-friend preview of a suggested user (or an incoming request): name,
 // picture, instagram, events in common and mutual friends (each only when any
@@ -76,8 +77,13 @@ export default function SuggestionProfile({ user, myEmail, myFriends, sent, onSe
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-end md:items-center justify-center px-4 pb-4 md:pb-0">
-      <div className="bg-card rounded-3xl border border-border w-full max-w-lg max-h-[85vh] md:max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-card/95 backdrop-blur-sm rounded-t-3xl px-5 pt-5 pb-3 flex items-center justify-between border-b border-border/50 z-10">
+      <ProfilePanel
+        className="w-full max-w-lg"
+        fireConfetti={!loading}
+        maxHeightClass="max-h-[85vh] md:max-h-[90vh]"
+        innerMaxHeightClass="max-h-[calc(85vh-6px)] md:max-h-[calc(90vh-6px)]"
+      >
+        <div className="sticky top-0 bg-card/95 backdrop-blur-sm rounded-t-[21px] px-5 pt-5 pb-3 flex items-center justify-between border-b border-border/50 z-10">
           <h2 className="font-heading font-bold text-lg">Profile</h2>
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
             <X className="w-4 h-4" />
@@ -90,36 +96,12 @@ export default function SuggestionProfile({ user, myEmail, myFriends, sent, onSe
           <div className="px-5 py-5 space-y-5">
             {/* Identity */}
             <div className="flex items-center gap-4">
-              <Avatar src={user.profile_picture} name={user.full_name} size="w-20 h-20" rounded="rounded-2xl" textClass="text-3xl" className="flex-shrink-0" enlargeable />
+              <div className="flex-shrink-0 animate-float">
+                <Avatar src={user.profile_picture} name={user.full_name} size="w-20 h-20" rounded="rounded-2xl" textClass="text-3xl" enlargeable />
+              </div>
               <div className="flex-1 min-w-0">
                 <h3 className="font-heading font-bold text-xl leading-tight">{user.full_name}</h3>
-                <div className="flex flex-col gap-1 mt-1">
-                  {instagram && (
-                    <a
-                      href={`https://instagram.com/${instagram}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-sm text-pink-400 hover:text-pink-300 transition-colors"
-                    >
-                      <Instagram className="w-3.5 h-3.5" />@{instagram}
-                    </a>
-                  )}
-                  {snapchat && (
-                    <a
-                      href={`https://www.snapchat.com/add/${snapchat}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-sm text-yellow-400 hover:text-yellow-300 transition-colors"
-                    >
-                      <Ghost className="w-3.5 h-3.5" />@{snapchat}
-                    </a>
-                  )}
-                  {location && (
-                    <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-                      <MapPin className="w-3.5 h-3.5" />{location}
-                    </span>
-                  )}
-                </div>
+                <SocialLinks instagram={instagram} snapchat={snapchat} location={location} className="mt-2.5" />
               </div>
             </div>
 
@@ -141,31 +123,7 @@ export default function SuggestionProfile({ user, myEmail, myFriends, sent, onSe
             )}
 
             {/* Events in Common — only when there are any */}
-            {sharedEvents.length > 0 && (
-              <div>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-2">
-                  Events in Common ({sharedEvents.length})
-                </p>
-                <div className="space-y-2">
-                  {sharedEvents.map((evt) => (
-                    <Link
-                      key={evt.id}
-                      to={`/event/${evt.id}`}
-                      onClick={onClose}
-                      className="flex items-center gap-3 bg-secondary/40 rounded-xl px-3 py-2.5 border border-border/50 hover:border-primary/30 transition-colors"
-                    >
-                      <div className="w-9 h-9 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
-                        <PartyPopper className="w-4 h-4 text-primary" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold truncate">{evt.title}</p>
-                        <p className="text-[11px] text-muted-foreground">{moment(evt.date).format("MMM D, YYYY")}</p>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
+            <EventsInCommon events={sharedEvents} onClose={onClose} />
 
             {/* Footer action: custom (e.g. Accept/Decline) or the default Add Friend */}
             <div className="pt-2">
@@ -181,7 +139,7 @@ export default function SuggestionProfile({ user, myEmail, myFriends, sent, onSe
             </div>
           </div>
         )}
-      </div>
+      </ProfilePanel>
     </div>
   );
 }
