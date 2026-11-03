@@ -76,16 +76,19 @@ export default function EventAnalytics() {
 
   async function load() {
     try {
-      const [events, t, o, p, pr, g] = await Promise.all([
+      const [events, t, o, p, pr, g, me] = await Promise.all([
         api.entities.Event.filter({ id }),
         api.entities.TicketTier.filter({ event_id: id }),
         api.entities.TicketOrder.filterAll({ event_id: id }),
         api.entities.PromoCode.filter({ event_id: id }),
         api.entities.Promoter.filter({ event_id: id }),
         api.entities.GuestlistEntry.filterAll({ event_id: id }, "-created_date"),
+        api.auth.me().catch(() => null),
       ]);
       if (!events.length) return navigate("/");
-      if (!events[0].can_manage) return navigate(`/event/${id}`);
+      // Managers see their own event's analytics; super-admins can view any
+      // event's (read-only — backed by the admin SELECT policies).
+      if (!events[0].can_manage && me?.role !== "admin") return navigate(`/event/${id}`);
       setEvent(events[0]);
       setTiers(t);
       setAllOrders(o);

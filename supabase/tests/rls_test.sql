@@ -1040,7 +1040,47 @@ begin
   end if;
   perform pg_temp.ok('hidden location is NULL for anon');
 
+  -- ---- admins can read analytics data for events they don't manage ----
+  -- (20261103120000_admin_read_analytics.sql widened these SELECT policies.)
+  -- Seed one manager-only row in each analytics table on alice's event, keyed
+  -- to a probe email that belongs to nobody in the suite.
   execute 'reset role';
+  insert into public.promoters (event_id, name) values (v_event, 'Analytics Promoter');
+  insert into public.promo_codes (event_id, code) values (v_event, 'ADMIN10');
+  insert into public.guestlist_entries (event_id, guest_email, status, source)
+    values (v_event, 'analyticsprobe@test.dev', 'requested', 'request');
+  insert into public.ticket_tiers (event_id, name, price_minor, quantity)
+    values (v_event, 'Analytics Tier', 1000, 10) returning id into v_id;
+  insert into public.ticket_orders (event_id, tier_id, guest_email, unit_price_minor, paid_minor, status)
+    values (v_event, v_id, 'analyticsprobe@test.dev', 1000, 1000, 'paid');
+
+  -- dave neither hosts nor co-hosts v_event: as a plain user he sees none of
+  -- this manager-only data (and not the probe guest row, which isn't his).
+  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  if (select count(*) from public.guestlist_entries where event_id = v_event and guest_email = 'analyticsprobe@test.dev') <> 0
+     or (select count(*) from public.promoters where event_id = v_event) <> 0
+     or (select count(*) from public.promo_codes where event_id = v_event) <> 0
+     or (select count(*) from public.ticket_orders where event_id = v_event and guest_email = 'analyticsprobe@test.dev') <> 0 then
+    raise exception 'FAIL: non-manager read another event''s analytics data' using errcode = 'assert_failure';
+  end if;
+  perform pg_temp.ok('non-manager cannot read another event''s analytics data');
+
+  -- promote dave to admin: the widened SELECT policies now let him read it all.
+  execute 'reset role';
+  update public.profiles set role = 'admin' where id = dave;
+  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  if (select count(*) from public.guestlist_entries where event_id = v_event and guest_email = 'analyticsprobe@test.dev') < 1
+     or (select count(*) from public.promoters where event_id = v_event) < 1
+     or (select count(*) from public.promo_codes where event_id = v_event) < 1
+     or (select count(*) from public.ticket_orders where event_id = v_event and guest_email = 'analyticsprobe@test.dev') < 1 then
+    raise exception 'FAIL: admin cannot read analytics data for an unmanaged event' using errcode = 'assert_failure';
+  end if;
+  perform pg_temp.ok('admin can read analytics data for events they do not manage');
+
+  -- revert so the final state leaves dave a plain stranger again
+  execute 'reset role';
+  update public.profiles set role = 'user' where id = dave;
+
   raise notice '';
   raise notice 'ALL % CHECKS PASSED', currval('pg_temp.t_pass');
 end $test$;
