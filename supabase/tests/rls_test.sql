@@ -1045,7 +1045,7 @@ begin
   -- Seed one manager-only row in each analytics table on alice's event, keyed
   -- to a probe email that belongs to nobody in the suite.
   execute 'reset role';
-  insert into public.promoters (event_id, name) values (v_event, 'Analytics Promoter');
+  insert into public.promoters (event_id, name, commission_percent) values (v_event, 'Analytics Promoter', 10);
   insert into public.promo_codes (event_id, code) values (v_event, 'ADMIN10');
   insert into public.guestlist_entries (event_id, guest_email, status, source)
     values (v_event, 'analyticsprobe@test.dev', 'requested', 'request');
@@ -1054,9 +1054,10 @@ begin
   insert into public.ticket_orders (event_id, tier_id, guest_email, unit_price_minor, paid_minor, status)
     values (v_event, v_id, 'analyticsprobe@test.dev', 1000, 1000, 'paid');
 
-  -- dave neither hosts nor co-hosts v_event: as a plain user he sees none of
-  -- this manager-only data (and not the probe guest row, which isn't his).
-  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  -- bob, not dave: dave is door staff on this event, and staff can read its
+  -- guestlist. bob is only a guest, so he sees none of this manager-only data
+  -- (and not the probe guest row, which isn't his).
+  perform pg_temp.impersonate(bob, 'bob@test.dev');
   if (select count(*) from public.guestlist_entries where event_id = v_event and guest_email = 'analyticsprobe@test.dev') <> 0
      or (select count(*) from public.promoters where event_id = v_event) <> 0
      or (select count(*) from public.promo_codes where event_id = v_event) <> 0
@@ -1065,10 +1066,10 @@ begin
   end if;
   perform pg_temp.ok('non-manager cannot read another event''s analytics data');
 
-  -- promote dave to admin: the widened SELECT policies now let him read it all.
+  -- promote bob to admin: the widened SELECT policies now let them read it all.
   execute 'reset role';
-  update public.profiles set role = 'admin' where id = dave;
-  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  update public.profiles set role = 'admin' where id = bob;
+  perform pg_temp.impersonate(bob, 'bob@test.dev');
   if (select count(*) from public.guestlist_entries where event_id = v_event and guest_email = 'analyticsprobe@test.dev') < 1
      or (select count(*) from public.promoters where event_id = v_event) < 1
      or (select count(*) from public.promo_codes where event_id = v_event) < 1
@@ -1077,9 +1078,9 @@ begin
   end if;
   perform pg_temp.ok('admin can read analytics data for events they do not manage');
 
-  -- revert so the final state leaves dave a plain stranger again
+  -- revert so the final state leaves bob a plain user again
   execute 'reset role';
-  update public.profiles set role = 'user' where id = dave;
+  update public.profiles set role = 'user' where id = bob;
 
   raise notice '';
   raise notice 'ALL % CHECKS PASSED', currval('pg_temp.t_pass');
