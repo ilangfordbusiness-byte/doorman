@@ -176,6 +176,7 @@ Use an event of a business with a Meta Pixel. Set a test event code on the busin
 
 - Web-only changes still deploy to Vercel instantly. Backend changes (migrations, edge functions) deploy instantly and must stay compatible with the oldest binary in the wild.
 - iOS changes: bump `MARKETING_VERSION` in Xcode when the user-visible version changes (1.0.1 for fixes, 1.1 for features), `npm run ios:archive`, TestFlight, the short version of section F (sign-in, one purchase, one scan, push, links), submit with "What's New", release with **phased release on**.
+- A backend change that old builds cannot use: after the new version is live on the store, raise the minimum with `update public.app_config set ios_min_version = '<version>';`. Builds below that version show a blocking update screen. Version 1.0 does not have this check, so it cannot be forced to update.
 - Over-the-air web updates (Capgo) are the follow-up that lets frontend fixes skip the store; native changes still need a build.
 - Rotate nothing: the APNs key does not expire. If it ever leaks, revoke it in the portal, create a new one, update the three `APNS_*` secrets.
 

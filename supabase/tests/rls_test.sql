@@ -1185,5 +1185,28 @@ begin
   update public.profiles set role = 'user' where id = alice;
   perform pg_temp.ok('content reports are admin-only: clients cannot insert, read or resolve them');
 
+  -- app_config: anyone can read the minimum version (the check runs before
+  -- sign-in); no client can change it.
+  execute 'reset role';
+  execute 'set local role anon';
+  select count(*) into v_count from public.app_config where ios_min_version is not null;
+  if v_count <> 1 then
+    raise exception 'FAIL: anon cannot read app_config';
+  end if;
+  begin
+    update public.app_config set ios_min_version = '9.9';
+    raise exception 'FAIL: anon changed app_config';
+  exception when insufficient_privilege then null;
+  end;
+  execute 'reset role';
+  perform pg_temp.impersonate(alice, 'alice@test.dev');
+  begin
+    update public.app_config set ios_min_version = '9.9';
+    raise exception 'FAIL: signed-in user changed app_config';
+  exception when insufficient_privilege then null;
+  end;
+  execute 'reset role';
+  perform pg_temp.ok('app_config is readable by everyone and writable by no client');
+
   execute 'reset role';
 end $test$;

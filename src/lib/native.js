@@ -153,6 +153,17 @@ export async function getAppVersion() {
   }
 }
 
+// The marketing version alone ("1.1"), for comparing against a minimum version.
+export async function getAppMarketingVersion() {
+  if (!isNative()) return null;
+  try {
+    const info = await App.getInfo();
+    return info.version;
+  } catch {
+    return null;
+  }
+}
+
 // 'granted' | 'denied' | 'prompt' | 'prompt-with-rationale'
 export async function pushPermission() {
   if (!isNative()) return "denied";
