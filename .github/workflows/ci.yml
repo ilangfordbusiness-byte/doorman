@@ -2,6 +2,12 @@
 #   app  — npm run lint, typecheck, build
 #   db   — boots the local Supabase stack in Docker and runs the three SQL
 #          suites exactly like `./dev.sh test` (fresh DB, all migrations applied).
+#   migrate — on pushes to main only, after app and db pass: applies new
+#          migrations to production with `supabase db push`. This replaces the
+#          Supabase GitHub integration's "Deploy to production", which always
+#          failed: it lowercases the [functions.*] keys in config.toml and then
+#          cannot find supabase/functions/sendneweventsdigest on Linux.
+#          Edge functions are still deployed by hand.
 name: CI
 
 on:
@@ -11,7 +17,8 @@ on:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Never cancel a run on main: it may be in the middle of `db push`.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   app:
@@ -57,3 +64,31 @@ jobs:
       - name: Stop Supabase stack
         if: always()
         run: supabase stop --no-backup || true
+
+  migrate:
+    name: apply migrations to production
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [app, db]
+    runs-on: ubuntu-latest
+    concurrency:
+      group: supabase-migrate-production
+      cancel-in-progress: false
+    env:
+      SUPABASE_PROJECT_REF: egxopdlzcxapfpjwfyki
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check secrets
+        run: |
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ] || [ -z "$SUPABASE_DB_PASSWORD" ]; then
+            echo "::error::Set the SUPABASE_ACCESS_TOKEN and SUPABASE_DB_PASSWORD repository secrets."
+            exit 1
+          fi
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Link production project
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+      - name: Apply new migrations
+        run: supabase db push --password "$SUPABASE_DB_PASSWORD" --yes
