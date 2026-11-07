@@ -17,7 +17,7 @@ export default function BusinessLayout() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border">
+      <div className="sticky top-[env(safe-area-inset-top)] z-40 bg-background/80 backdrop-blur-xl border-b border-border">
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
           <Avatar src={business.business_picture} name={business.business_name} size="w-9 h-9" textClass="text-sm" />
           <div className="flex-1 min-w-0">
