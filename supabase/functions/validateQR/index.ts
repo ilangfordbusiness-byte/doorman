@@ -13,7 +13,9 @@ Deno.serve(async (req) => {
     const user = await getCaller(req, svc);
     if (!user) return json({ error: 'Unauthorized' }, 401);
 
-    const { qr_data, guestlist_entry_id, action } = await req.json();
+    // event_id is the event the scanner is open for. It stays optional: iOS 1.0
+    // and 1.0.1 send only qr_data, and the door list sends only guestlist_entry_id.
+    const { qr_data, guestlist_entry_id, action, event_id } = await req.json();
 
     // Two ways in: a scanned QR payload, or a bare guestlist entry id chosen from
     // an authorized manager/staff door list (name-based check-in). The entry-id
@@ -70,6 +72,13 @@ Deno.serve(async (req) => {
         }
       }
       entry = e;
+    }
+
+    // A pass for another event must not check in here, even when the caller also
+    // runs that event. This runs before every write and returns no guest details,
+    // because the caller has not been authorized for the pass's event yet.
+    if (event_id && String(event_id).toLowerCase() !== String(eid).toLowerCase()) {
+      return json({ valid: false, error: 'This pass is for a different event' });
     }
 
     const { data: event } = await svc.from('events').select('*').eq('id', eid).single();

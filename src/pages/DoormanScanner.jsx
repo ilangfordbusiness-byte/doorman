@@ -14,6 +14,14 @@ const DECODE_EVERY = 2;
 // Camera diagnostics are for development only.
 const SHOW_DEBUG = import.meta.env.DEV;
 
+// The event this scanner is open for, read at call time: the camera loop holds
+// a closure from the first render, before the event state has loaded. Absent
+// when the scanner is opened without an event, and the server then skips the check.
+function scannerEventParam() {
+  const eventId = new URLSearchParams(window.location.search).get("event_id");
+  return eventId ? { event_id: eventId } : {};
+}
+
 export default function DoormanScanner() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -166,7 +174,7 @@ export default function DoormanScanner() {
     stopEverything();
 
     try {
-      const response = await api.functions.invoke("validateQR", { qr_data: data });
+      const response = await api.functions.invoke("validateQR", { qr_data: data, ...scannerEventParam() });
       setResult(response.data);
       setMode("result");
       if (response.data?.valid) hapticSuccess(); else hapticError();
@@ -191,6 +199,7 @@ export default function DoormanScanner() {
       const response = await api.functions.invoke("validateQR", {
         qr_data: lastQrData.current,
         action: "check_in",
+        ...scannerEventParam(),
       });
       setResult(response.data);
       if (response.data?.valid) hapticSuccess(); else hapticError();
