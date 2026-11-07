@@ -13,6 +13,8 @@ import { hapticSuccess, hapticError } from "@/lib/native";
 const DECODE_EVERY = 2;
 // Camera diagnostics are for development only.
 const SHOW_DEBUG = import.meta.env.DEV;
+// No label for "error": the video area already says the camera is unavailable.
+const CAMERA_LABEL = { starting: "Initializing camera...", active: "Camera ready" };
 
 // The event this scanner is open for, read at call time: the camera loop holds
 // a closure from the first render, before the event state has loaded. Absent
@@ -154,6 +156,7 @@ export default function DoormanScanner() {
         stopEverything();
       } else if (document.visibilityState === "visible" && !streamRef.current) {
         setCameraStatus("starting");
+        setDebugMsg("");
         setCameraEpoch((n) => n + 1);
       }
     }
@@ -218,6 +221,8 @@ export default function DoormanScanner() {
     setCameraStatus("starting");
     setDebugMsg("");
   }
+
+  const cameraLabel = SHOW_DEBUG && debugMsg ? debugMsg : CAMERA_LABEL[cameraStatus];
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
@@ -291,11 +296,9 @@ export default function DoormanScanner() {
             </div>
           </div>
 
-          {/* Debug status */}
-          {SHOW_DEBUG && debugMsg ? (
-            <p className="text-center text-[10px] text-zinc-600 mt-1 px-4 truncate">{debugMsg}</p>
-          ) : (
-            <p className="text-center text-[10px] text-zinc-600 mt-1">Initializing camera...</p>
+          {/* Camera status */}
+          {cameraLabel && (
+            <p className="text-center text-[10px] text-zinc-600 mt-1 px-4 truncate">{cameraLabel}</p>
           )}
 
           {/* Tips */}
