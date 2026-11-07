@@ -7,6 +7,7 @@ import {
 } from "@/lib/native";
 import { toAppPath } from "@/lib/appUrl";
 import { stashRefFromUrl } from "@/lib/promoterRef";
+import { takeLoginNextPath } from "@/lib/loginNext";
 
 // Routes URLs the OS hands the native app into the SPA. Three shapes:
 //   doorman://auth/callback?code=…   OAuth return from the browser sheet
@@ -41,6 +42,10 @@ export function useDeepLinks() {
       if (url.startsWith(NATIVE_AUTH_CALLBACK)) {
         try {
           await api.auth.completeOAuthCallback(url);
+          // Land where the user was heading before sign-in (a shared event or
+          // pass), as the web Google flow does through its redirectTo URL.
+          const next = takeLoginNextPath();
+          if (next) navigate(next, { replace: true });
         } catch (e) {
           const q = new URLSearchParams({
             error: "oauth_failed",
