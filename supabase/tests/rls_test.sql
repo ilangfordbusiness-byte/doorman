@@ -1208,5 +1208,42 @@ begin
   execute 'reset role';
   perform pg_temp.ok('app_config is readable by everyone and writable by no client');
 
+  -- record_promoter_sale: a negative commission (an order priced below the
+  -- platform fee) must not reduce what the promoter is owed; the rest of the
+  -- sale still counts. Clients can't call it.
+  execute 'reset role';
+  declare
+    v_event uuid;
+    v_promoter uuid;
+    v_owed bigint;
+    v_sold int;
+    v_uses int;
+  begin
+    insert into public.events (host_id, title, date, start_time, status)
+      values (alice, 'Commission test', '2099-01-01', '20:00', 'published') returning id into v_event;
+    insert into public.promoters (event_id, name, commission_percent, commission_owed_minor)
+      values (v_event, 'Commission Promoter', 10, 100) returning id into v_promoter;
+    perform public.record_promoter_sale(v_promoter, 1, 40, -7, 0);
+    select commission_owed_minor, tickets_sold, discount_used_count
+      into v_owed, v_sold, v_uses from public.promoters where id = v_promoter;
+    if v_owed <> 100 or v_sold <> 1 or v_uses <> 0 then
+      raise exception 'FAIL: negative commission changed owed to % (sold %, uses %)', v_owed, v_sold, v_uses;
+    end if;
+    perform public.record_promoter_sale(v_promoter, 1, 1000, 50, 25);
+    select commission_owed_minor, discount_used_count
+      into v_owed, v_uses from public.promoters where id = v_promoter;
+    if v_owed <> 150 or v_uses <> 1 then
+      raise exception 'FAIL: normal commission gave owed %, uses %', v_owed, v_uses;
+    end if;
+    perform pg_temp.impersonate(alice, 'alice@test.dev');
+    begin
+      perform public.record_promoter_sale(v_promoter, 1, 0, 1000000, 0);
+      raise exception 'FAIL: a client called record_promoter_sale';
+    exception when insufficient_privilege then null;
+    end;
+    execute 'reset role';
+  end;
+  perform pg_temp.ok('record_promoter_sale ignores negative commission and stays service-role only');
+
   execute 'reset role';
 end $test$;

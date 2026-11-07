@@ -2,8 +2,8 @@
 // createTicketCheckout function; amounts are minor units natively now.
 import { getCaller, json, preflight, serviceClient } from '../_shared/db.ts';
 import {
-  computeFeeMinor, computePromoterDiscountMinor, MIN_PAID_MINOR,
-  promoterDiscountAvailable,
+  capDiscountsMinor, clampCommissionMinor, computeFeeMinor, computePromoterDiscountMinor,
+  formatMoney, minTierPriceMinor, promoterDiscountAvailable,
 } from '../_shared/tickets.ts';
 import { PAYOUT_SETUP_ERROR, resolvePayoutAccount } from '../_shared/connect.ts';
 import { metaConfigForEvent } from '../_shared/meta.ts';
@@ -55,6 +55,16 @@ Deno.serve(async (req) => {
 
     const unitMinor = Number(tier.price_minor);
 
+    // Tier creation refuses these prices, but older tiers exist and a host can
+    // change the event's fee mode or currency after creating a tier. Stop here,
+    // before any seat is held or order written, with a message the buyer can use.
+    const minPriceMinor = minTierPriceMinor(event.fee_mode, currency);
+    if (unitMinor < minPriceMinor) {
+      return json({
+        error: `This ticket can't be sold online at ${formatMoney(unitMinor, currency)} because the minimum price is ${formatMoney(minPriceMinor, currency)}. Please let the host know.`,
+      }, 400);
+    }
+
     // Promoter attribution (last-touch, persisted client-side per event).
     let promoter = null;
     if (promoter_code) {
@@ -90,15 +100,14 @@ Deno.serve(async (req) => {
     }
     const promoDiscountMinor = promo ? Math.round(unitMinor * (discountPercent / 100)) : 0;
 
-    // Combine discounts; floor paid at the platform minimum, trimming the promo
-    // portion first (the promoter discount is the primary, auto-applied one).
-    const capDiscount = Math.max(0, unitMinor - MIN_PAID_MINOR);
-    let promoDiscountFinal = promoDiscountMinor;
-    let totalDiscountMinor = promoterDiscountMinor + promoDiscountFinal;
-    if (totalDiscountMinor > capDiscount) {
-      promoDiscountFinal = Math.max(0, capDiscount - promoterDiscountMinor);
-      totalDiscountMinor = promoterDiscountMinor + promoDiscountFinal;
-    }
+    // Combine discounts, floored per capDiscountsMinor. The amounts stored on the
+    // order are these trimmed ones, so a discount trimmed to nothing records 0
+    // and doesn't count as a use of the promoter discount (record_promoter_sale).
+    const discounts = capDiscountsMinor(
+      unitMinor, promoterDiscountMinor, promoDiscountMinor, event.fee_mode, currency,
+    );
+    promoterDiscountMinor = discounts.promoter;
+    const totalDiscountMinor = discounts.total;
     const paid = unitMinor - totalDiscountMinor; // per ticket, face value
 
     // Order-level money. The platform fee applies per ticket sold; all stored
@@ -120,7 +129,7 @@ Deno.serve(async (req) => {
       commissionMinor = promoter.commission_type === 'flat'
         ? Number(promoter.commission_flat_minor || 0) * qty
         : Math.round(orderFaceMinor * (Number(promoter.commission_percent || 0) / 100));
-      if (commissionMinor > hostNetMinor) commissionMinor = hostNetMinor;
+      commissionMinor = clampCommissionMinor(commissionMinor, hostNetMinor);
       hostNetMinor -= commissionMinor;
     }
 
@@ -148,7 +157,8 @@ Deno.serve(async (req) => {
       guest_user_id: user.id,
       guest_email: user.email,
       guest_name: user.full_name,
-      promo_code_id: promo?.id ?? null,
+      // A promo code trimmed to nothing gave no discount, so it spends no use.
+      promo_code_id: promoDiscountMinor > 0 && discounts.promo === 0 ? null : promo?.id ?? null,
       promoter_id: promoter?.id ?? null,
       quantity: qty,
       unit_price_minor: unitMinor,
