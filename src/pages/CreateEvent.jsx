@@ -19,6 +19,7 @@ import TierPriceWarning from "@/components/TierPriceWarning";
 import { useBusinessStripeStatus } from "@/hooks/useBusinessStripeStatus";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { currencySymbol, defaultCurrencyForUser, feeLabel } from "@/lib/money";
+import { tierPriceProblem } from "@/lib/fees";
 import TimeZoneSelect from "@/components/TimeZoneSelect";
 import { browserZone } from "@/lib/eventTime";
 
@@ -102,8 +103,10 @@ export default function CreateEvent({ business = null }) {
   const [tiers, setTiers] = useState([]);
   const [newTier, setNewTier] = useState({ name: "", description: "", price: "", quantity: "", release_at: "", door_only: false });
 
+  const newTierTooLow = !!tierPriceProblem(newTier.price, form.fee_mode, form.currency);
+
   function addTier() {
-    if (!newTier.name || newTier.price === "" || newTier.quantity === "") return;
+    if (!newTier.name || newTier.price === "" || newTier.quantity === "" || newTierTooLow) return;
     setTiers((prev) => [...prev, {
       name: newTier.name,
       description: newTier.description.trim(),
@@ -129,6 +132,14 @@ export default function CreateEvent({ business = null }) {
   async function handleSubmit(status) {
     if (!form.title || !form.date || !form.start_time) {
       setError("Please fill in the event name, date, and start time before continuing.");
+      return;
+    }
+
+    // The host can change fee mode or currency after adding a tier. Tier saves
+    // below ignore errors, so a rejected tier would vanish without a word.
+    if (form.is_paid && tiers.some((t) => tierPriceProblem(t.price, form.fee_mode, form.currency))) {
+      // A toast, because the page's error banner is off-screen from these buttons.
+      toast({ title: "A ticket tier is below the minimum price", description: "Change its price or remove it before continuing.", variant: "destructive" });
       return;
     }
 
@@ -558,6 +569,7 @@ export default function CreateEvent({ business = null }) {
                             {t.door_only && <span className="text-amber-400"> · Door only</span>}
                             {t.release_at && <span className="text-amber-400"> · On sale {formatReleaseAt(t.release_at)}</span>}
                           </p>
+                          <TierPriceWarning price={t.price} currency={form.currency} feeMode={form.fee_mode} className="mt-2" />
                         </div>
                         <button onClick={() => removeTier(i)} className="text-muted-foreground hover:text-destructive p-1 flex-shrink-0">
                           <Trash2 className="w-4 h-4" />
@@ -570,11 +582,11 @@ export default function CreateEvent({ business = null }) {
                   <Input placeholder="Tier name" value={newTier.name} onChange={(e) => setNewTier((s) => ({ ...s, name: e.target.value }))} className="h-10 bg-secondary/50" />
                   <Input type="number" placeholder="Price" value={newTier.price} onChange={(e) => setNewTier((s) => ({ ...s, price: e.target.value }))} className="h-10 bg-secondary/50" />
                   <Input type="number" placeholder="Qty" value={newTier.quantity} onChange={(e) => setNewTier((s) => ({ ...s, quantity: e.target.value }))} className="h-10 bg-secondary/50" />
-                  <Button type="button" variant="outline" size="icon" className="h-10 w-10 flex-shrink-0" onClick={addTier} disabled={!newTier.name || newTier.price === "" || newTier.quantity === ""}>
+                  <Button type="button" variant="outline" size="icon" className="h-10 w-10 flex-shrink-0" onClick={addTier} disabled={!newTier.name || newTier.price === "" || newTier.quantity === "" || newTierTooLow}>
                     <Plus className="w-4 h-4" />
                   </Button>
                 </div>
-                <TierPriceWarning price={newTier.price} currency={form.currency} className="mt-2" />
+                <TierPriceWarning price={newTier.price} currency={form.currency} feeMode={form.fee_mode} className="mt-2" />
                 <textarea placeholder="Description (optional) — e.g. Includes a welcome drink" value={newTier.description}
                   onChange={(e) => setNewTier((s) => ({ ...s, description: e.target.value }))} maxLength={280} rows={2}
                   className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:text-sm resize-none mt-2 bg-secondary/50" />

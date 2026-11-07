@@ -63,12 +63,3 @@ export function localInputToReleaseAt(value) {
   const d = new Date(value);
   return Number.isFinite(d.getTime()) ? d.toISOString() : null;
 }
-
-// Tier prices under this amount (major units) get a warning in the tier form.
-export const LOW_TIER_PRICE = 0.3;
-
-// `price` is the raw value of the price input. Empty and 0 (a free tier) are not low.
-export function isLowTierPrice(price) {
-  const p = Number(price);
-  return Number.isFinite(p) && p > 0 && p < LOW_TIER_PRICE;
-}
