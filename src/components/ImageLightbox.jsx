@@ -24,7 +24,7 @@ export default function ImageLightbox({ src, alt = "", onClose }) {
       <button
         onClick={onClose}
         aria-label="Close"
-        className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
+        className="absolute top-[calc(env(safe-area-inset-top)+1rem)] right-4 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
       >
         <X className="w-5 h-5" />
       </button>

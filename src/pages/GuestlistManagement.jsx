@@ -581,7 +581,7 @@ export default function GuestlistManagement() {
       </div>
 
       {/* Sticky frosted header: capacity + search + tabs. Rows scroll underneath. */}
-      <div className="sticky top-0 z-20 -mx-4 px-4 pt-2 pb-3 bg-background/80 backdrop-blur-xl border-b border-border/50 space-y-3">
+      <div className="sticky top-[env(safe-area-inset-top)] z-20 -mx-4 px-4 pt-2 pb-3 bg-background/80 backdrop-blur-xl border-b border-border/50 space-y-3">
         <div>
           <div className="flex items-center justify-between text-[13px] mb-1.5">
             <span>
