@@ -173,7 +173,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'delete_tier') {
-      const { error } = await svc.from('ticket_tiers').delete().eq('id', body.id);
+      const { error } = await svc.from('ticket_tiers').delete().eq('id', body.id).eq('event_id', eventId);
       if (error) {
         // A tier with orders can't be deleted — the FK (on delete restrict)
         // protects the order/payment history behind its sold tickets.
@@ -202,7 +202,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'delete_promo') {
-      const { error } = await svc.from('promo_codes').delete().eq('id', body.id);
+      const { error } = await svc.from('promo_codes').delete().eq('id', body.id).eq('event_id', eventId);
       if (error) return json({ error: error.message }, 400);
       return json({ ok: true });
     }
