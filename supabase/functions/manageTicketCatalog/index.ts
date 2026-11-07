@@ -2,6 +2,7 @@
 // units from the UI and are stored as minor units.
 import { getCaller, json, preflight, serviceClient } from '../_shared/db.ts';
 import { PAYOUT_SETUP_ERROR, resolvePayoutAccount } from '../_shared/connect.ts';
+import { formatMoney, minTierPriceMinor } from '../_shared/tickets.ts';
 
 // Optional scheduled release. `undefined` = field absent, `null`/'' = clear the
 // schedule (on sale now), string = ISO timestamp. Returns the normalised value
@@ -45,7 +46,7 @@ Deno.serve(async (req) => {
     }
     if (!eventId) return json({ error: 'Missing event_id' }, 400);
 
-    const { data: evt } = await svc.from('events').select('id, host_id, business_id')
+    const { data: evt } = await svc.from('events').select('id, host_id, business_id, fee_mode, currency')
       .eq('id', eventId).single();
     if (!evt) return json({ error: 'Event not found' }, 404);
     // The host, or — for a business event — the business owner or an accepted
@@ -76,6 +77,16 @@ Deno.serve(async (req) => {
       // share is auto-routed at purchase, so there is no platform-held path.
       const payout = await resolvePayoutAccount(svc, evt);
       if (!payout.active) return json({ error: PAYOUT_SETUP_ERROR }, 400);
+      // A tier must be sellable under the event's fee mode and currency. There
+      // is no free path through checkout, so 0 is refused like any low price.
+      // update_tier has no price field: a tier's price never changes after this.
+      const priceMinor = Math.round(Number(price) * 100);
+      const minPriceMinor = minTierPriceMinor(evt.fee_mode, evt.currency);
+      if (!Number.isFinite(priceMinor) || priceMinor < minPriceMinor) {
+        return json({
+          error: `The minimum ticket price for this event is ${formatMoney(minPriceMinor, String(evt.currency || 'gbp'))}. To run a free event, don't add ticket tiers.`,
+        }, 400);
+      }
       const description = normalizeDescription(body.description);
       if (description.error) return json({ error: description.error }, 400);
       const release = parseReleaseAt(body.release_at);
@@ -84,7 +95,7 @@ Deno.serve(async (req) => {
         event_id: eventId,
         name,
         description: description.value,
-        price_minor: Math.round(Number(price) * 100),
+        price_minor: priceMinor,
         quantity: Math.round(Number(quantity)),
         sort_order: body.sort_order ?? 0,
         hide_remaining: !!body.hide_remaining,
