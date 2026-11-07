@@ -1591,17 +1591,22 @@ const djs = {
 
     const { data: rows } = await supabase
       .from("event_dj_lineup")
-      .select("set_time, event:events(id, title, cover_image_url, date, venue_name, is_public, status)")
+      .select("set_time, event:events(id, title, cover_image_url, date, is_public, status)")
       .eq("dj_user_id", id);
     // Only public, published events belong on a public résumé — never leak a
     // private event a DJ happened to play.
-    const events = (rows ?? [])
-      .map((r) => r.event)
-      .filter((e) => e && e.is_public && e.status === "published")
-      .map((e) => ({
-        id: e.id, title: e.title, cover_image: e.cover_image_url,
-        date: e.date, venue_name: e.venue_name, status: e.status,
-      }));
+    const published = (rows ?? [])
+      .map((r) => /** @type {any} */ (r.event))
+      .filter((e) => e && e.is_public && e.status === "published");
+    // The location columns are not readable directly; this returns them masked.
+    const { data: locs } = published.length
+      ? await supabase.rpc("get_events_location", { p_event_ids: published.map((e) => e.id) })
+      : { data: [] };
+    const venueById = new Map((locs ?? []).map((l) => [l.event_id, l.venue_name]));
+    const events = published.map((e) => ({
+      id: e.id, title: e.title, cover_image: e.cover_image_url,
+      date: e.date, venue_name: venueById.get(e.id) ?? null, status: e.status,
+    }));
     const todayStr = new Date().toISOString().slice(0, 10);
     const upcoming = events.filter((e) => e.date >= todayStr).sort((a, b) => a.date.localeCompare(b.date));
     const past = events.filter((e) => e.date < todayStr).sort((a, b) => b.date.localeCompare(a.date));
@@ -1661,4 +1666,15 @@ const safety = {
   },
 };
 
-export const api = { entities, auth, functions, integrations, admin, businesses, push, djs, safety };
+// ---------------------------------------------------------------------------
+// App-wide settings readable with no session. One row; changed in SQL only.
+// ---------------------------------------------------------------------------
+const appConfig = {
+  async iosMinVersion() {
+    const { data, error } = await supabase.from("app_config").select("ios_min_version").maybeSingle();
+    throwOn(error);
+    return data?.ios_min_version ?? null;
+  },
+};
+
+export const api = { entities, auth, functions, integrations, admin, businesses, push, djs, safety, appConfig };

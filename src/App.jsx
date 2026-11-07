@@ -10,6 +10,7 @@ import { usePushRegistration } from '@/hooks/usePushRegistration';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
+import UpdateRequiredGate from '@/components/UpdateRequiredGate';
 import Layout from './components/Layout';
 import ImpersonationBanner from './components/ImpersonationBanner';
 import Login from './pages/Login';
@@ -184,6 +185,7 @@ function App() {
           <AuthenticatedApp />
         </Router>
         <Toaster />
+        <UpdateRequiredGate />
         {/* Vercel analytics only exists for the web deployment. */}
         {!isNative() && <Analytics />}
       </QueryClientProvider>
