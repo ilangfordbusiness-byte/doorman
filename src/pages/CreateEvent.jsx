@@ -15,6 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { useStripeStatus } from "@/hooks/useStripeStatus";
+import TierPriceWarning from "@/components/TierPriceWarning";
 import { useBusinessStripeStatus } from "@/hooks/useBusinessStripeStatus";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { currencySymbol, defaultCurrencyForUser, feeLabel } from "@/lib/money";
@@ -573,6 +574,7 @@ export default function CreateEvent({ business = null }) {
                     <Plus className="w-4 h-4" />
                   </Button>
                 </div>
+                <TierPriceWarning price={newTier.price} currency={form.currency} className="mt-2" />
                 <textarea placeholder="Description (optional) — e.g. Includes a welcome drink" value={newTier.description}
                   onChange={(e) => setNewTier((s) => ({ ...s, description: e.target.value }))} maxLength={280} rows={2}
                   className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:text-sm resize-none mt-2 bg-secondary/50" />

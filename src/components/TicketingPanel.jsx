@@ -1,4 +1,5 @@
 import { currencySymbol } from "@/lib/money";
+import TierPriceWarning from "@/components/TierPriceWarning";
 import { useState, useEffect } from "react";
 import { tierRemaining, tierScheduled, formatReleaseAt, releaseAtToLocalInput, localInputToReleaseAt } from "@/lib/tiers";
 import { Link } from "react-router-dom";
@@ -342,6 +343,7 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
             <Input type="number" placeholder="Price" value={newTier.price} onChange={(e) => setNewTier((s) => ({ ...s, price: e.target.value }))} className="h-10" />
             <Input type="number" placeholder="Qty" value={newTier.quantity} onChange={(e) => setNewTier((s) => ({ ...s, quantity: e.target.value }))} className="h-10" />
           </div>
+          <TierPriceWarning price={newTier.price} currency={currency} />
           <textarea placeholder="Description (optional) — e.g. Includes a welcome drink" value={newTier.description}
             onChange={(e) => setNewTier((s) => ({ ...s, description: e.target.value }))} maxLength={280} rows={2}
             className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:text-sm resize-none" />
