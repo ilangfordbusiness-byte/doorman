@@ -180,7 +180,9 @@ in Mailpit at http://127.0.0.1:54324.
   prefix. Never push directly to `main`.
 - Conventional-commit titles scoped by feature area, for example
   `feat(tickets): ...`, `fix(whos-going): ...`. Open a PR for every change.
-- Migrations and the code that uses them ship in the same PR.
+- Migrations and the code that uses them ship in the same PR. The CI `migrate`
+  job applies them to production after merge to `main`; edge functions are
+  still deployed by hand.
 - UI changes get a real browser pass before merging. Passing the API layer does
   not prove buttons are wired to it.
 
