@@ -83,7 +83,7 @@ export default function TicketSalesQR({ event, onClose, doorToken = null }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur flex flex-col items-center justify-center px-4">
-      <button onClick={onClose} className="absolute top-4 right-4 w-10 h-10 rounded-full bg-secondary flex items-center justify-center">
+      <button onClick={onClose} className="absolute top-[calc(env(safe-area-inset-top)+1rem)] right-4 w-10 h-10 rounded-full bg-secondary flex items-center justify-center">
         <X className="w-5 h-5" />
       </button>
 

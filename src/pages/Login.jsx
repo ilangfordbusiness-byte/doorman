@@ -2,30 +2,21 @@ import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { api } from "@/api/data";
 import { isNative } from "@/lib/native";
-import { toAppPath } from "@/lib/appUrl";
+import { peekLoginNextPath, takeLoginNextPath } from "@/lib/loginNext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, Mail, ListChecks, QrCode, ScanLine, UserPlus } from "lucide-react";
 import PhoneInput from "@/components/PhoneInput";
 
-// Where to land after signing in: redirectToLogin() stores the page the user
-// was heading for (e.g. a shared /pass or /event/...?ref= link) in
-// sessionStorage. In-app URLs only — anything else is ignored.
+// Where to land after signing in, as a full in-app URL (see lib/loginNext).
 function peekLoginNext() {
-  try {
-    const raw = sessionStorage.getItem("login_next");
-    if (!raw) return null;
-    const path = toAppPath(raw);
-    return path ? new URL(path, window.location.origin).href : null;
-  } catch {
-    return null;
-  }
+  const path = peekLoginNextPath();
+  return path ? new URL(path, window.location.origin).href : null;
 }
 
 function takeLoginNext() {
-  const next = peekLoginNext();
-  try { sessionStorage.removeItem("login_next"); } catch { /* ignore */ }
-  return next;
+  const path = takeLoginNextPath();
+  return path ? new URL(path, window.location.origin).href : null;
 }
 
 // After an OAuth round-trip, a failure comes back in the redirect URL — in the
@@ -159,7 +150,12 @@ export default function Login() {
             {isNative() && (
               <Button
                 disabled={busy}
-                onClick={() => withBusy(() => api.auth.signInWithApple())}
+                onClick={() => withBusy(async () => {
+                  await api.auth.signInWithApple();
+                  // Same landing page as the email and Google sign-ins.
+                  const next = takeLoginNext();
+                  if (next) window.location.assign(next);
+                })}
                 className="w-full h-12 rounded-xl font-semibold gap-3 mt-3 bg-white text-black hover:bg-white/90"
               >
                 <svg width="18" height="18" viewBox="0 0 814 1000" aria-hidden="true" fill="currentColor">
