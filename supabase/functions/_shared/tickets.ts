@@ -127,6 +127,12 @@ export function buildTicketEmailHtml(entryOrEntries: any, event: any, tierName?:
   // Multi-ticket entries are named "Name (1 of 2)" — greet with the bare name.
   const guestName = escapeHtml(String(entries[0].guest_name || '').replace(/\s*\(\d+ of \d+\)$/, ''));
   const timeRange = formatTimeRange(event);
+  // Apple Wallet: static events only (a Wallet pass cannot carry a live code),
+  // and only once walletPass can sign. The link opens the signed-in pass page;
+  // there is no unauthenticated pkpass endpoint.
+  const walletLink = !event.live_qr && Deno.env.get('APPLE_PASS_TYPE_ID')
+    ? `${passLink}?wallet=1`
+    : '';
 
   // Live-pass events don't embed a scannable QR in email: the door only accepts
   // the rotating code, which has to be opened in the app. Static events keep the
@@ -168,6 +174,7 @@ export function buildTicketEmailHtml(entryOrEntries: any, event: any, tierName?:
     <div style="text-align:center;margin:24px 0 20px;">
       <a href="${passLink}" style="display:inline-block;background:#7c3aed;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:14px 28px;border-radius:12px;">View My Ticket</a>
     </div>
+    ${walletLink ? `<p style="margin:0 0 16px;text-align:center;font-size:13px;color:#b0b0c8;">On iPhone? <a href="${walletLink}" style="color:#7c3aed;font-weight:600;">Add to Apple Wallet</a></p>` : ''}
     <p style="margin:0;text-align:center;font-size:11px;color:#5a5a7a;">Or visit <a href="${passLink}" style="color:#7c3aed;">${escapeHtml(appOrigin().replace(/^https?:\/\//, ''))}</a> — log in with the email you used to purchase.</p>
     ${emailFooter()}
   </div>

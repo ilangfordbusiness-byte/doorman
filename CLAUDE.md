@@ -122,6 +122,8 @@ notifications (`notifyEventCreated`, `notifyEventUpdate`, `notifyChatMessage`,
 `autoCheckoutGuests` (cron), `acceptCoHost`, business team invites
 (`inviteBusinessMember` emails the invite, owner-only; `acceptBusinessMember`),
 `validatePromoCode`,
+`walletPass` (signed Apple Wallet `.pkpass` for the caller's own static-QR ticket;
+`_shared/pkpass.ts` does the zip, manifest and PKCS#7 signature),
 `manageTicketCatalog`, `deleteAccount`, and admin (`adminUsers`, `adminEvents`).
 
 Webhook and cron functions are `verify_jwt = false` and authenticate with the
