@@ -7,7 +7,12 @@ import { appOrigin, emailFooter, escapeHtml, formatEventDateLong, formatTimeRang
 // Platform cut per ticket sold: 45p + 4% of the (post-discount) ticket price.
 export const PLATFORM_FEE_FIXED_MINOR = 45; // 0.45 in minor units
 export const PLATFORM_FEE_PERCENT = 0.04; // 4%
-export const MIN_PAID_MINOR = 50; // minimum chargeable amount
+export const MIN_PAID_MINOR = 50; // lowest price a discount can bring a ticket down to
+
+// Stripe's minimum charge, in minor units of the charge currency
+// (docs.stripe.com/currencies, "Minimum charge amount by currency").
+export const STRIPE_MIN_CHARGE_MINOR: Record<string, number> = { gbp: 30, usd: 50, eur: 50 };
+const STRIPE_MIN_CHARGE_FALLBACK_MINOR = 50; // the common value; events only offer the three above
 
 export function toMajor(minor: number): number {
   return Number(minor) / 100;
@@ -15,6 +20,43 @@ export function toMajor(minor: number): number {
 
 export function computeFeeMinor(paidMinor: number): number {
   return PLATFORM_FEE_FIXED_MINOR + Math.round(PLATFORM_FEE_PERCENT * paidMinor);
+}
+
+// The lowest tier price that can actually be sold, per ticket: the charge must
+// meet Stripe's minimum and the platform fee must stay below the charge, or
+// Stripe rejects the application fee. 'absorb' charges the price itself;
+// 'pass_on' adds the fee on top, so its charge is price + fee. Results today:
+// absorb 48 GBP, 50 USD/EUR; pass_on 1 GBP, 5 USD/EUR. Any other fee_mode is
+// treated as absorb, the same way createTicketCheckout reads it.
+export function minTierPriceMinor(feeMode: unknown, currency: unknown): number {
+  const code = String(currency || 'gbp').toLowerCase();
+  const stripeMin = STRIPE_MIN_CHARGE_MINOR[code] ?? STRIPE_MIN_CHARGE_FALLBACK_MINOR;
+  for (let price = 1; ; price++) {
+    const fee = computeFeeMinor(price);
+    const charge = feeMode === 'pass_on' ? price + fee : price;
+    if (fee < charge && charge >= stripeMin) return price;
+  }
+}
+
+// Fits the per-ticket discounts under the floor, trimming the promo portion
+// first (the promoter discount is the primary, auto-applied one). The floor is
+// MIN_PAID_MINOR, which the app also quotes (lib/promoterRef.js), or the tier
+// minimum if that is ever higher. A tier already at or below the floor gets no
+// discount, so `paid` can never drop under minTierPriceMinor for a sellable tier.
+export function capDiscountsMinor(
+  unitMinor: number, promoterDiscountMinor: number, promoDiscountMinor: number,
+  feeMode: unknown, currency: unknown,
+) {
+  const floor = Math.max(MIN_PAID_MINOR, minTierPriceMinor(feeMode, currency));
+  const cap = Math.max(0, unitMinor - floor);
+  const promoter = Math.min(promoterDiscountMinor, cap);
+  const promo = Math.min(promoDiscountMinor, cap - promoter);
+  return { promoter, promo, total: promoter + promo };
+}
+
+// Commission comes out of the host's net: never negative, never more than the net.
+export function clampCommissionMinor(commissionMinor: number, hostNetMinor: number): number {
+  return Math.max(0, Math.min(commissionMinor, hostNetMinor));
 }
 
 // deno-lint-ignore no-explicit-any

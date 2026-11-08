@@ -176,7 +176,9 @@ export default function CreateEvent({ business = null }) {
         invite_code,
       });
 
-      // Create ticket tiers entered during setup
+      // Create ticket tiers entered during setup. The event already exists by
+      // now, so a refused tier doesn't stop it: the host is told below instead.
+      const failedTiers = [];
       for (const t of tiers) {
         if (!t.name) continue;
         try {
@@ -192,7 +194,9 @@ export default function CreateEvent({ business = null }) {
             door_only: t.door_only ?? false,
             release_at: t.release_at ?? null,
           });
-        } catch {}
+        } catch (e) {
+          failedTiers.push(`${t.name}: ${e?.message || "could not be saved"}`);
+        }
       }
 
       // Create promoters entered during setup
@@ -220,7 +224,16 @@ export default function CreateEvent({ business = null }) {
       // never block or fail event creation.
       api.functions.invoke("notifyEventCreated", { event_id: event.id }).catch(() => {});
 
-      toast({ title: status === "published" ? "Event published!" : "Draft saved" });
+      if (failedTiers.length > 0) {
+        toast({
+          title: `${status === "published" ? "Event published" : "Draft saved"}, but some ticket tiers weren't added`,
+          description: failedTiers.join(" "),
+          variant: "destructive",
+          duration: 15000,
+        });
+      } else {
+        toast({ title: status === "published" ? "Event published!" : "Draft saved" });
+      }
       // Replace the form in history so the back arrow on the new event leads to
       // where the host started (hub/home), not back into an empty create form.
       navigate(`/event/${event.id}`, { replace: true });
