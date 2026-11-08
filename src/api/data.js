@@ -3,7 +3,7 @@
 // translation lives here — pages keep speaking the legacy field names
 // (cover_image, host_email, price, sender_name, ...) while the database
 // speaks the new ones (cover_image_url, host_id, price_minor, joins).
-import { supabase } from "./client";
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from "./client";
 import { normalizePhone } from "@/lib/phone";
 import { appBaseUrl } from "@/lib/appUrl";
 import {
@@ -1677,4 +1677,39 @@ const appConfig = {
   },
 };
 
-export const api = { entities, auth, functions, integrations, admin, businesses, push, djs, safety, appConfig };
+// ---------------------------------------------------------------------------
+// Apple Wallet pass for one of the caller's own tickets. walletPass answers
+// with the signed .pkpass bytes, not JSON, and supabase.functions.invoke
+// decodes unknown content types as text, which corrupts binary. So this calls
+// the function URL directly with the session token.
+// ---------------------------------------------------------------------------
+const wallet = {
+  // Returns a Blob of type application/vnd.apple.pkpass. Throws with the
+  // server's message (live-pass event, inactive ticket, not set up yet).
+  async pass(entryId) {
+    const { data } = await supabase.auth.getSession();
+    const token = data?.session?.access_token;
+    if (!token) throw new Error("Sign in to add this ticket to Apple Wallet.");
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/walletPass`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        apikey: SUPABASE_ANON_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ entry_id: entryId }),
+    });
+    if (!res.ok) {
+      let message = `Could not create the Wallet pass (${res.status}).`;
+      try {
+        const body = await res.json();
+        if (body?.error) message = body.error;
+      } catch { /* not JSON */ }
+      throw new Error(message);
+    }
+    const buf = await res.arrayBuffer();
+    return new Blob([buf], { type: "application/vnd.apple.pkpass" });
+  },
+};
+
+export const api = { entities, auth, functions, integrations, admin, businesses, push, djs, safety, appConfig, wallet };

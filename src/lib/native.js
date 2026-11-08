@@ -1,4 +1,4 @@
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, registerPlugin } from "@capacitor/core";
 import { App } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
 import { Preferences } from "@capacitor/preferences";
@@ -298,6 +298,56 @@ export async function exportTextFile({ filename, text, mimeType = "text/plain" }
     // The plugin rejects when the user dismisses the sheet.
     return /cancel/i.test(String(e?.message || e)) ? "cancelled" : "failed";
   }
+}
+
+// --- Apple Wallet -------------------------------------------------------------
+
+// Local Swift plugin in the iOS project (ios/App/App/WalletPlugin.swift). App
+// builds before it existed (1.0, 1.0.1) do not register it, so every caller
+// feature-detects with canAddToAppleWallet() first.
+const WALLET_PLUGIN = "DoorManWallet";
+const DoorManWallet = registerPlugin(WALLET_PLUGIN);
+
+// Apple device on the web: iPhone/iPad (every iOS browser is WebKit, and
+// iPadOS reports a Mac UA with touch) or Safari on a Mac.
+function isAppleWeb() {
+  const ua = navigator.userAgent || "";
+  if (/iPhone|iPad|iPod/.test(ua)) return true;
+  if (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) return true;
+  return /Macintosh/.test(ua) && /Safari\//.test(ua) && !/Chrome|Chromium|CriOS|FxiOS|Firefox|Edg\//.test(ua);
+}
+
+// Whether this device can take a .pkpass: the native app only when its build
+// has the Wallet plugin, the web only on Apple platforms.
+export function canAddToAppleWallet() {
+  if (isNative()) return Capacitor.isPluginAvailable(WALLET_PLUGIN);
+  return isAppleWeb();
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+// Show the system "Add to Apple Wallet" sheet for a .pkpass Blob. In the app,
+// WKWebView cannot open a pass download, so the plugin presents
+// PKAddPassesViewController. On the web, Safari shows the add-pass sheet when
+// it opens a resource of type application/vnd.apple.pkpass.
+// Resolves to 'presented' | 'opened'.
+export async function addPassToAppleWallet(blob) {
+  if (isNative()) {
+    const data = await blobToBase64(blob);
+    await DoorManWallet.addPass({ data });
+    return "presented";
+  }
+  const url = URL.createObjectURL(blob);
+  window.location.assign(url);
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  return "opened";
 }
 
 // --- Shell chrome -----------------------------------------------------------

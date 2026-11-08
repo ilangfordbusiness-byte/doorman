@@ -8,9 +8,12 @@ const LOCAL_URL = "http://127.0.0.1:54321";
 const LOCAL_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0";
 
+export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || LOCAL_URL;
+export const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || LOCAL_ANON_KEY;
+
 export const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL || LOCAL_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY || LOCAL_ANON_KEY,
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY,
   {
     auth: {
       // PKCE everywhere: the OAuth return carries a one-time ?code= instead
