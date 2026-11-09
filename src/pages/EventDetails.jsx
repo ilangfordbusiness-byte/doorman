@@ -68,8 +68,11 @@ async function loadEvent(id, authed, inviteCode) {
   // A guest can hold several tickets (multi-quantity purchases); surface a
   // usable one ahead of an already-used one.
   const entryRank = (s) => (["approved", "invited"].includes(s) ? 0 : s === "checked_in" ? 1 : 2);
+  // Match the viewer's own entry the same way the Guest tab does (by account,
+  // or email ignoring case) — managers/admins load the whole guestlist here.
+  const myEmail = String(me.email || "").toLowerCase();
   const mine = entries
-    .filter((e) => e.guest_email === me.email)
+    .filter((e) => e.guest_user_id === me.id || String(e.guest_email || "").toLowerCase() === myEmail)
     .sort((a, b) => entryRank(a.status) - entryRank(b.status))[0];
   publicTiers.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
@@ -421,8 +424,10 @@ export default function EventDetails() {
         {/* Neon countdown to doors (hidden once the event is over) */}
         <EventCountdown event={event} />
 
-        {/* Guest status + QR pass — at the top so a ticket is one tap away */}
-        {!canManage && myEntry && myEntry.status !== "denied" && (
+        {/* Guest status + QR pass — at the top so a ticket is one tap away.
+            Shown to managers too when they're on the guestlist themselves
+            (e.g. business team members invited to their own event). */}
+        {myEntry && myEntry.status !== "denied" && (
           <div className="space-y-3">
             <div className="bg-secondary/50 rounded-xl p-4 border border-border/50 text-center">
               <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Your Status</p>
