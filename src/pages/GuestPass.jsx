@@ -97,11 +97,10 @@ export default function GuestPass() {
       setEvent(events[0]);
       liveModeRef.current = !!events[0].live_qr;
 
-      // Own entries, matched like the Guest tab: by account or by email
-      // (ignoring case). Managers/admins can read the whole list, so filter here.
-      const myEmail = String(me.email || "").toLowerCase();
-      const allEntries = (await api.entities.GuestlistEntry.filter({ event_id: id }))
-        .filter((e) => e.guest_user_id === me.id || String(e.guest_email || "").toLowerCase() === myEmail);
+      const allEntries = await api.entities.GuestlistEntry.filter({
+        event_id: id,
+        guest_email: me.email,
+      });
       if (!allEntries.length) return navigate(`/event/${id}`);
 
       // Order: usable tickets (approved/invited) first, then the rest.
