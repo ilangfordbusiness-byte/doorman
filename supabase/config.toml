@@ -443,26 +443,39 @@ enabled = true
 # Functions authenticated by something other than a Supabase JWT:
 # ticketWebhook by the Stripe signature; the automation functions by the
 # AUTOMATION_SECRET header (db webhooks + cron).
+#
+# Each block sets `entrypoint` explicitly. The Supabase branching runner
+# (preview branches) reads this file with a case-insensitive loader and
+# lowercases the key, so without `entrypoint` it looks for
+# ./functions/ticketwebhook/index.ts, which does not exist on Linux.
 [functions.ticketWebhook]
 verify_jwt = false
+entrypoint = "./functions/ticketWebhook/index.ts"
 
 [functions.notifyEventUpdate]
 verify_jwt = false
+entrypoint = "./functions/notifyEventUpdate/index.ts"
 
 [functions.notifyChatMessage]
 verify_jwt = false
+entrypoint = "./functions/notifyChatMessage/index.ts"
 
 [functions.sendEventReminders]
 verify_jwt = false
+entrypoint = "./functions/sendEventReminders/index.ts"
 
 [functions.unsubscribeEmail]
 verify_jwt = false
+entrypoint = "./functions/unsubscribeEmail/index.ts"
 
 [functions.autoCheckoutGuests]
 verify_jwt = false
+entrypoint = "./functions/autoCheckoutGuests/index.ts"
 
 [functions.sendNewEventsDigest]
 verify_jwt = false
+entrypoint = "./functions/sendNewEventsDigest/index.ts"
 
 [functions.payPromoterCommissions]
 verify_jwt = false
+entrypoint = "./functions/payPromoterCommissions/index.ts"
