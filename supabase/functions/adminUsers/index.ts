@@ -59,7 +59,11 @@ Deno.serve(async (req) => {
       const { data: target } = await svc.from('profiles')
         .select('id, email, role').eq('id', user_id).maybeSingle();
       if (!target) return json({ error: 'User not found' }, 404);
-      if (target.role === 'admin') return json({ error: 'You cannot impersonate an admin.' }, 400);
+      // Regular admins can be impersonated (support/debugging), but never
+      // another super-admin: the bootstrap accounts stay off-limits to each other.
+      if (SUPER_ADMIN_EMAILS.has(String(target.email).toLowerCase())) {
+        return json({ error: 'You cannot impersonate a super-admin.' }, 400);
+      }
 
       const { data, error } = await svc.auth.admin.generateLink({
         type: 'magiclink', email: target.email,
