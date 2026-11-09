@@ -14,8 +14,9 @@ import { addPassToAppleWallet, canAddToAppleWallet } from "@/lib/native";
 import AddToAppleWalletButton from "../components/AddToAppleWalletButton";
 import moment from "moment";
 
-// Off until the walletPass function has its Apple signing secrets.
-const WALLET_ENABLED = import.meta.env.VITE_APPLE_WALLET_ENABLED === "true";
+// On by default now that walletPass has its Apple signing secrets in
+// production. Set VITE_APPLE_WALLET_ENABLED=false to hide the button.
+const WALLET_ENABLED = import.meta.env.VITE_APPLE_WALLET_ENABLED !== "false";
 
 export default function GuestPass() {
   const { id } = useParams();
