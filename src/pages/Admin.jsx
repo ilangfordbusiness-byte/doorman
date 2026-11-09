@@ -203,7 +203,7 @@ function Users({ myId, isSuperAdmin }) {
                     }}>
                     <Ban className="w-3.5 h-3.5" /> {banned ? "Unban" : "Ban"}
                   </Button>
-                  {isSuperAdmin && !isAdmin && (
+                  {isSuperAdmin && !SUPER_ADMIN_EMAILS.includes(String(u.email || "").toLowerCase()) && (
                     <Button size="sm" variant="secondary" className="rounded-lg h-8" disabled={busy === u.id}
                       onClick={() => {
                         if (!window.confirm(`Act as ${u.email}? You'll use the app as them until you tap Exit. This is logged.`)) return;
