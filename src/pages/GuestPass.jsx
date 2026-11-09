@@ -10,7 +10,13 @@ import LoadingSpinner from "../components/LoadingSpinner";
 import TransferTicketDialog from "../components/TransferTicketDialog";
 import { useToast } from "@/components/ui/use-toast";
 import { useTilt } from "@/hooks/useTilt";
+import { addPassToAppleWallet, canAddToAppleWallet } from "@/lib/native";
+import AddToAppleWalletButton from "../components/AddToAppleWalletButton";
 import moment from "moment";
+
+// On by default now that walletPass has its Apple signing secrets in
+// production. Set VITE_APPLE_WALLET_ENABLED=false to hide the button.
+const WALLET_ENABLED = import.meta.env.VITE_APPLE_WALLET_ENABLED !== "false";
 
 export default function GuestPass() {
   const { id } = useParams();
@@ -31,6 +37,15 @@ export default function GuestPass() {
   const liveBatchRef = useRef(null);
   const liveFetchingRef = useRef(false);
   const [liveError, setLiveError] = useState(false); // live-pass batch failed to load
+  const [walletBusy, setWalletBusy] = useState(false);
+  const walletRef = useRef(null);
+  // Feature-detected once: old app builds have no Wallet plugin.
+  const [walletAvailable] = useState(() => WALLET_ENABLED && canAddToAppleWallet());
+  // Ticket emails link here with ?wallet=1 to point Apple users at the button.
+  const walletHinted = new URLSearchParams(window.location.search).get("wallet") === "1";
+  useEffect(() => {
+    if (walletHinted && qrData) walletRef.current?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+  }, [walletHinted, qrData]);
   const tiltRef = useTilt({ max: 14 });
   // Track the active entry + last-seen live_qr mode so the pass can switch
   // itself when the host toggles live passes mid-event (see the poll below).
@@ -262,6 +277,23 @@ export default function GuestPass() {
     if (idx >= b.sigs.length - 7) fetchLiveBatch(entryId);
   }
 
+  async function addToWallet() {
+    if (!entry || walletBusy) return;
+    setWalletBusy(true);
+    try {
+      const blob = await api.wallet.pass(entry.id);
+      await addPassToAppleWallet(blob);
+    } catch (e) {
+      toast({
+        title: "Couldn't add to Apple Wallet",
+        description: e?.message || "Try again in a moment.",
+        variant: "destructive",
+      });
+    } finally {
+      setWalletBusy(false);
+    }
+  }
+
   async function cancelPendingTransfer() {
     if (!pendingTransfer) return;
     try {
@@ -346,6 +378,13 @@ export default function GuestPass() {
                   <Shield className="w-3.5 h-3.5" />
                   <span>{event.live_qr ? "Live code · refreshes every few seconds" : "Single-use code · Valid until first scan"}</span>
                 </div>
+                {/* Wallet holds a static code, so live-pass events get no button
+                    (walletPass refuses them too). */}
+                {walletAvailable && !event.live_qr && (
+                  <div ref={walletRef} className={`relative z-30 mt-4 rounded-[12px] ${walletHinted ? "ring-2 ring-primary/70 ring-offset-2 ring-offset-card" : ""}`}>
+                    <AddToAppleWalletButton onClick={addToWallet} busy={walletBusy} />
+                  </div>
+                )}
               </>
             )}
 
