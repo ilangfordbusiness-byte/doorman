@@ -45,16 +45,25 @@ export async function startImpersonation(user) {
 export async function exitImpersonation() {
   const state = getImpersonation();
   sessionStorage.removeItem(KEY);
+  let restored = false;
   if (state?.admin?.refresh_token) {
     try {
-      await supabase.auth.setSession({
+      // setSession reports failure (e.g. a refresh token that was already
+      // used) in `error`; it does not throw.
+      const { error } = await supabase.auth.setSession({
         access_token: state.admin.access_token,
         refresh_token: state.admin.refresh_token,
       });
-    } catch { /* fall through to reload; session may already be restored */ }
-  } else {
-    // No saved admin session — sign out rather than stay stuck as the target.
-    try { await supabase.auth.signOut(); } catch { /* ignore */ }
+      restored = !error;
+    } catch { /* treated as not restored */ }
+  }
+  if (!restored) {
+    // Never stay signed in as the target with the banner gone. This matters
+    // more now that a regular admin can be the target: /admin would still
+    // open, as them. Sign out (this device only) so the admin signs back in.
+    try { await supabase.auth.signOut({ scope: "local" }); } catch { /* ignore */ }
+    window.location.assign("/");
+    return;
   }
   window.location.assign("/admin");
 }
