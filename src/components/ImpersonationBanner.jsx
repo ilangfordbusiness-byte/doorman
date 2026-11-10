@@ -4,6 +4,10 @@ import { getImpersonation, exitImpersonation } from "@/lib/impersonation";
 
 // Persistent bar shown while a super-admin is acting as another user. State
 // lives in sessionStorage (see impersonation.js), so it survives reloads.
+// In the iOS app (html.native) the opaque status-bar cover (body::before,
+// z-100) sits over the top inset, so the banner sticks below it instead of at
+// top-0. On the web the banner pads for the inset itself (paddingTop), so it
+// stays at top-0 there.
 export default function ImpersonationBanner() {
   const info = getImpersonation();
   const [exiting, setExiting] = useState(false);
@@ -11,7 +15,7 @@ export default function ImpersonationBanner() {
 
   return (
     <div
-      className="native-no-top-inset sticky top-0 z-50 flex items-center gap-3 px-4 py-2 bg-amber-500/15 border-b border-amber-500/30 backdrop-blur-xl"
+      className="native-no-top-inset sticky top-0 [html.native_&]:top-[env(safe-area-inset-top)] z-50 flex items-center gap-3 px-4 py-2 bg-amber-500/15 border-b border-amber-500/30 backdrop-blur-xl"
       style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top))" }}
     >
       <Eye className="w-4 h-4 text-amber-400 shrink-0" />

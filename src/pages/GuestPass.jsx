@@ -2,6 +2,7 @@ import { timeSuffix } from "@/lib/eventTime";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/api/data";
+import { isOwnEntry } from "@/lib/ownEntry";
 import { QRCodeSVG } from "qrcode.react";
 import { ArrowLeft, Shield, Send, ChevronLeft, ChevronRight, Clock as ClockIcon, ScanLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -99,9 +100,8 @@ export default function GuestPass() {
 
       // Own entries, matched like the Guest tab: by account or by email
       // (ignoring case). Managers/admins can read the whole list, so filter here.
-      const myEmail = String(me.email || "").toLowerCase();
       const allEntries = (await api.entities.GuestlistEntry.filter({ event_id: id }))
-        .filter((e) => e.guest_user_id === me.id || String(e.guest_email || "").toLowerCase() === myEmail);
+        .filter((e) => isOwnEntry(e, me));
       if (!allEntries.length) return navigate(`/event/${id}`);
 
       // Order: usable tickets (approved/invited) first, then the rest.
@@ -472,6 +472,16 @@ export default function GuestPass() {
                 </div>
                 <p className="font-heading font-bold text-lg text-destructive">Not Approved</p>
                 <p className="text-sm text-muted-foreground mt-1">Your request was not approved.</p>
+              </div>
+            )}
+
+            {entry.status === "waitlist" && (
+              <div className="py-8 text-center">
+                <div className="w-20 h-20 rounded-full bg-purple-500/20 flex items-center justify-center mx-auto mb-4">
+                  <span className="text-4xl">📋</span>
+                </div>
+                <p className="font-heading font-bold text-lg text-purple-400">You're on the waitlist</p>
+                <p className="text-sm text-muted-foreground mt-1">If a spot opens up, the host can approve you.</p>
               </div>
             )}
 

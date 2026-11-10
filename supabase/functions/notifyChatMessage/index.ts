@@ -2,6 +2,7 @@
 // database webhook (pg_net) on event_messages INSERT; guarded by
 // AUTOMATION_SECRET. verify_jwt=false — the secret header is the auth.
 import { hasAutomationSecret, json, serviceClient } from '../_shared/db.ts';
+import { sameEmail } from '../_shared/owner.ts';
 import { appOrigin, brandedEmail, emailCard, escapeHtml, sendBulkEmails } from '../_shared/email.ts';
 import { notifyGuestsPush } from '../_shared/push.ts';
 
@@ -41,7 +42,7 @@ Deno.serve(async (req) => {
       .eq('event_id', message.event_id)
       .in('status', ['approved', 'invited', 'checked_in']);
     const targets = (guests ?? []).filter((g) =>
-      g.guest_user_id !== message.sender_id && g.guest_email !== host?.email
+      g.guest_user_id !== message.sender_id && !sameEmail(g.guest_email, host?.email)
     );
     if (!targets.length) return json({ ok: true, skipped: 'no guests' });
 

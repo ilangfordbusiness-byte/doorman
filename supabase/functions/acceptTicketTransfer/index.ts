@@ -2,6 +2,7 @@
 // recipient and regenerates the QR secret (invalidating old screenshots).
 // The TicketOrder (payment, promoter attribution) is intentionally untouched.
 import { getCaller, json, preflight, randomSecret, serviceClient } from '../_shared/db.ts';
+import { sameEmail } from '../_shared/owner.ts';
 
 Deno.serve(async (req) => {
   const pre = preflight(req);
@@ -17,7 +18,7 @@ Deno.serve(async (req) => {
     const { data: transfer } = await svc.from('ticket_transfers').select('*')
       .eq('id', transfer_id).maybeSingle();
     if (!transfer) return json({ error: 'Transfer not found.' }, 404);
-    if (transfer.recipient_id !== user.id && transfer.recipient_email !== user.email) {
+    if (transfer.recipient_id !== user.id && !sameEmail(transfer.recipient_email, user.email)) {
       return json({ error: "This transfer wasn't sent to you." }, 403);
     }
     if (transfer.status !== 'pending') {

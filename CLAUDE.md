@@ -75,7 +75,9 @@ supabase/
     _shared/         db.ts (service client, getCaller, json, preflight),
                      email.ts (Resend), tickets.ts (pricing, QR, ticket email),
                      connect.ts (payout-account resolution),
-                     meta.ts (Meta Conversions API for organiser ad tracking)
+                     meta.ts (Meta Conversions API for organiser ad tracking),
+                     owner.ts (ownsEntry/sameEmail: "is this my ticket" checks
+                     by user id or email ignoring case; never phone)
   tests/             SQL test suites: rls_test, dashboard_test, storage_test
   templates/         Branded auth emails (confirmation, recovery, email change);
                      links go to /auth/confirm on our domain, never *.supabase.co

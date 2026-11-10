@@ -1,6 +1,7 @@
 // Start a ticket transfer to a friend: creates the pending transfer row and
 // emails the recipient. The ticket itself moves in acceptTicketTransfer.
 import { getCaller, json, preflight, serviceClient } from '../_shared/db.ts';
+import { ownsEntry } from '../_shared/owner.ts';
 import { appOrigin, emailFooter, escapeHtml, sendEmail } from '../_shared/email.ts';
 import { sendPushToUsers } from '../_shared/push.ts';
 
@@ -51,7 +52,7 @@ Deno.serve(async (req) => {
     const { data: entry } = await svc.from('guestlist_entries').select('*')
       .eq('id', guestlist_entry_id).maybeSingle();
     if (!entry) return json({ error: 'Ticket not found.' }, 404);
-    if (entry.guest_user_id !== user.id && entry.guest_email !== user.email) {
+    if (!ownsEntry(entry, user)) {
       return json({ error: "You don't own this ticket." }, 403);
     }
     if (entry.status === 'checked_in') {
