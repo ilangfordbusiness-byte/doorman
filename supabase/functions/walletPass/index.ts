@@ -10,6 +10,7 @@
 // rejects the static code, so a static Wallet barcode could never get in.
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders, getVerifiedCaller, json, preflight, serviceClient } from '../_shared/db.ts';
+import { ownsEntry } from '../_shared/owner.ts';
 import { eventZone, zonedToUtc } from '../_shared/eventTime.ts';
 import { base64ToBytes, buildPkpass, type PassSigningConfig, passSigningConfigFromEnv } from '../_shared/pkpass.ts';
 import { buildQrPayload, sigEqual } from '../_shared/tickets.ts';
@@ -143,7 +144,7 @@ Deno.serve(async (req) => {
       .select('guest_user_id, guest_email').eq('id', entry_id).maybeSingle();
     if (!owner) return json({ error: 'Ticket not found' }, 404);
     // Only the ticket's owner can get its pass.
-    if (owner.guest_user_id !== user.id && owner.guest_email !== user.email) {
+    if (!ownsEntry(owner, user)) {
       return json({ error: "You don't own this ticket." }, 403);
     }
 

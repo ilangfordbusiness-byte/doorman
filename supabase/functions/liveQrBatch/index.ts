@@ -5,6 +5,7 @@
 // the door. The entry's qr_secret (the HMAC key) never leaves the server; only
 // the time-bounded signatures do. validateQR recomputes and range-checks them.
 import { getCaller, json, preflight, serviceClient } from '../_shared/db.ts';
+import { ownsEntry } from '../_shared/owner.ts';
 import { LIVE_QR_PERIOD_MS, liveQrSig, liveQrWindow } from '../_shared/tickets.ts';
 
 // Enough windows to cover a few minutes, with a little backfill so a scanner
@@ -28,7 +29,7 @@ Deno.serve(async (req) => {
       .eq('id', entry_id).maybeSingle();
     if (!entry) return json({ error: 'Ticket not found' }, 404);
     // Only the ticket's owner can mint its codes.
-    if (entry.guest_user_id !== user.id && entry.guest_email !== user.email) {
+    if (!ownsEntry(entry, user)) {
       return json({ error: "You don't own this ticket." }, 403);
     }
     if (!['approved', 'invited'].includes(entry.status)) {

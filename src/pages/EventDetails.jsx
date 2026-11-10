@@ -7,6 +7,7 @@ import EventStatusChip from "../components/EventStatusChip";
 import ShimmerText from "../components/ShimmerText";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { normalizePhone, formatPhoneDisplay } from "@/lib/phone";
+import { isOwnEntry } from "@/lib/ownEntry";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/api/data";
 import { shareUrl } from "@/lib/native";
@@ -70,9 +71,8 @@ async function loadEvent(id, authed, inviteCode) {
   const entryRank = (s) => (["approved", "invited"].includes(s) ? 0 : s === "checked_in" ? 1 : 2);
   // Match the viewer's own entry the same way the Guest tab does (by account,
   // or email ignoring case) — managers/admins load the whole guestlist here.
-  const myEmail = String(me.email || "").toLowerCase();
   const mine = entries
-    .filter((e) => e.guest_user_id === me.id || String(e.guest_email || "").toLowerCase() === myEmail)
+    .filter((e) => isOwnEntry(e, me))
     .sort((a, b) => entryRank(a.status) - entryRank(b.status))[0];
   publicTiers.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
