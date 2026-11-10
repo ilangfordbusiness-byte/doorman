@@ -10,7 +10,7 @@ import LoadingSpinner from "../components/LoadingSpinner";
 import TransferTicketDialog from "../components/TransferTicketDialog";
 import { useToast } from "@/components/ui/use-toast";
 import { useTilt } from "@/hooks/useTilt";
-import { addPassToAppleWallet, canAddToAppleWallet } from "@/lib/native";
+import { addPassToAppleWallet, canAddToAppleWallet, openAppleWalletPassLink, walletUsesPassBytes } from "@/lib/native";
 import AddToAppleWalletButton from "../components/AddToAppleWalletButton";
 import moment from "moment";
 
@@ -281,8 +281,14 @@ export default function GuestPass() {
     if (!entry || walletBusy) return;
     setWalletBusy(true);
     try {
-      const blob = await api.wallet.pass(entry.id);
-      await addPassToAppleWallet(blob);
+      if (walletUsesPassBytes()) {
+        // App: the native plugin presents the add-pass sheet from the bytes.
+        const blob = await api.wallet.pass(entry.id);
+        await addPassToAppleWallet(blob);
+      } else {
+        // Web: Safari adds a pass only from a real HTTPS navigation.
+        openAppleWalletPassLink(await api.wallet.passLink(entry.id));
+      }
     } catch (e) {
       toast({
         title: "Couldn't add to Apple Wallet",

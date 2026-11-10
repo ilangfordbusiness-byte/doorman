@@ -1710,6 +1710,32 @@ const wallet = {
     const buf = await res.arrayBuffer();
     return new Blob([buf], { type: "application/vnd.apple.pkpass" });
   },
+
+  // Web: a short-lived signed HTTPS link that answers with the .pkpass. iOS
+  // Safari opens the "Add to Apple Wallet" sheet only for a real navigation to
+  // such a URL, not for a blob: URL. The link holds no session token.
+  async passLink(entryId) {
+    const { data } = await supabase.auth.getSession();
+    const token = data?.session?.access_token;
+    if (!token) throw new Error("Sign in to add this ticket to Apple Wallet.");
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/walletPass`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        apikey: SUPABASE_ANON_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ entry_id: entryId, mode: "link" }),
+    });
+    let body = null;
+    try { body = await res.json(); } catch { /* not JSON */ }
+    if (!res.ok || !body?.query) {
+      throw new Error(body?.error || `Could not create the Wallet pass (${res.status}).`);
+    }
+    // Built from our own Supabase URL: the server's SUPABASE_URL can be an
+    // internal host name (local stack).
+    return `${SUPABASE_URL}/functions/v1/walletPass?${body.query}`;
+  },
 };
 
 export const api = { entities, auth, functions, integrations, admin, businesses, push, djs, safety, appConfig, wallet };

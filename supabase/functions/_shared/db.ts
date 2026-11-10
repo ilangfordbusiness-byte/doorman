@@ -35,6 +35,20 @@ export async function getCaller(req: Request, svc: SupabaseClient): Promise<any 
   return profile ?? null;
 }
 
+// Like getCaller, but for verify_jwt=false functions: the gateway has not
+// checked the token, so Auth verifies it (signature, expiry, revoked session)
+// before the profile is loaded. Returns null for a missing or invalid token.
+// deno-lint-ignore no-explicit-any
+export async function getVerifiedCaller(req: Request, svc: SupabaseClient): Promise<any | null> {
+  const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+  if (!token) return null;
+  const { data, error } = await svc.auth.getUser(token);
+  if (error || !data?.user) return null;
+  const { data: profile, error: pErr } = await svc.from('profiles').select('*').eq('id', data.user.id).single();
+  if (pErr) console.log('getVerifiedCaller profile fetch failed:', pErr.message);
+  return profile ?? null;
+}
+
 // Resolve the caller and require the admin role. Returns the admin's profile
 // row, or null if the caller is missing or not an admin (callers return 403).
 // deno-lint-ignore no-explicit-any

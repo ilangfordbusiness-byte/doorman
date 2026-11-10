@@ -333,10 +333,23 @@ function blobToBase64(blob) {
   });
 }
 
+// Whether the Wallet flow takes the pass bytes (the app's plugin) or a signed
+// HTTPS link (the web).
+export function walletUsesPassBytes() {
+  return isNative();
+}
+
+// Web: navigate to a signed walletPass link. The response has the type
+// application/vnd.apple.pkpass, so Safari shows the add-pass sheet. iOS Safari
+// does not do this for a blob: URL, so the web must not use the Blob path.
+export function openAppleWalletPassLink(url) {
+  window.location.href = url;
+}
+
 // Show the system "Add to Apple Wallet" sheet for a .pkpass Blob. In the app,
 // WKWebView cannot open a pass download, so the plugin presents
-// PKAddPassesViewController. On the web, Safari shows the add-pass sheet when
-// it opens a resource of type application/vnd.apple.pkpass.
+// PKAddPassesViewController. The web uses openAppleWalletPassLink instead; the
+// blob: fallback below is kept only as a last resort.
 // Resolves to 'presented' | 'opened'.
 export async function addPassToAppleWallet(blob) {
   if (isNative()) {
