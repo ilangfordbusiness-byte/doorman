@@ -130,6 +130,10 @@ Webhook and cron functions are `verify_jwt = false` and authenticate with the
 Stripe signature or the `AUTOMATION_SECRET` header instead of a user JWT.
 `unsubscribeEmail` is also `verify_jwt = false`: the signed token in the email
 link is its authentication, so it works for guests with no account.
+`walletPass` is also `verify_jwt = false`: its POST checks the user JWT itself
+(`getVerifiedCaller` in `_shared/db.ts`, never the decode-only `getCaller`), and
+its GET is a short-lived HMAC-signed link, because iOS Safari only adds a pass
+from a real HTTPS navigation, which carries no Authorization header.
 
 All outbound email goes through `sendEmail` in `_shared/email.ts`, which fills
 the footer slot with a per-recipient unsubscribe link and, for `bulk` sends

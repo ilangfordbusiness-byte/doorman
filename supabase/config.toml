@@ -466,3 +466,11 @@ verify_jwt = false
 
 [functions.payPromoterCommissions]
 verify_jwt = false
+
+# walletPass: the web "Add to Apple Wallet" link is a plain browser navigation
+# with no Authorization header; its HMAC signature is the authentication. The
+# POST paths verify the user JWT in the function (getVerifiedCaller).
+# The explicit entrypoint is needed because viper lowercases config keys.
+[functions.walletPass]
+verify_jwt = false
+entrypoint = "./functions/walletPass/index.ts"
