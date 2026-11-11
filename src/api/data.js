@@ -361,6 +361,74 @@ const ENTITIES = {
     },
   },
 
+  // Door lists: standalone Partiful check-in lists (allow-listed accounts
+  // only; enforced by RLS). One field name end-to-end, no legacy mapping.
+  DoorList: {
+    table: "door_lists",
+    select: "id, owner_id, name, source, created_at, updated_at",
+    toApp: (r) => ({ ...base(r), owner_id: r.owner_id, name: r.name, source: r.source }),
+    fromApp(obj) {
+      const out = {};
+      if ("name" in obj) out.name = String(obj.name || "").trim();
+      if ("source" in obj) out.source = obj.source;
+      return out;
+    },
+  },
+
+  DoorListGuest: {
+    table: "door_list_guests",
+    select: "id, list_id, name, status, plus_ones, plus_one_of, phone, email, note, checked_in_at, created_at, updated_at",
+    toApp: (r) => ({
+      ...base(r),
+      list_id: r.list_id,
+      name: r.name,
+      status: r.status,
+      plus_ones: r.plus_ones ?? 0,
+      plus_one_of: r.plus_one_of,
+      phone: r.phone,
+      email: r.email,
+      note: r.note,
+      checked_in_at: r.checked_in_at,
+    }),
+    fromApp(obj) {
+      const out = {};
+      for (const k of ["list_id", "name", "status", "note", "plus_one_of"]) if (k in obj) out[k] = obj[k];
+      if ("plus_ones" in obj) out.plus_ones = Math.max(0, Math.min(50, Number(obj.plus_ones) || 0));
+      // Display-only (never matched against accounts), so keep it as exported.
+      if ("phone" in obj) out.phone = obj.phone ? String(obj.phone).trim() : null;
+      if ("email" in obj) out.email = obj.email ? String(obj.email).toLowerCase() : null;
+      return out;
+    },
+    // Atomic check-in / undo. Resolves { checked_in_at, already } — already is
+    // true when another phone checked this guest in first.
+    async setCheckedIn(id, checkedIn) {
+      const { data, error } = await supabase.rpc("door_list_set_checkin", {
+        p_guest_id: id,
+        p_checked_in: !!checkedIn,
+      });
+      throwOn(error);
+      return data;
+    },
+  },
+
+  // People the owner invited to help run a door list (read, add, check in).
+  DoorListMember: {
+    table: "door_list_members",
+    select: "id, list_id, email, user_id, created_at",
+    toApp: (r) => ({ ...base(r), list_id: r.list_id, email: r.email, user_id: r.user_id }),
+    fromApp(obj) {
+      const out = {};
+      if ("list_id" in obj) out.list_id = obj.list_id;
+      if ("email" in obj) out.email = String(obj.email || "").trim().toLowerCase();
+      return out;
+    },
+    // Owner-only: adds them and emails a link to the list.
+    async invite(listId, email) {
+      const { data } = await invokeEdge("inviteDoorListMember", { list_id: listId, email });
+      return data;
+    },
+  },
+
   EventStaff: {
     table: "event_staff",
     select: "*",

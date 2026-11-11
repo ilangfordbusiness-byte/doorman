@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { api } from "@/api/data";
-import { LogOut, User, Calendar, Camera, ArrowLeft, Pencil, Check, X, Shield, Trash2, AtSign, Ghost, Mic2, ChevronRight, Building2, ArrowLeftRight, MapPin, Disc3 } from "lucide-react";
+import { ListChecks, LogOut, User, Calendar, Camera, ArrowLeft, Pencil, Check, X, Shield, Trash2, AtSign, Ghost, Mic2, ChevronRight, Building2, ArrowLeftRight, MapPin, Disc3 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import HomeButton from "@/components/HomeButton";
@@ -20,6 +20,7 @@ import NotificationDot from "../components/NotificationDot";
 import CoHostInvitesSection from "../components/CoHostInvitesSection";
 import BusinessMemberInvitesSection from "../components/BusinessMemberInvitesSection";
 import ProfileBadge from "../components/ProfileBadge";
+import { canUseDoorLists } from "@/lib/featureAccess";
 import PhoneInput from "@/components/PhoneInput";
 import { normalizePhone, formatPhoneDisplay } from "@/lib/phone";
 
@@ -32,6 +33,15 @@ export default function Profile() {
   const businessInvites = notifs?.businessInvites ?? [];
   const coHostCount = notifs?.counts?.coHost ?? 0;
   const [user, setUser] = useState(null);
+  // Door lists: shown to allow-listed owners and to anyone invited to a list
+  // (RLS returns only lists the user owns or was invited to).
+  const [hasDoorLists, setHasDoorLists] = useState(false);
+  useEffect(() => {
+    if (!user?.id) return;
+    api.entities.DoorList.list(undefined, 1)
+      .then((rows) => setHasDoorLists(rows.length > 0))
+      .catch(() => {});
+  }, [user?.id]);
   const [stats, setStats] = useState({ hosted: 0, attended: 0 });
   const [loading, setLoading] = useState(true);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -257,6 +267,30 @@ export default function Profile() {
           </div>
         </div>
       </Link>
+
+      {/* Door lists — allow-listed accounts only */}
+      {(canUseDoorLists(user) || hasDoorLists) && (
+        <Link to="/door-lists" className="block group mb-4">
+          <div className="relative rounded-2xl border border-emerald-500/20 hover:border-emerald-400/60 bg-card overflow-hidden transition-all duration-300 active:scale-[0.99]">
+            <div className="h-[2px] w-full bg-gradient-to-r from-emerald-500 to-teal-400 opacity-60 group-hover:opacity-100 transition-opacity" />
+            <div className="flex items-center gap-4 p-4">
+              <div className="w-11 h-11 rounded-xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0 border border-white/5">
+                <ListChecks className="w-5 h-5 text-emerald-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <p className="font-heading font-bold text-base text-foreground">Door lists</p>
+                  <span className="text-[9px] font-mono font-bold tracking-widest px-1.5 py-0.5 rounded border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                    DOOR
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground truncate">Import a Partiful list &amp; check people in</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-all" />
+            </div>
+          </div>
+        </Link>
+      )}
 
       {/* Business Account */}
       <div className="bg-card rounded-2xl border border-border p-4 mb-4">

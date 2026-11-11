@@ -110,6 +110,7 @@ dev.sh               One-command local stack
 | `/business/*` | Business account pages | business owners and team members |
 | `/business/:id/invite` | BusinessInvite (accept/decline a team invite) | invitee |
 | `/admin` | Admin | super-admin |
+| `/door-lists`, `/door-lists/:id` | DoorLists, DoorListCheckIn (Partiful CSV check-in lists) | allow-listed owner (`src/lib/featureAccess.js`) and people they invite |
 | `/privacy`, `/reset-password`, `/auth/confirm`, `/unsubscribe` | public pages (auth email links land on `/auth/confirm`; email footers link to `/unsubscribe`) | no session needed |
 
 ### Edge functions
@@ -126,7 +127,9 @@ notifications (`notifyEventCreated`, `notifyEventUpdate`, `notifyChatMessage`,
 `validatePromoCode`,
 `walletPass` (signed Apple Wallet `.pkpass` for the caller's own static-QR ticket;
 `_shared/pkpass.ts` does the zip, manifest and PKCS#7 signature),
-`manageTicketCatalog`, `deleteAccount`, and admin (`adminUsers`, `adminEvents`).
+`manageTicketCatalog`, `deleteAccount`, door lists (`inviteDoorListMember`,
+owner-only: adds someone to a door list by email and emails them the link),
+and admin (`adminUsers`, `adminEvents`).
 
 Webhook and cron functions are `verify_jwt = false` and authenticate with the
 Stripe signature or the `AUTOMATION_SECRET` header instead of a user JWT.
