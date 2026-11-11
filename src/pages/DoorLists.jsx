@@ -9,7 +9,7 @@ import LoadingSpinner from "../components/LoadingSpinner";
 import HomeButton from "@/components/HomeButton";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { canUseDoorLists } from "@/lib/featureAccess";
-import { parseGuestCsv, listNameFromFilename } from "@/lib/partifulCsv";
+import { parseGuestCsv, listNameFromFilename, planImport } from "@/lib/partifulCsv";
 
 const IMPORT_CHUNK = 500;
 
@@ -76,14 +76,22 @@ export default function DoorLists() {
     let list = null;
     try {
       list = await api.entities.DoorList.create({ name, source: "partiful" });
-      const hosts = await insertChunked(preview.guests.map((g) => ({ ...g, list_id: list.id })));
-      // Each plus-one is its own row so it can be checked in on its own.
-      const plusOnes = hosts.flatMap((h) => Array.from({ length: h.plus_ones || 0 }, (_, i) => ({
-        list_id: list.id,
-        name: `${h.name} +${i + 1}`,
-        status: h.status,
-        plus_one_of: h.id,
-      })));
+      const { primary, linked, key } = planImport(preview.guests);
+      const hosts = await insertChunked(primary.map((g) => ({ ...g, list_id: list.id })));
+      const hostId = new Map();
+      for (const h of hosts) if (!hostId.has(key(h.name))) hostId.set(key(h.name), h.id);
+      // Each plus-one is its own row so it can be checked in on its own:
+      // Partiful's own plus-one rows, linked to their host by name, plus
+      // "Name +1".. rows for sheets that only give a plus-ones count.
+      const plusOnes = [
+        ...linked.map(({ row, hostKey }) => ({ ...row, list_id: list.id, plus_ones: 0, plus_one_of: hostId.get(hostKey) })),
+        ...hosts.flatMap((h) => Array.from({ length: h.plus_ones || 0 }, (_, i) => ({
+          list_id: list.id,
+          name: `${h.name} +${i + 1}`,
+          status: h.status,
+          plus_one_of: h.id,
+        }))),
+      ];
       if (plusOnes.length) await insertChunked(plusOnes);
       setLists((prev) => [list, ...prev]);
       setPreview(null);
@@ -111,7 +119,9 @@ export default function DoorLists() {
     }
   }
 
-  const plusOneTotal = preview ? preview.guests.reduce((s, g) => s + (g.plus_ones || 0), 0) : 0;
+  const plan = preview ? planImport(preview.guests) : null;
+  const guestTotal = plan ? plan.primary.length : 0;
+  const plusOneTotal = plan ? plan.linked.length + plan.primary.reduce((s, g) => s + (g.plus_ones || 0), 0) : 0;
   const statusCounts = preview
     ? Object.entries(preview.guests.reduce((acc, g) => {
         const k = g.status || "No status";
@@ -152,7 +162,7 @@ export default function DoorLists() {
           )}
           <div>
             <p className="text-sm font-semibold mb-2">
-              {preview.guests.length} guests{plusOneTotal > 0 && <span className="text-muted-foreground font-normal"> + {plusOneTotal} plus-ones</span>}
+              {guestTotal} guests{plusOneTotal > 0 && <span className="text-muted-foreground font-normal"> + {plusOneTotal} plus-ones</span>}
             </p>
             <div className="flex flex-wrap gap-1.5">
               {statusCounts.map(([status, n]) => (
@@ -165,7 +175,10 @@ export default function DoorLists() {
           <div className="rounded-xl bg-secondary/40 border border-border/50 divide-y divide-border/50 max-h-48 overflow-y-auto">
             {preview.guests.slice(0, 8).map((g, i) => (
               <div key={i} className="px-3 py-2 text-sm flex justify-between gap-2">
-                <span className="truncate">{g.name}{g.plus_ones ? <span className="text-primary font-semibold"> +{g.plus_ones}</span> : null}</span>
+                <span className="truncate">
+                  {g.name}{g.plus_ones ? <span className="text-primary font-semibold"> +{g.plus_ones}</span> : null}
+                  {g.plus_one_of_name && <span className="text-muted-foreground text-xs"> · plus-one of {g.plus_one_of_name}</span>}
+                </span>
                 <span className="text-muted-foreground text-xs flex-shrink-0">{g.status || ""}</span>
               </div>
             ))}
@@ -176,7 +189,7 @@ export default function DoorLists() {
           <div className="flex gap-2">
             <Button variant="outline" className="h-11 rounded-xl" disabled={importing} onClick={() => setPreview(null)}>Cancel</Button>
             <Button className="flex-1 h-11 rounded-xl" disabled={importing} onClick={runImport}>
-              {importing ? "Importing…" : `Import ${preview.guests.length + plusOneTotal} people`}
+              {importing ? "Importing…" : `Import ${guestTotal + plusOneTotal} people`}
             </Button>
           </div>
         </div>
