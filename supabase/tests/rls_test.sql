@@ -1082,6 +1082,88 @@ begin
   execute 'reset role';
   update public.profiles set role = 'user' where id = bob;
 
+  -- ---- door lists (20261111120000_door_lists.sql) ----
+  -- The allow-listed account owns lists; people it invites can read, add and
+  -- check in; everyone else sees nothing.
+  execute 'reset role';
+  insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
+                          email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
+                          created_at, updated_at)
+  values ('00000000-0000-0000-0000-000000000000',
+          '88888888-8888-8888-8888-888888888888', 'authenticated', 'authenticated',
+          'soooomuchcoffee@gmail.com', '', now(), '{}',
+          json_build_object('full_name', 'Door Owner')::jsonb, now(), now());
+
+  perform pg_temp.impersonate('88888888-8888-8888-8888-888888888888'::uuid, 'soooomuchcoffee@gmail.com');
+  insert into public.door_lists (name) values ('Test Door List') returning id into v_id;
+  insert into public.door_list_guests (list_id, name, status, plus_ones)
+    values (v_id, 'Jo Guest', 'Going', 1) returning id into v_entry;
+  insert into public.door_list_guests (list_id, name, status, plus_one_of)
+    values (v_id, 'Jo Guest +1', 'Going', v_entry);
+  v_json := public.door_list_set_checkin(v_entry, true);
+  if (v_json ->> 'already')::boolean or v_json ->> 'checked_in_at' is null then
+    raise exception 'FAIL: door list check-in did not record';
+  end if;
+  v_json := public.door_list_set_checkin(v_entry, true);
+  if not (v_json ->> 'already')::boolean then
+    raise exception 'FAIL: repeat door list check-in not reported as already in';
+  end if;
+  perform pg_temp.ok('allow-listed owner builds a door list and checks a guest in once');
+
+  -- dave isn't invited: sees nothing, can't create lists or touch check-ins
+  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  if (select count(*) from public.door_lists) <> 0
+     or (select count(*) from public.door_list_guests) <> 0 then
+    raise exception 'FAIL: uninvited user read a door list';
+  end if;
+  begin
+    insert into public.door_lists (name) values ('Nope');
+    raise exception 'FAIL: non-allow-listed account created a door list' using errcode = 'assert_failure';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.door_list_set_checkin(v_entry, false);
+    raise exception 'FAIL: uninvited user changed a door list check-in' using errcode = 'assert_failure';
+  exception when no_data_found then null;
+  end;
+  perform pg_temp.ok('door lists are invisible to people who were not invited');
+
+  -- the owner invites dave by email: he can read, add and check in, but not
+  -- delete the list or invite anyone himself
+  perform pg_temp.impersonate('88888888-8888-8888-8888-888888888888'::uuid, 'soooomuchcoffee@gmail.com');
+  insert into public.door_list_members (list_id, email) values (v_id, 'dave@test.dev');
+
+  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  if (select count(*) from public.door_list_guests where list_id = v_id) <> 2 then
+    raise exception 'FAIL: invited member cannot read the door list';
+  end if;
+  insert into public.door_list_guests (list_id, name, status) values (v_id, 'Walk In', 'Walk-in');
+  perform public.door_list_set_checkin(v_entry, false);
+  delete from public.door_lists where id = v_id;
+  begin
+    insert into public.door_list_members (list_id, email) values (v_id, 'carol@test.dev');
+    raise exception 'FAIL: member invited someone else' using errcode = 'assert_failure';
+  exception when insufficient_privilege then null;
+  end;
+  execute 'reset role';
+  if (select count(*) from public.door_lists where id = v_id) <> 1 then
+    raise exception 'FAIL: member deleted the door list';
+  end if;
+  if (select checked_in_at from public.door_list_guests where id = v_entry) is not null then
+    raise exception 'FAIL: member could not undo a check-in';
+  end if;
+  if (select count(*) from public.door_list_guests where list_id = v_id) <> 3 then
+    raise exception 'FAIL: member could not add a guest';
+  end if;
+  perform pg_temp.ok('invited member reads, adds and checks in but cannot delete or invite');
+
+  perform pg_temp.impersonate(carol, 'carol@test.dev');
+  if (select count(*) from public.door_list_guests) <> 0 then
+    raise exception 'FAIL: a non-member saw a shared door list';
+  end if;
+  perform pg_temp.ok('a shared door list stays hidden from everyone else');
+  execute 'reset role';
+
   raise notice '';
   raise notice 'ALL % CHECKS PASSED', currval('pg_temp.t_pass');
 end $test$;

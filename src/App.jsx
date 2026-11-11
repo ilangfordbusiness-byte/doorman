@@ -52,6 +52,8 @@ const BusinessPastEvents = lazy(() => import('./pages/business/BusinessPastEvent
 const EditBusinessAccount = lazy(() => import('./pages/business/EditBusinessAccount'));
 const BusinessInvite = lazy(() => import('./pages/business/BusinessInvite'));
 const Admin = lazy(() => import('./pages/Admin'));
+const DoorLists = lazy(() => import('./pages/DoorLists'));
+const DoorListCheckIn = lazy(() => import('./pages/DoorListCheckIn'));
 
 const PageLoader = () => (
   <div className="fixed inset-0 flex items-center justify-center bg-background">
@@ -159,6 +161,8 @@ const AuthenticatedApp = () => {
         <Route path="/dj/:id" element={<DjProfile />} />
         <Route path="/business/:id/invite" element={<BusinessInvite />} />
         <Route path="/admin" element={<Admin />} />
+        <Route path="/door-lists" element={<DoorLists />} />
+        <Route path="/door-lists/:id" element={<DoorListCheckIn />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
       <Route path="/pass/:id" element={<GuestPass />} />
