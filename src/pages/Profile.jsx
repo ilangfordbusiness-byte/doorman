@@ -19,6 +19,7 @@ import { useNotifications } from "@/hooks/useNotifications";
 import NotificationDot from "../components/NotificationDot";
 import CoHostInvitesSection from "../components/CoHostInvitesSection";
 import BusinessMemberInvitesSection from "../components/BusinessMemberInvitesSection";
+import DoorListInvitesSection from "../components/DoorListInvitesSection";
 import ProfileBadge from "../components/ProfileBadge";
 import { canUseDoorLists } from "@/lib/featureAccess";
 import PhoneInput from "@/components/PhoneInput";
@@ -245,6 +246,7 @@ export default function Profile() {
 
       <CoHostInvitesSection invites={coHostInvites} />
       <BusinessMemberInvitesSection invites={businessInvites} />
+      <DoorListInvitesSection invites={notifs?.doorListInvites} />
 
       {/* Host Mode */}
       <Link to="/host" className="block group mb-4">

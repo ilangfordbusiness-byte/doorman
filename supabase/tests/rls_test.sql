@@ -1157,6 +1157,26 @@ begin
   end if;
   perform pg_temp.ok('invited member reads, adds and checks in but cannot delete or invite');
 
+  -- the shared list shows in dave's notifications until he opens it
+  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  v_json := public.get_notifications();
+  if (v_json -> 'counts' ->> 'doorListInvite')::int <> 1
+     or v_json -> 'doorListInvites' -> 0 ->> 'list_id' <> v_id::text then
+    raise exception 'FAIL: door list invite missing from notifications: %', v_json -> 'doorListInvites';
+  end if;
+  perform public.door_list_mark_opened(v_id);
+  if (public.get_notifications() -> 'counts' ->> 'doorListInvite')::int <> 0 then
+    raise exception 'FAIL: opening the door list did not clear the notification';
+  end if;
+  perform pg_temp.ok('door list invite shows in notifications until opened');
+
+  -- a member can remove people; a host's plus-ones go with them
+  delete from public.door_list_guests where list_id = v_id and name = 'Jo Guest';
+  if (select count(*) from public.door_list_guests where list_id = v_id) <> 1 then
+    raise exception 'FAIL: removing a guest did not take their plus-one with them';
+  end if;
+  perform pg_temp.ok('member removes a guest and their plus-ones');
+
   perform pg_temp.impersonate(carol, 'carol@test.dev');
   if (select count(*) from public.door_list_guests) <> 0 then
     raise exception 'FAIL: a non-member saw a shared door list';
