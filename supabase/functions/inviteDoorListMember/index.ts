@@ -2,9 +2,12 @@
 //
 // Adds their door_list_members row (keyed by email, so they don't need a
 // DoorMan account yet: access is granted by their signed-in email) and emails
-// them a link straight to the list. Re-inviting resends the email.
+// them a link straight to the list. Re-inviting resends the email. Invitees
+// with an account also get a push, and the list shows in their notifications
+// (get_notifications.doorListInvites) until they first open it.
 import { getCaller, json, preflight, serviceClient } from '../_shared/db.ts';
 import { appOrigin, brandedEmail, emailCard, escapeHtml, sendEmail } from '../_shared/email.ts';
+import { sendPushToUsers } from '../_shared/push.ts';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -67,6 +70,15 @@ Deno.serve(async (req) => {
           : `Sign up for DoorMan with ${escapeHtml(email)} to open the list.`,
       }),
     });
+
+    if (profile?.id) {
+      await sendPushToUsers(svc, [profile.id], {
+        title: `${inviter} added you to a door list`,
+        body: `${list.name}: tap to search and check guests in`,
+        url: `/door-lists/${list.id}`,
+        threadId: `door-list-${list.id}`,
+      });
+    }
 
     return json({ ok: true, has_account: !!profile, emailed: emailResult.sent, resent: !!existing });
   } catch (error) {

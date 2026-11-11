@@ -5,7 +5,7 @@ import NotificationDot from "./NotificationDot";
 
 const tabs = [
   { path: "/guest?tab=discover", icon: Compass, label: "Discover", notif: ["eventInvites", "transfers"] },
-  { path: "/friends", icon: Heart, label: "Activity", notif: "friendRequests" },
+  { path: "/friends", icon: Heart, label: "Activity", notif: ["friendRequests", "doorListInvite"] },
   { path: "/profile", icon: UserCircle, label: "Profile", notif: ["coHost", "businessInvite"] },
 ];
 

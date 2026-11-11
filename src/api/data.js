@@ -409,13 +409,24 @@ const ENTITIES = {
       throwOn(error);
       return data;
     },
+    // Realtime can't filter DELETE events (they carry only the id), so the
+    // list subscription misses removals. This listens for deletes alone and
+    // hands back the id; callers ignore ids that aren't on their list.
+    subscribeDeletes(cb) {
+      const channel = supabase
+        .channel(`del-door_list_guests-${Math.random().toString(36).slice(2)}`)
+        .on("postgres_changes", { event: "DELETE", schema: "public", table: "door_list_guests" },
+          (payload) => { if (payload.old?.id) cb(payload.old.id); })
+        .subscribe();
+      return () => { supabase.removeChannel(channel); };
+    },
   },
 
   // People the owner invited to help run a door list (read, add, check in).
   DoorListMember: {
     table: "door_list_members",
-    select: "id, list_id, email, user_id, created_at",
-    toApp: (r) => ({ ...base(r), list_id: r.list_id, email: r.email, user_id: r.user_id }),
+    select: "id, list_id, email, user_id, opened_at, created_at",
+    toApp: (r) => ({ ...base(r), list_id: r.list_id, email: r.email, user_id: r.user_id, opened_at: r.opened_at }),
     fromApp(obj) {
       const out = {};
       if ("list_id" in obj) out.list_id = obj.list_id;
@@ -426,6 +437,11 @@ const ENTITIES = {
     async invite(listId, email) {
       const { data } = await invokeEdge("inviteDoorListMember", { list_id: listId, email });
       return data;
+    },
+    // Invitee opened the list: clears it from their notifications.
+    async markOpened(listId) {
+      const { error } = await supabase.rpc("door_list_mark_opened", { p_list_id: listId });
+      throwOn(error);
     },
   },
 
