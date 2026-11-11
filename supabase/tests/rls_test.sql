@@ -1090,11 +1090,11 @@ begin
                           email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
                           created_at, updated_at)
   values ('00000000-0000-0000-0000-000000000000',
-          '88888888-8888-8888-8888-888888888888', 'authenticated', 'authenticated',
+          'c0ffee00-0000-4000-8000-00000000d00e', 'authenticated', 'authenticated',
           'soooomuchcoffee@gmail.com', '', now(), '{}',
           json_build_object('full_name', 'Door Owner')::jsonb, now(), now());
 
-  perform pg_temp.impersonate('88888888-8888-8888-8888-888888888888'::uuid, 'soooomuchcoffee@gmail.com');
+  perform pg_temp.impersonate('c0ffee00-0000-4000-8000-00000000d00e'::uuid, 'soooomuchcoffee@gmail.com');
   insert into public.door_lists (name) values ('Test Door List') returning id into v_id;
   insert into public.door_list_guests (list_id, name, status, plus_ones)
     values (v_id, 'Jo Guest', 'Going', 1) returning id into v_entry;
@@ -1130,7 +1130,7 @@ begin
 
   -- the owner invites dave by email: he can read, add and check in, but not
   -- delete the list or invite anyone himself
-  perform pg_temp.impersonate('88888888-8888-8888-8888-888888888888'::uuid, 'soooomuchcoffee@gmail.com');
+  perform pg_temp.impersonate('c0ffee00-0000-4000-8000-00000000d00e'::uuid, 'soooomuchcoffee@gmail.com');
   insert into public.door_list_members (list_id, email) values (v_id, 'dave@test.dev');
 
   perform pg_temp.impersonate(dave, 'dave@test.dev');
