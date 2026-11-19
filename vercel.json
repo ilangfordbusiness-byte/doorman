@@ -1,8 +1,12 @@
 {
   "rewrites": [
     { "source": "/event/:id", "destination": "/api/og?type=event&id=:id" },
+    { "source": "/event/:id/checkout", "destination": "/api/og?type=checkout&id=:id" },
+    { "source": "/pass/:id", "destination": "/api/og?type=pass&id=:id" },
     { "source": "/invite/:code", "destination": "/api/og?type=invite&code=:code" },
     { "source": "/b/:id", "destination": "/api/og?type=business&id=:id" },
+    { "source": "/business/:id/invite", "destination": "/api/og?type=team&id=:id" },
+    { "source": "/dj/:id", "destination": "/api/og?type=dj&id=:id" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [

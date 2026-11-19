@@ -1,18 +1,23 @@
-// Per-event link previews (Open Graph / Twitter cards).
+// Link previews (Open Graph / Twitter cards) for every shareable link.
 //
 // The app is a static SPA: every route is served the same index.html, whose OG
 // tags are generic DoorMan. Link-unfurling crawlers (iMessage, WhatsApp, X,
-// Slack, Facebook, …) don't run the React app, so a shared /event/:id link
-// shows the generic card instead of the event's cover + name.
+// Slack, Facebook, …) don't run the React app, so without this a shared link
+// shows the generic card instead of what it points at.
 //
-// This Vercel function handles /event/:id, /invite/:code and /b/:id (wired in
-// vercel.json): it fetches the PUBLIC title/cover/description from Supabase
-// (anon key — published events, valid invite codes, and the anon-readable
-// business_public view), then returns the normal SPA shell with the
-// OG/Twitter/title tags swapped in. A /b/:id business link is labelled as an
-// event host's profile, with its picture and upcoming/past event counts. Users still get the full app (the real hashed asset tags are left
-// untouched); crawlers get the rich preview. Unknown/draft events fall back to
-// the generic card.
+// vercel.json rewrites these routes here:
+//   /event/:id (+ promoter ?ref=)   event title, cover, description
+//   /invite/:code                   the invited event
+//   /event/:id/checkout (+ ?door=)  "Tickets · <event>"
+//   /pass/:id                       "Guest pass · <event>" (never the QR)
+//   /b/:id                          business, labelled as an event host
+//   /business/:id/invite            "Join <business> on DoorMan"
+//   /dj/:id                         DJ profile (get_dj_link_preview)
+// Everything is read with the anon key, so only already-public data shows:
+// published events, valid invite codes, the business_public view, and the DJ
+// RPC (which returns null for anyone not billed on a public event). Users
+// still get the full app (the real hashed asset tags are left untouched);
+// unknown, private or draft targets fall back to the generic card.
 
 const DOMAIN = "https://thedoorman.app";
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
@@ -28,30 +33,75 @@ function absImage(src) {
   return /^https?:\/\//i.test(src) ? src : `${DOMAIN}${src.startsWith("/") ? "" : "/"}${src}`;
 }
 
-async function fetchEvent({ type, id, code }) {
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+// Multi-line bios/descriptions as one readable line, capped for card text.
+function oneLine(text, max = 220) {
+  const s = String(text || "").split(/\n+/).map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean)
+    .map((l) => (/[.!?…:]$/.test(l) ? l : `${l}.`)).join(" ");
+  return s.length > max ? `${s.slice(0, max - 1).trimEnd()}…` : s;
+}
+
+// "2026-11-22" -> "Sat 22 Nov" (the event's calendar date, no timezone shift).
+function dayLabel(date) {
+  const d = new Date(`${String(date || "").slice(0, 10)}T12:00:00Z`);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+}
+
+async function fetchPreview({ type, id, code }) {
   if (!SUPABASE_URL || !ANON) return null;
   const headers = { apikey: ANON, Authorization: `Bearer ${ANON}` };
+  const rest = async (path) => {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, { headers });
+    if (!r.ok) return null;
+    const rows = await r.json();
+    return Array.isArray(rows) ? rows[0] ?? null : null;
+  };
+  const rpc = async (fn, args) => {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify(args),
+    });
+    return r.ok ? r.json() : null;
+  };
+  const getEvent = (eid) => rest(`events?id=eq.${encodeURIComponent(eid)}&select=title,cover_image_url,description,date&limit=1`);
+  const getBusiness = (bid) => rest(`business_public?id=eq.${encodeURIComponent(bid)}&select=business_name,business_picture_url,description&limit=1`);
+
   try {
+    // Event page, including promoter links (/event/:id?ref=...).
     if (type === "event" && id) {
-      const r = await fetch(
-        `${SUPABASE_URL}/rest/v1/events?id=eq.${encodeURIComponent(id)}&select=title,cover_image_url,description&limit=1`,
-        { headers },
-      );
-      if (!r.ok) return null;
-      const rows = await r.json();
-      const ev = Array.isArray(rows) ? rows[0] : null;
-      return ev ? { title: ev.title, image: ev.cover_image_url, description: ev.description } : null;
+      const ev = await getEvent(id);
+      return ev ? { title: ev.title, image: ev.cover_image_url, description: oneLine(ev.description) } : null;
     }
+    // Private invite link.
     if (type === "invite" && code) {
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_event_by_invite`, {
-        method: "POST",
-        headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({ p_invite_code: code }),
-      });
-      if (!r.ok) return null;
-      const ev = await r.json();
-      return ev && ev.title ? { title: ev.title, image: ev.cover_image, description: ev.description } : null;
+      const ev = await rpc("get_event_by_invite", { p_invite_code: code });
+      return ev && ev.title ? { title: ev.title, image: ev.cover_image, description: oneLine(ev.description) } : null;
     }
+    // Ticket checkout, incl. the door QR (/event/:id/checkout?door=...).
+    if (type === "checkout" && id) {
+      const ev = await getEvent(id);
+      if (!ev) return null;
+      const when = dayLabel(ev.date);
+      return {
+        title: `Tickets · ${ev.title}`,
+        image: ev.cover_image_url,
+        description: `Get tickets${when ? ` for ${when}` : ""} on DoorMan.`,
+      };
+    }
+    // Guest pass (from ticket emails). Event details only; never the QR.
+    if (type === "pass" && id) {
+      const ev = await getEvent(id);
+      if (!ev) return null;
+      const when = dayLabel(ev.date);
+      return {
+        title: `Guest pass · ${ev.title}`,
+        image: ev.cover_image_url,
+        description: `${when ? `${when}. ` : ""}Open your QR pass in DoorMan and show it at the door.`,
+      };
+    }
+    // Public business (host) profile.
     if (type === "business" && id) {
       const bid = encodeURIComponent(id);
       const today = new Date().toISOString().slice(0, 10);
@@ -64,29 +114,51 @@ async function fetchEvent({ type, id, code }) {
         const total = Number((r.headers.get("content-range") || "").split("/")[1]);
         return r.ok && Number.isFinite(total) ? total : null;
       };
-      const [bizRes, upcoming, past] = await Promise.all([
-        fetch(`${SUPABASE_URL}/rest/v1/business_public?id=eq.${bid}&select=business_name,business_picture_url,description&limit=1`, { headers }),
+      const [b, upcoming, past] = await Promise.all([
+        getBusiness(id),
         count(`date=gte.${today}`).catch(() => null),
         count(`date=lt.${today}`).catch(() => null),
       ]);
-      if (!bizRes.ok) return null;
-      const rows = await bizRes.json();
-      const b = Array.isArray(rows) ? rows[0] : null;
       if (!b || !b.business_name) return null;
-      const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
       const stats = [
         upcoming ? plural(upcoming, "upcoming event") : null,
         past ? plural(past, "past event") : null,
       ].filter(Boolean).join(" · ");
-      // Bios are often one phrase per line; keep them readable as one line.
-      const bio = String(b.description || "").split(/\n+/).map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean)
-        .map((l) => (/[.!?…]$/.test(l) ? l : `${l}.`)).join(" ");
       return {
         title: `${b.business_name} · Event host on DoorMan`,
         image: b.business_picture_url,
-        description: [`Host profile${stats ? ` · ${stats}` : ""}.`, bio].filter(Boolean).join(" "),
+        description: [`Host profile${stats ? ` · ${stats}` : ""}.`, oneLine(b.description)].filter(Boolean).join(" "),
         ogType: "profile",
         card: "summary", // square logo, not a wide cover
+      };
+    }
+    // Invite to join a business's team (from the invite email).
+    if (type === "team" && id) {
+      const b = await getBusiness(id);
+      if (!b || !b.business_name) return null;
+      return {
+        title: `Join ${b.business_name} on DoorMan`,
+        image: b.business_picture_url,
+        description: `You've been invited to help run ${b.business_name}'s events on DoorMan. Open the link to accept.`,
+        card: "summary",
+      };
+    }
+    // DJ (performer) profile. Null unless they're billed on a public event.
+    if (type === "dj" && id) {
+      const dj = await rpc("get_dj_link_preview", { p_id: id });
+      if (!dj || !dj.name) return null;
+      const stats = [
+        dj.upcoming ? plural(dj.upcoming, "upcoming set") : null,
+        dj.past ? plural(dj.past, "past set") : null,
+      ].filter(Boolean).join(" · ");
+      const genres = String(dj.genres || "").trim();
+      return {
+        title: `${dj.name} · DJ on DoorMan`,
+        image: dj.avatar_url,
+        description: [`DJ profile${stats ? ` · ${stats}` : ""}.`, genres ? `${oneLine(genres, 80)}` : "", oneLine(dj.bio, 160)]
+          .filter(Boolean).join(" "),
+        ogType: "profile",
+        card: "summary",
       };
     }
   } catch {
@@ -95,14 +167,23 @@ async function fetchEvent({ type, id, code }) {
   return null;
 }
 
+// The route each preview type stands in for (og:url / redirect fallback).
+const PATHS = {
+  event: ({ id }) => `/event/${id}`,
+  invite: ({ code }) => `/invite/${code}`,
+  checkout: ({ id }) => `/event/${id}/checkout`,
+  pass: ({ id }) => `/pass/${id}`,
+  business: ({ id }) => `/b/${id}`,
+  team: ({ id }) => `/business/${id}/invite`,
+  dj: ({ id }) => `/dj/${id}`,
+};
+
 export default async function handler(req, res) {
   const url = new URL(req.url, DOMAIN);
   const type = url.searchParams.get("type");
   const id = url.searchParams.get("id");
   const code = url.searchParams.get("code");
-  const canonicalPath = type === "invite" ? `/invite/${code || ""}`
-    : type === "business" ? `/b/${id || ""}`
-    : `/event/${id || ""}`;
+  const canonicalPath = (PATHS[type] || PATHS.event)({ id: id || "", code: code || "" });
 
   // The built SPA shell (with the correct hashed asset tags). Served statically;
   // /index.html is not rewritten to this function, so there's no loop.
@@ -119,14 +200,14 @@ export default async function handler(req, res) {
     return res.end();
   }
 
-  const ev = await fetchEvent({ type, id, code });
+  const ev = await fetchPreview({ type, id, code });
   if (ev && ev.title) {
     const title = esc(ev.title);
     const desc = esc(ev.description || "You're invited — tap to see the details and RSVP on DoorMan.");
     const image = esc(absImage(ev.image));
     const pageUrl = esc(`${DOMAIN}${canonicalPath}`);
     const tags = [
-      `<title>${ev.ogType === "profile" ? title : `${title} · DoorMan`}</title>`,
+      `<title>${/DoorMan/.test(ev.title) ? title : `${title} · DoorMan`}</title>`,
       `<meta name="description" content="${desc}" />`,
       `<meta property="og:type" content="${ev.ogType || "website"}" />`,
       `<meta property="og:site_name" content="DoorMan" />`,
