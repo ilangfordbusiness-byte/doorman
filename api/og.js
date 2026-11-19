@@ -205,7 +205,11 @@ export default async function handler(req, res) {
     const title = esc(ev.title);
     const desc = esc(ev.description || "You're invited — tap to see the details and RSVP on DoorMan.");
     const image = esc(absImage(ev.image));
-    const pageUrl = esc(`${DOMAIN}${canonicalPath}`);
+    // Keep the share button's ?v= (withPreviewVersion in src/lib/appUrl.js):
+    // Meta's scrapers cache by og:url, so dropping it would bring back the
+    // stale card the version exists to avoid.
+    const v = url.searchParams.get("v");
+    const pageUrl = esc(`${DOMAIN}${canonicalPath}${v && /^[0-9a-z]{1,8}$/.test(v) ? `?v=${v}` : ""}`);
     const tags = [
       `<title>${/DoorMan/.test(ev.title) ? title : `${title} · DoorMan`}</title>`,
       `<meta name="description" content="${desc}" />`,
