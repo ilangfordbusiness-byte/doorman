@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { api } from "@/api/data";
 import { Megaphone, Copy, Check, ExternalLink, Ticket, MousePointerClick, Wallet } from "lucide-react";
 import { getLinkDomain } from "@/lib/promoterRef";
+import { withPreviewVersion } from "@/lib/appUrl";
 import { useToast } from "@/components/ui/use-toast";
 import CollapsibleSection from "@/components/CollapsibleSection";
 
@@ -46,7 +47,9 @@ export default function PromoterAccountSection({ email }) {
   }
 
   function copyLink(p) {
-    const link = `${getLinkDomain()}/event/${p.event_id}?ref=${p.tracking_code}`;
+    const ev = events[p.event_id];
+    const link = withPreviewVersion(`${getLinkDomain()}/event/${p.event_id}?ref=${p.tracking_code}`,
+      ev?.title, ev?.cover_image, ev?.description);
     navigator.clipboard.writeText(link);
     setCopied(p.id);
     toast({ title: "Tracking link copied!" });

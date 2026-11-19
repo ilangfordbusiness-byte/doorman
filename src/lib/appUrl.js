@@ -59,3 +59,24 @@ export function toAppPath(urlLike) {
     return null;
   }
 }
+
+// Chat apps (iMessage, WhatsApp, …) cache a link's preview card per URL for
+// days, so a link shared before its preview changed keeps the stale card.
+// Share buttons tag links with ?v=<short hash of what the card shows> (see
+// api/og.js): unchanged content keeps the same URL (and the cached card),
+// while a new name, picture or description yields a new URL and a fresh card.
+// Existing query params (e.g. a promoter's ?ref=) are kept.
+export function withPreviewVersion(url, ...parts) {
+  let h = 0x811c9dc5; // FNV-1a, 32-bit
+  for (const ch of parts.map((p) => (p == null ? "" : String(p))).join("\u0001")) {
+    h ^= ch.codePointAt(0) ?? 0;
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  try {
+    const u = new URL(url);
+    u.searchParams.set("v", h.toString(36));
+    return u.toString();
+  } catch {
+    return url;
+  }
+}

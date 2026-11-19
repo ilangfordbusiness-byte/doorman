@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/api/data";
-import { appBaseUrl } from "@/lib/appUrl";
+import { appBaseUrl, withPreviewVersion } from "@/lib/appUrl";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import Avatar from "@/components/Avatar";
 import EventCard from "@/components/EventCard";
@@ -92,7 +92,9 @@ export default function DjProfile() {
   }
 
   function share() {
-    navigator.clipboard.writeText(`${appBaseUrl()}/dj/${id}`);
+    // Versioned by what the link card shows (name, photo, bio, genres, sets).
+    navigator.clipboard.writeText(withPreviewVersion(`${appBaseUrl()}/dj/${id}`,
+      dj?.full_name, dj?.profile_picture, dj?.bio, dj?.genres, data?.upcoming?.length, data?.past?.length));
     setCopied(true);
     toast({ title: "Link copied!" });
     setTimeout(() => setCopied(false), 2000);

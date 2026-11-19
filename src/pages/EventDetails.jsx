@@ -36,6 +36,7 @@ import { lineupStyle } from "@/lib/lineupStyles";
 import EventJoinActions from "../components/EventJoinActions";
 import moment from "moment";
 import { captureRef, getLinkDomain, discountLabel, promoterDiscountActive } from "@/lib/promoterRef";
+import { withPreviewVersion } from "@/lib/appUrl";
 import { loadPixel, trackPixel, captureMetaClick } from "@/lib/metaPixel";
 
 // Shared classes for the host dashboard action buttons so they line up as a uniform grid.
@@ -325,9 +326,11 @@ export default function EventDetails() {
     // A manager has the real invite_code; a signed-out previewer arrived with
     // it in the URL (?invite=) — use whichever we have for a private event.
     const code = event.invite_code || inviteCode;
-    const url = event.is_public
+    // Versioned by what the link card shows, so an edited event gets a fresh
+    // preview in chat apps instead of their cached one.
+    const url = withPreviewVersion(event.is_public
       ? `${getLinkDomain()}/event/${event.id}`
-      : `${getLinkDomain()}/invite/${code}`;
+      : `${getLinkDomain()}/invite/${code}`, event.title, event.cover_image, event.description);
     // Native share sheet in the iOS app, Web Share API elsewhere, clipboard
     // as the last resort (see shareUrl).
     const result = await shareUrl({ title: event.title, url });

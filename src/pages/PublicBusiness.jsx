@@ -3,7 +3,7 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 import moment from "moment";
 import { ArrowLeft, Share2, Check, Instagram, Pencil, Calendar, History } from "lucide-react";
 import { api } from "@/api/data";
-import { appBaseUrl } from "@/lib/appUrl";
+import { appBaseUrl, withPreviewVersion } from "@/lib/appUrl";
 import Avatar from "@/components/Avatar";
 import EventCard from "@/components/EventCard";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -66,7 +66,9 @@ export default function PublicBusiness() {
   }, [id]);
 
   function handleShare() {
-    const url = `${appBaseUrl()}/b/${id}`;
+    // Versioned by what the link card shows (name, picture, bio, event counts).
+    const url = withPreviewVersion(`${appBaseUrl()}/b/${id}`,
+      biz?.business_name, biz?.business_picture, biz?.description, events.length, pastEvents.length);
     navigator.clipboard.writeText(url);
     setCopied(true);
     toast({ title: "Link copied!" });
