@@ -1040,6 +1040,27 @@ begin
   end if;
   perform pg_temp.ok('hidden location is NULL for anon');
 
+  -- ---- DJ link previews (20261119120000_dj_link_preview.sql) ----
+  -- Anon (link crawlers) gets a DJ's public card only when they're billed on
+  -- a public, published event; anyone else is null.
+  if public.get_dj_link_preview(alice) is not null then
+    raise exception 'FAIL: DJ link preview returned a user with no billed sets';
+  end if;
+  execute 'reset role';
+  insert into public.event_dj_lineup (event_id, dj_user_id, dj_name) values (v_event, alice, 'Alice');
+  perform pg_temp.go_anon();
+  v_json := public.get_dj_link_preview(alice);
+  if exists (select 1 from public.events where id = v_event and status = 'published' and is_public) then
+    if v_json ->> 'name' is null or v_json ? 'email' then
+      raise exception 'FAIL: billed DJ link preview wrong: %', v_json;
+    end if;
+  elsif v_json is not null then
+    raise exception 'FAIL: DJ preview exposed a DJ billed only on a private/draft event';
+  end if;
+  execute 'reset role';
+  delete from public.event_dj_lineup where event_id = v_event and dj_user_id = alice;
+  perform pg_temp.ok('DJ link preview is anon-readable only for publicly billed DJs');
+
   -- ---- admins can read analytics data for events they don't manage ----
   -- (20261103120000_admin_read_analytics.sql widened these SELECT policies.)
   -- Seed one manager-only row in each analytics table on alice's event, keyed
