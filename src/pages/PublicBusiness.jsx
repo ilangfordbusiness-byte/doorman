@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import moment from "moment";
-import { ArrowLeft, Share2, Check, Instagram, Pencil, Calendar } from "lucide-react";
+import { ArrowLeft, Share2, Check, Instagram, Pencil, Calendar, History } from "lucide-react";
 import { api } from "@/api/data";
 import { appBaseUrl } from "@/lib/appUrl";
 import Avatar from "@/components/Avatar";
@@ -9,17 +9,24 @@ import EventCard from "@/components/EventCard";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
+import { coverStyleFor } from "@/lib/eventCover";
+
+// Past events show this many tiles until "Show all".
+const PAST_PREVIEW = 6;
 
 // Public, shareable business/host profile at /b/:id. Anyone signed in can view
 // it (reached from an event's host, a shared link, or Search). Shows the
-// business's name, picture, optional description, Instagram, and all upcoming
-// public events. Managers get an Edit shortcut into the business settings.
+// business's name, picture, optional description, Instagram, its upcoming
+// public events, and its past public events as a portfolio of cover tiles.
+// Managers get an Edit shortcut into the business settings.
 export default function PublicBusiness() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [biz, setBiz] = useState(null);
   const [events, setEvents] = useState([]);
+  const [pastEvents, setPastEvents] = useState([]);
+  const [showAllPast, setShowAllPast] = useState(false);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [canManage, setCanManage] = useState(false);
@@ -38,14 +45,10 @@ export default function PublicBusiness() {
         const all = await api.entities.Event.filter({ business_id: id }, "date");
         if (!active) return;
         const today = moment().startOf("day");
-        setEvents(
-          all.filter(
-            (e) =>
-              e.status === "published" &&
-              e.is_public &&
-              moment(e.date).isSameOrAfter(today),
-          ),
-        );
+        const shown = all.filter((e) => e.status === "published" && e.is_public);
+        setEvents(shown.filter((e) => moment(e.date).isSameOrAfter(today)));
+        // Most recent first.
+        setPastEvents(shown.filter((e) => moment(e.date).isBefore(today)).reverse());
 
         // Is the current viewer a manager? (mine() returns owned + member)
         try {
@@ -137,6 +140,51 @@ export default function PublicBusiness() {
           ))}
         </div>
       )}
+
+      {/* Past events */}
+      {pastEvents.length > 0 && (
+        <div className="mt-8">
+          <h2 className="font-heading font-semibold text-sm flex items-center gap-2 mb-3">
+            <History className="w-4 h-4" /> Past events
+            <span className="text-muted-foreground font-normal">· {pastEvents.length}</span>
+          </h2>
+          <div className="grid grid-cols-2 gap-3">
+            {(showAllPast ? pastEvents : pastEvents.slice(0, PAST_PREVIEW)).map((e) => (
+              <PastEventTile key={e.id} event={e} />
+            ))}
+          </div>
+          {pastEvents.length > PAST_PREVIEW && (
+            <Button variant="outline" className="w-full h-11 rounded-xl mt-3" onClick={() => setShowAllPast((v) => !v)}>
+              {showAllPast ? "Show fewer" : `Show all ${pastEvents.length}`}
+            </Button>
+          )}
+        </div>
+      )}
     </div>
+  );
+}
+
+// Square cover tile for a past event: cover art (upload or preset gradient)
+// with the title and date over a bottom fade.
+function PastEventTile({ event }) {
+  const coverStyle = coverStyleFor(event.cover_image);
+  const coverImg = event.cover_image && !event.cover_image.startsWith("__cover__") ? event.cover_image : null;
+  return (
+    <Link
+      to={`/event/${event.id}`}
+      className="group relative aspect-square rounded-2xl overflow-hidden border border-border bg-card active:scale-[0.98] transition-transform"
+      style={coverStyle || undefined}
+    >
+      {coverImg ? (
+        <img src={coverImg} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+      ) : !coverStyle ? (
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/40 via-card to-accent/20" />
+      ) : null}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 p-2.5">
+        <p className="text-sm font-semibold text-white leading-tight line-clamp-2">{event.title}</p>
+        <p className="text-[11px] text-white/70 mt-0.5">{moment(event.date).format("MMM D, YYYY")}</p>
+      </div>
+    </Link>
   );
 }
