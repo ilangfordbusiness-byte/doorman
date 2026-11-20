@@ -37,6 +37,7 @@ import EventJoinActions from "../components/EventJoinActions";
 import moment from "moment";
 import { captureRef, getLinkDomain, discountLabel, promoterDiscountActive } from "@/lib/promoterRef";
 import { withPreviewVersion } from "@/lib/appUrl";
+import { SignedOutTopBar, SignupBar } from "@/components/SignedOutPreview";
 import { loadPixel, trackPixel, captureMetaClick } from "@/lib/metaPixel";
 
 // Shared classes for the host dashboard action buttons so they line up as a uniform grid.
@@ -365,21 +366,26 @@ export default function EventDetails() {
   const eventDate = moment(event.date);
   const sym = currencySymbol(event.currency);
 
+  const signedOut = authed === false;
+  const shareButton = (
+    <Button variant="ghost" size="icon" className="rounded-full bg-card/60 backdrop-blur-sm" onClick={handleShare} aria-label="Share">
+      {copied ? <Check className="w-5 h-5 text-emerald-400" /> : <Share2 className="w-5 h-5" />}
+    </Button>
+  );
+
   return (
-    <div className="max-w-lg mx-auto">
+    <div className={`max-w-lg mx-auto ${signedOut ? "pb-24" : ""}`}>
       {/* Cover — a floating card that tilts toward the pointer/finger (see EventCoverHero) */}
       <EventCoverHero
         event={event}
-        topBar={
+        topBar={signedOut ? <SignedOutTopBar extra={shareButton} /> : (
           <>
             <Button variant="ghost" size="icon" className="rounded-full bg-card/60 backdrop-blur-sm" onClick={() => navigate(-1)}>
               <ArrowLeft className="w-5 h-5" />
             </Button>
-            <Button variant="ghost" size="icon" className="rounded-full bg-card/60 backdrop-blur-sm" onClick={handleShare}>
-              {copied ? <Check className="w-5 h-5 text-emerald-400" /> : <Share2 className="w-5 h-5" />}
-            </Button>
+            {shareButton}
           </>
-        }
+        )}
       />
 
       <div className="px-4 pt-6 relative z-10 pb-8 space-y-5">
@@ -400,7 +406,11 @@ export default function EventDetails() {
           <div className="flex items-center gap-2 mt-2 flex-wrap">
             <button
               onClick={() =>
-                !user
+                // A business host's page is public (signed out too); a
+                // person's profile needs an account.
+                event.host_is_business && event.business_id
+                  ? navigate(`/b/${event.business_id}`)
+                  : !user
                   ? promptSignup()
                   : event.host_is_business && event.business_id
                   ? navigate(`/b/${event.business_id}`)
@@ -763,6 +773,10 @@ export default function EventDetails() {
             onBlocked={() => navigate("/guest")}
             className="pt-2"
           />
+        )}
+        {signedOut && (
+          <SignupBar picture={event.host_picture} name={event.host_name}
+            title={allSoldOut ? "Don't miss the next one" : event.is_paid ? "Get tickets on DoorMan" : "Join this event on DoorMan"} />
         )}
         {showHostModal && (
           <HostProfileModal

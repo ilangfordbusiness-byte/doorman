@@ -1548,6 +1548,22 @@ const admin = {
 const businesses = {
   // Public display fields (name, picture, description, instagram) — readable by
   // anyone via the business_public view (the base table is manager-only).
+  // A business's published, public events for its /b/:id page. Plain columns
+  // anon can read, so the page also works signed out (shared links).
+  async publicEvents(businessId) {
+    if (!businessId) return [];
+    const { data, error } = await supabase
+      .from("events")
+      .select("id, title, cover_image_url, date, start_time, status, is_public")
+      .eq("business_id", businessId).eq("status", "published").eq("is_public", true)
+      .order("date", { ascending: true });
+    throwOn(error);
+    return (data ?? []).map((e) => ({
+      id: e.id, title: e.title, cover_image: e.cover_image_url, date: e.date,
+      start_time: e.start_time ? String(e.start_time).slice(0, 5) : null,
+      status: e.status, is_public: e.is_public,
+    }));
+  },
   async getPublic(id) {
     if (!id) return null;
     const { data, error } = await supabase

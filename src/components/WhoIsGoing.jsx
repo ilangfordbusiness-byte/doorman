@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { api } from "@/api/data";
+import { LockedTeaser } from "@/components/SignedOutPreview";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Users, Lock, Loader2 } from "lucide-react";
 import CountUp from "@/components/CountUp";
@@ -99,19 +100,29 @@ export default function WhoIsGoing({ eventId, myEmail, visibility = "show_names"
   // would see it, but the locked box prompts sign-up rather than revealing who's
   // going.
   if (anon) {
+    // Placeholder faces only: nobody's real name or photo is loaded signed out.
+    const blobs = ["from-pink-400 to-violet-500", "from-cyan-300 to-blue-500", "from-amber-300 to-rose-500", "from-emerald-300 to-teal-500", "from-fuchsia-400 to-indigo-500"];
     return (
       <div>
         <div className="flex items-center gap-2 mb-3">
           <Users className="w-4 h-4 text-muted-foreground" />
-          <h3 className="font-heading font-semibold text-sm">Who's Going</h3>
+          <h3 className="font-heading font-semibold text-sm">Who&apos;s Going</h3>
         </div>
-        <button
-          onClick={onPrompt}
-          className="w-full bg-secondary/40 rounded-xl px-4 py-3 border border-border/50 flex items-center gap-2 text-left hover:bg-secondary/60 transition-colors"
-        >
-          <Lock className="w-3.5 h-3.5 text-muted-foreground" />
-          <p className="text-xs text-muted-foreground">Sign up to see who's going.</p>
-        </button>
+        <LockedTeaser title="See who's going" className="rounded-2xl overflow-hidden border border-border/50">
+          <div className="bg-secondary/40 px-4 py-5 space-y-3">
+            {[0, 1].map((row) => (
+              <div key={row} className="flex items-center gap-3">
+                <div className="flex -space-x-2">
+                  {blobs.map((b, i) => <span key={i} className={`w-9 h-9 rounded-full border-2 border-card bg-gradient-to-br ${b}`} />)}
+                </div>
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-2.5 rounded-full bg-white/20 w-3/4" />
+                  <div className="h-2 rounded-full bg-white/10 w-1/2" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </LockedTeaser>
       </div>
     );
   }
