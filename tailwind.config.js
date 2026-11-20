@@ -114,6 +114,14 @@ module.exports = {
   				'50%': {
   					transform: 'translateY(-6px)'
   				}
+  			},
+  			'drift': {
+  				'0%, 100%': {
+  					transform: 'scale(1.35) translate(0, 0)'
+  				},
+  				'50%': {
+  					transform: 'scale(1.45) translate(-3%, 2%)'
+  				}
   			}
   		},
   		animation: {
@@ -122,7 +130,8 @@ module.exports = {
   			'holo-pan': 'holo-pan 6s ease-in-out infinite',
   			'shine': 'shine 3.5s ease-in-out infinite',
   			'shimmer': 'shimmer 1.3s linear infinite',
-  			'float': 'float 3.4s ease-in-out infinite'
+  			'float': 'float 3.4s ease-in-out infinite',
+  			'drift': 'drift 18s ease-in-out infinite'
   		}
   	}
   },
