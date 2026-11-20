@@ -43,7 +43,7 @@ function CoverFill({ event, className = "" }) {
 // Public, shareable business/host profile at /b/:id. Anyone signed in can view
 // it (reached from an event's host, a shared link, or Search). A blurred,
 // drifting banner from their latest cover; the floating logo in the comet
-// ring used on personal profiles; a stats strip; the next event as a featured
+// ring used on personal profiles; the next event as a featured
 // card (or a "next one's cooking" card between events); and past events as a
 // swipeable archive of tilted posters. Managers get an Edit shortcut.
 export default function PublicBusiness() {
@@ -119,7 +119,6 @@ export default function PublicBusiness() {
 
   const [next, ...later] = events;
   const bannerEvent = next || pastEvents[0];
-  const firstParty = pastEvents[pastEvents.length - 1] || next;
   const instagram = biz.instagram ? biz.instagram.replace(/^@/, "") : null;
 
   return (
@@ -193,15 +192,8 @@ export default function PublicBusiness() {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="mx-4 mt-6 grid grid-cols-3 rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur divide-x divide-white/10">
-        <Stat value={pastEvents.length} label={pastEvents.length === 1 ? "Party thrown" : "Parties thrown"} />
-        <Stat value={events.length} label="On sale now" />
-        <Stat value={firstParty ? moment(firstParty.date).format("MMM ’YY") : "New"} label={firstParty ? "First party" : "On DoorMan"} />
-      </div>
-
       {/* Next up */}
-      <div className="px-4 mt-7">
+      <div className="px-4 mt-8">
         <h2 className="font-heading font-semibold text-[17px] mb-3 flex items-center gap-2">
           {next && (
             <span className="relative flex w-2 h-2">
@@ -243,15 +235,6 @@ export default function PublicBusiness() {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function Stat({ value, label }) {
-  return (
-    <div className="py-3.5 text-center">
-      <p className="font-heading font-bold text-[24px] leading-none bg-gradient-to-r from-amber-200 via-fuchsia-300 to-cyan-300 bg-clip-text text-transparent">{value}</p>
-      <p className="mt-1.5 text-[11px] text-muted-foreground">{label}</p>
     </div>
   );
 }
