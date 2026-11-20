@@ -1,18 +1,105 @@
 {
   "rewrites": [
-    { "source": "/event/:id", "destination": "/api/og?type=event&id=:id" },
-    { "source": "/event/:id/checkout", "destination": "/api/og?type=checkout&id=:id" },
-    { "source": "/pass/:id", "destination": "/api/og?type=pass&id=:id" },
-    { "source": "/invite/:code", "destination": "/api/og?type=invite&code=:code" },
-    { "source": "/b/:id", "destination": "/api/og?type=business&id=:id" },
-    { "source": "/business/:id/invite", "destination": "/api/og?type=team&id=:id" },
-    { "source": "/dj/:id", "destination": "/api/og?type=dj&id=:id" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/event/:id",
+      "destination": "/api/og?type=event&id=:id",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([Bb]ot|[Cc]rawl|[Ss]pider|[Pp]review|facebookexternalhit|Facebot|WhatsApp|Slack|Telegram|Discord|LinkedIn|Skype|Viber|Snapchat|Pinterest|Embedly|[Ii]framely|vkShare|Mastodon|Bluesky|Signal|KAKAOTALK|Line/).*"
+        }
+      ]
+    },
+    {
+      "source": "/event/:id/checkout",
+      "destination": "/api/og?type=checkout&id=:id",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([Bb]ot|[Cc]rawl|[Ss]pider|[Pp]review|facebookexternalhit|Facebot|WhatsApp|Slack|Telegram|Discord|LinkedIn|Skype|Viber|Snapchat|Pinterest|Embedly|[Ii]framely|vkShare|Mastodon|Bluesky|Signal|KAKAOTALK|Line/).*"
+        }
+      ]
+    },
+    {
+      "source": "/pass/:id",
+      "destination": "/api/og?type=pass&id=:id",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([Bb]ot|[Cc]rawl|[Ss]pider|[Pp]review|facebookexternalhit|Facebot|WhatsApp|Slack|Telegram|Discord|LinkedIn|Skype|Viber|Snapchat|Pinterest|Embedly|[Ii]framely|vkShare|Mastodon|Bluesky|Signal|KAKAOTALK|Line/).*"
+        }
+      ]
+    },
+    {
+      "source": "/invite/:code",
+      "destination": "/api/og?type=invite&code=:code",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([Bb]ot|[Cc]rawl|[Ss]pider|[Pp]review|facebookexternalhit|Facebot|WhatsApp|Slack|Telegram|Discord|LinkedIn|Skype|Viber|Snapchat|Pinterest|Embedly|[Ii]framely|vkShare|Mastodon|Bluesky|Signal|KAKAOTALK|Line/).*"
+        }
+      ]
+    },
+    {
+      "source": "/b/:id",
+      "destination": "/api/og?type=business&id=:id",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([Bb]ot|[Cc]rawl|[Ss]pider|[Pp]review|facebookexternalhit|Facebot|WhatsApp|Slack|Telegram|Discord|LinkedIn|Skype|Viber|Snapchat|Pinterest|Embedly|[Ii]framely|vkShare|Mastodon|Bluesky|Signal|KAKAOTALK|Line/).*"
+        }
+      ]
+    },
+    {
+      "source": "/business/:id/invite",
+      "destination": "/api/og?type=team&id=:id",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([Bb]ot|[Cc]rawl|[Ss]pider|[Pp]review|facebookexternalhit|Facebot|WhatsApp|Slack|Telegram|Discord|LinkedIn|Skype|Viber|Snapchat|Pinterest|Embedly|[Ii]framely|vkShare|Mastodon|Bluesky|Signal|KAKAOTALK|Line/).*"
+        }
+      ]
+    },
+    {
+      "source": "/dj/:id",
+      "destination": "/api/og?type=dj&id=:id",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([Bb]ot|[Cc]rawl|[Ss]pider|[Pp]review|facebookexternalhit|Facebot|WhatsApp|Slack|Telegram|Discord|LinkedIn|Skype|Viber|Snapchat|Pinterest|Embedly|[Ii]framely|vkShare|Mastodon|Bluesky|Signal|KAKAOTALK|Line/).*"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
   ],
   "headers": [
     {
       "source": "/.well-known/apple-app-site-association",
-      "headers": [{ "key": "Content-Type", "value": "application/json" }]
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
+      ]
+    },
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
     }
   ]
 }

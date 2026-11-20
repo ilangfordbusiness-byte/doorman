@@ -38,6 +38,7 @@ import moment from "moment";
 import { captureRef, getLinkDomain, discountLabel, promoterDiscountActive } from "@/lib/promoterRef";
 import { withPreviewVersion } from "@/lib/appUrl";
 import { SignedOutTopBar, SignupBar } from "@/components/SignedOutPreview";
+import { queryClientInstance } from "@/lib/query-client";
 import { loadPixel, trackPixel, captureMetaClick } from "@/lib/metaPixel";
 
 // Shared classes for the host dashboard action buttons so they line up as a uniform grid.
@@ -47,8 +48,16 @@ async function loadEvent(id, authed, inviteCode) {
   // Signed-out visitors get a read-only preview (see below); signed-in users
   // get the full page (guestlist, their pass, manager tools…).
   if (!authed) return loadEventPreview(id, inviteCode);
-  const me = await api.auth.me();
-  const events = await api.entities.Event.filter({ id });
+  // Everything here only needs the event id, so it's fetched in one parallel
+  // round instead of three in a row. The profile comes from the shared cache
+  // (seeded at sign-in) when it's there.
+  const [me, events, entries, staffList, tierList] = await Promise.all([
+    queryClientInstance.ensureQueryData({ queryKey: ["currentUser"], queryFn: () => api.auth.me() }),
+    api.entities.Event.filter({ id }),
+    api.entities.GuestlistEntry.filter({ event_id: id }),
+    api.entities.EventStaff.filter({ event_id: id }),
+    api.entities.TicketTier.filter({ event_id: id }).catch(() => []),
+  ]);
   if (!events.length) return { notFound: true };
   let evt = events[0];
 
@@ -58,11 +67,6 @@ async function loadEvent(id, authed, inviteCode) {
     evt = { ...evt, staff_code: code };
   }
 
-  const [entries, staffList, tierList] = await Promise.all([
-    api.entities.GuestlistEntry.filter({ event_id: id }),
-    api.entities.EventStaff.filter({ event_id: id }),
-    api.entities.TicketTier.filter({ event_id: id }).catch(() => []),
-  ]);
   // Door tiers are hidden from the public event page — they're sold only via
   // the scanner's door QR. RLS already hides them from everyone except this
   // event's managers, so drop them here too (a host must never see their own
@@ -205,12 +209,6 @@ export default function EventDetails() {
   const [accepting, setAccepting] = useState(false);
   const [publishing, setPublishing] = useState(false);
 
-  // Publishing a paid event needs payouts-enabled Stripe on the right account
-  // (the business's for a business event, else the host's) — same rule as create.
-  const { active: personalStripeActive } = useStripeStatus();
-  const { active: bizStripeActive } = useBusinessStripeStatus(event?.business_id);
-  const stripeActive = event?.business_id ? bizStripeActive : personalStripeActive;
-
   async function handlePublish() {
     if (event.is_paid && !stripeActive) {
       toast({
@@ -236,6 +234,14 @@ export default function EventDetails() {
   const acceptedCoHosts = coHosts.filter((c) => c.status === "accepted");
   const isCoHost = user && coHosts.some((c) => c.email === user.email && c.status === "accepted");
   const canManage = event?.can_manage || isHost || isCoHost;
+  // Publishing a paid event needs payouts-enabled Stripe on the right account
+  // (the business's for a business event, else the host's) — same rule as create.
+  // Only managers of a paid event use it, so nobody else pays for the
+  // edge-function round trips (they ran for every viewer, signed-out too).
+  const needsStripe = !!canManage && !!event?.is_paid;
+  const { active: personalStripeActive } = useStripeStatus(needsStripe && !event?.business_id);
+  const { active: bizStripeActive } = useBusinessStripeStatus(needsStripe ? event?.business_id : null);
+  const stripeActive = event?.business_id ? bizStripeActive : personalStripeActive;
   const myCoHostInvite = user ? coHosts.find((c) => c.email === user.email && c.status === "pending") : null;
   const hostId = event?.host_id;
   const { data: hostBlocked = false } = useQuery({

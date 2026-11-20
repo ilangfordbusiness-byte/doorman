@@ -1,6 +1,11 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { supabase } from '@/api/client';
 import { api } from '@/api/data';
+import { queryClientInstance } from '@/lib/query-client';
+
+// The profile loaded here also seeds useCurrentUser's cache, so pages don't
+// fetch it again right after the app opens (it was fetched up to 3x in a row).
+const seedCurrentUser = (me) => queryClientInstance.setQueryData(['currentUser'], me);
 
 // Auth state backed by Supabase Auth. Keeps the same context surface the app
 // already consumes (user, isAuthenticated, isLoadingAuth, authError,
@@ -29,6 +34,7 @@ export const AuthProvider = ({ children }) => {
       try {
         const me = await api.auth.me();
         if (!mounted) return;
+        seedCurrentUser(me);
         setUser(me);
         setIsAuthenticated(true);
         setAuthError(null);
@@ -75,6 +81,7 @@ export const AuthProvider = ({ children }) => {
     if (data.session) {
       try {
         const me = await api.auth.me();
+        seedCurrentUser(me);
         setUser(me);
         setIsAuthenticated(true);
         setAuthError(null);

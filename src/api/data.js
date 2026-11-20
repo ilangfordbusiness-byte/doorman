@@ -4,7 +4,9 @@
 // (cover_image, host_email, price, sender_name, ...) while the database
 // speaks the new ones (cover_image_url, host_id, price_minor, joins).
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from "./client";
-import { normalizePhone } from "@/lib/phone";
+// The phone library (libphonenumber, ~35 KB gzipped) loads only when a phone
+// number is actually written or matched, not on every page load.
+const normalizePhone = async (v) => (await import("@/lib/phone")).normalizePhone(v);
 import { appBaseUrl } from "@/lib/appUrl";
 import {
   isNative, openInAppBrowser, onBrowserFinished, appleAuthorize, NATIVE_AUTH_CALLBACK,
@@ -351,7 +353,7 @@ const ENTITIES = {
       ];
       for (const k of copy) if (k in obj) out[k] = obj[k];
       if (out.guest_email) out.guest_email = String(out.guest_email).toLowerCase();
-      if (out.guest_phone) out.guest_phone = normalizePhone(out.guest_phone);
+      if (out.guest_phone) out.guest_phone = await normalizePhone(out.guest_phone);
       if ("checked_in_by" in obj) out.checked_in_by = await uid();
       if (isCreate) {
         out.created_by = await uid();
@@ -461,7 +463,7 @@ const ENTITIES = {
       const out = {};
       if ("event_id" in obj) out.event_id = obj.event_id;
       if ("staff_email" in obj) out.email = obj.staff_email ? String(obj.staff_email).toLowerCase() : null;
-      if ("staff_phone" in obj) out.phone = obj.staff_phone ? normalizePhone(obj.staff_phone) : null;
+      if ("staff_phone" in obj) out.phone = obj.staff_phone ? await normalizePhone(obj.staff_phone) : null;
       if ("staff_name" in obj) out.name = obj.staff_name;
       if ("role" in obj) out.role = obj.role;
       if (isCreate) {
@@ -472,7 +474,7 @@ const ENTITIES = {
     },
     async filterKey(key, value) {
       if (key === "staff_email") return ["email", String(value).toLowerCase()];
-      if (key === "staff_phone") return ["phone", normalizePhone(value)];
+      if (key === "staff_phone") return ["phone", await normalizePhone(value)];
       return [key, value];
     },
   },
@@ -1134,7 +1136,7 @@ const auth = {
     for (const k of ["booking_email", "music_link", "genres"]) {
       if (k in patch) patch[k] = String(patch[k] ?? "").trim() || null;
     }
-    if (patch.phone) patch.phone = normalizePhone(patch.phone);
+    if (patch.phone) patch.phone = await normalizePhone(patch.phone);
     if ("profile_picture" in fields) patch.avatar_url = fields.profile_picture;
     if (Object.keys(patch).length) {
       const { error } = await supabase.from("profiles").update(patch).eq("id", id);
@@ -1212,13 +1214,14 @@ const auth = {
   // steps). The avatar can't be set here — there's no session until the user
   // confirms their email — so it's collected on first sign-in by the gate.
   async signUp(email, password, fullName, extra = {}) {
+    const phone = extra.phone ? await normalizePhone(extra.phone) : undefined;
     const { data, error } = await supabase.auth.signUp({
       email: String(email).trim().toLowerCase(),
       password,
       options: {
         data: {
           full_name: fullName,
-          phone: extra.phone ? normalizePhone(extra.phone) : undefined,
+          phone,
           instagram: extra.instagram || undefined,
         },
         // Return to the page the user signed up from (e.g. an event page with

@@ -5,7 +5,9 @@
 // Slack, Facebook, …) don't run the React app, so without this a shared link
 // shows the generic card instead of what it points at.
 //
-// vercel.json rewrites these routes here:
+// vercel.json rewrites these routes here, for link-preview crawlers only (a
+// user-agent match); people get the static shell from the CDN with no function
+// hop, which keeps first loads fast:
 //   /event/:id (+ promoter ?ref=)   event title, cover, description
 //   /invite/:code                   the invited event
 //   /event/:id/checkout (+ ?door=)  "Tickets · <event>"
@@ -189,6 +191,8 @@ export default async function handler(req, res) {
   // /index.html is not rewritten to this function, so there's no loop.
   const host = req.headers["x-forwarded-host"] || req.headers.host || "thedoorman.app";
   const proto = req.headers["x-forwarded-proto"] || "https";
+  // The shell and the preview data don't depend on each other: fetch both at once.
+  const previewPromise = fetchPreview({ type, id, code });
   let html;
   try {
     const base = await fetch(`${proto}://${host}/index.html`);
@@ -200,7 +204,7 @@ export default async function handler(req, res) {
     return res.end();
   }
 
-  const ev = await fetchPreview({ type, id, code });
+  const ev = await previewPromise;
   if (ev && ev.title) {
     const title = esc(ev.title);
     const desc = esc(ev.description || "You're invited — tap to see the details and RSVP on DoorMan.");

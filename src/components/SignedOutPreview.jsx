@@ -15,7 +15,7 @@ export function SignedOutTopBar({ extra = null }) {
   return (
     <>
       <a href="/" className="h-9 px-3 rounded-full bg-black/35 backdrop-blur-md border border-white/15 inline-flex items-center gap-1.5 text-xs font-semibold text-white">
-        <img src="/logo.png" alt="" className="w-4 h-4" /> DoorMan
+        <img src="/logo-256.png" alt="" className="w-4 h-4" /> DoorMan
       </a>
       <div className="flex items-center gap-2">
         {extra}

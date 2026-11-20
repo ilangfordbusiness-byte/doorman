@@ -106,7 +106,7 @@ export default function Login() {
       <div className="relative w-full max-w-sm text-center">
         {view === "root" && (
           <>
-            <img src="/logo.png" alt="DoorMan" className="w-16 h-16 mx-auto mb-6 object-contain" />
+            <img src="/logo-256.png" alt="DoorMan" className="w-16 h-16 mx-auto mb-6 object-contain" />
             <h1 className="text-2xl font-extrabold mb-1">DoorMan</h1>
             <p className="text-sm text-muted-foreground mb-8">
               Guestlists, tickets and the door — in one place. Host events, sell
