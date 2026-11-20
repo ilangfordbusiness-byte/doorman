@@ -11,6 +11,7 @@ import ConfettiBurst from "@/components/profile/ConfettiBurst";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { coverStyleFor } from "@/lib/eventCover";
+import { SignedOutTopBar, LockedTeaser, SignupBar } from "@/components/SignedOutPreview";
 
 // Date stickers on the archive posters cycle through these, and the posters
 // lean alternately, like flyers pinned to a wall.
@@ -57,6 +58,7 @@ export default function PublicBusiness() {
   const [notFound, setNotFound] = useState(false);
   const [canManage, setCanManage] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [authed, setAuthed] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -68,16 +70,20 @@ export default function PublicBusiness() {
         if (!b) { setNotFound(true); return; }
         setBiz(b);
 
-        const all = await api.entities.Event.filter({ business_id: id }, "date");
+        // Published public events only; readable signed out (shared links).
+        const [shown, signedIn] = await Promise.all([
+          api.businesses.publicEvents(id),
+          api.auth.isAuthenticated().catch(() => false),
+        ]);
         if (!active) return;
+        setAuthed(signedIn);
         const today = moment().startOf("day");
-        const shown = all.filter((e) => e.status === "published" && e.is_public);
         setEvents(shown.filter((e) => moment(e.date).isSameOrAfter(today)));
         // Most recent first.
         setPastEvents(shown.filter((e) => moment(e.date).isBefore(today)).reverse());
 
         // Is the current viewer a manager? (mine() returns owned + member)
-        try {
+        if (signedIn) try {
           const me = await api.auth.me();
           const mine = await api.businesses.mine(me.email);
           if (active) setCanManage(mine.some((x) => x.id === id));
@@ -122,7 +128,7 @@ export default function PublicBusiness() {
   const instagram = biz.instagram ? biz.instagram.replace(/^@/, "") : null;
 
   return (
-    <div className="max-w-lg mx-auto pb-10">
+    <div className={`max-w-lg mx-auto ${authed ? "pb-10" : "pb-32"}`}>
       {/* Banner: their latest cover, blurred and slowly drifting */}
       <div
         className="relative h-[230px] overflow-hidden"
@@ -139,6 +145,7 @@ export default function PublicBusiness() {
           style={{ background: "radial-gradient(60% 50% at 20% 20%, rgba(192,132,252,.55), transparent 70%), radial-gradient(50% 45% at 85% 30%, rgba(34,211,238,.4), transparent 70%)" }}
         />
         <div className="relative flex items-center justify-between px-4 pt-4">
+          {!authed ? <SignedOutTopBar /> : <>
           <button type="button" onClick={goBack} aria-label="Back"
             className="w-10 h-10 rounded-full bg-black/35 backdrop-blur-md border border-white/15 grid place-items-center text-white">
             <ArrowLeft className="w-5 h-5" />
@@ -149,6 +156,7 @@ export default function PublicBusiness() {
               <Pencil className="w-4 h-4" />
             </button>
           )}
+          </>}
         </div>
       </div>
 
@@ -228,12 +236,26 @@ export default function PublicBusiness() {
             <h2 className="font-heading font-semibold text-[17px]">
               The archive <span className="text-muted-foreground font-normal">· {pastEvents.length}</span>
             </h2>
-            {pastEvents.length > 2 && <span className="text-xs text-muted-foreground">Swipe →</span>}
+            {authed && pastEvents.length > 2 && <span className="text-xs text-muted-foreground">Swipe →</span>}
           </div>
-          <div className="flex gap-4 overflow-x-auto px-5 pt-4 pb-5 snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {pastEvents.map((e, i) => <ArchivePoster key={e.id} event={e} i={i} host={biz.business_name} />)}
-          </div>
+          {authed ? (
+            <div className="flex gap-4 overflow-x-auto px-5 pt-4 pb-5 snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {pastEvents.map((e, i) => <ArchivePoster key={e.id} event={e} i={i} host={biz.business_name} />)}
+            </div>
+          ) : (
+            // Signed out: a blurred glimpse of the first few, behind sign-up.
+            <LockedTeaser title={`See ${biz.business_name}'s past parties`}>
+              <div className="flex gap-4 overflow-hidden px-5 pt-4 pb-5">
+                {pastEvents.slice(0, 3).map((e, i) => <ArchivePoster key={e.id} event={e} i={i} host={biz.business_name} locked />)}
+              </div>
+            </LockedTeaser>
+          )}
         </div>
+      )}
+
+      {!authed && (
+        <SignupBar picture={biz.business_picture} name={biz.business_name}
+          title={next ? "Get tickets on DoorMan" : `More from ${biz.business_name}`} />
       )}
     </div>
   );
@@ -293,9 +315,11 @@ function NextOneCooking({ name, instagram }) {
 }
 
 // A past event as a tilted poster with a date sticker; straightens on hover.
-function ArchivePoster({ event, i, host }) {
+// `locked` renders a plain tile (it sits inside the sign-up teaser's button).
+function ArchivePoster({ event, i, host, locked = false }) {
+  const Tag = locked ? "div" : Link;
   return (
-    <Link to={`/event/${event.id}`}
+    <Tag to={locked ? undefined : `/event/${event.id}`}
       className={`snap-start shrink-0 w-[148px] ${TILTS[i % TILTS.length]} hover:rotate-0 hover:-translate-y-1.5 active:rotate-0 transition-transform duration-300 ease-[cubic-bezier(.3,1.3,.5,1)]`}>
       <div className="relative aspect-[3/4] rounded-2xl overflow-hidden border-[3px] border-white shadow-xl shadow-black/60 bg-card">
         <CoverFill event={event} />
@@ -304,6 +328,6 @@ function ArchivePoster({ event, i, host }) {
         </span>
       </div>
       <p className="mt-2.5 text-[13px] font-semibold leading-tight line-clamp-2">{withoutHostPrefix(event.title, host)}</p>
-    </Link>
+    </Tag>
   );
 }
