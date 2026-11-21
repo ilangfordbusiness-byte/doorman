@@ -1040,6 +1040,27 @@ begin
   end if;
   perform pg_temp.ok('hidden location is NULL for anon');
 
+  -- ---- DJ link previews (20261119120000_dj_link_preview.sql) ----
+  -- Anon (link crawlers) gets a DJ's public card only when they're billed on
+  -- a public, published event; anyone else is null.
+  if public.get_dj_link_preview(alice) is not null then
+    raise exception 'FAIL: DJ link preview returned a user with no billed sets';
+  end if;
+  execute 'reset role';
+  insert into public.event_dj_lineup (event_id, dj_user_id, dj_name) values (v_event, alice, 'Alice');
+  perform pg_temp.go_anon();
+  v_json := public.get_dj_link_preview(alice);
+  if exists (select 1 from public.events where id = v_event and status = 'published' and is_public) then
+    if v_json ->> 'name' is null or v_json ? 'email' then
+      raise exception 'FAIL: billed DJ link preview wrong: %', v_json;
+    end if;
+  elsif v_json is not null then
+    raise exception 'FAIL: DJ preview exposed a DJ billed only on a private/draft event';
+  end if;
+  execute 'reset role';
+  delete from public.event_dj_lineup where event_id = v_event and dj_user_id = alice;
+  perform pg_temp.ok('DJ link preview is anon-readable only for publicly billed DJs');
+
   -- ---- admins can read analytics data for events they don't manage ----
   -- (20261103120000_admin_read_analytics.sql widened these SELECT policies.)
   -- Seed one manager-only row in each analytics table on alice's event, keyed
@@ -1081,6 +1102,108 @@ begin
   -- revert so the final state leaves bob a plain user again
   execute 'reset role';
   update public.profiles set role = 'user' where id = bob;
+
+  -- ---- door lists (20261111120000_door_lists.sql) ----
+  -- The allow-listed account owns lists; people it invites can read, add and
+  -- check in; everyone else sees nothing.
+  execute 'reset role';
+  insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
+                          email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
+                          created_at, updated_at)
+  values ('00000000-0000-0000-0000-000000000000',
+          'c0ffee00-0000-4000-8000-00000000d00e', 'authenticated', 'authenticated',
+          'soooomuchcoffee@gmail.com', '', now(), '{}',
+          json_build_object('full_name', 'Door Owner')::jsonb, now(), now());
+
+  perform pg_temp.impersonate('c0ffee00-0000-4000-8000-00000000d00e'::uuid, 'soooomuchcoffee@gmail.com');
+  insert into public.door_lists (name) values ('Test Door List') returning id into v_id;
+  insert into public.door_list_guests (list_id, name, status, plus_ones)
+    values (v_id, 'Jo Guest', 'Going', 1) returning id into v_entry;
+  insert into public.door_list_guests (list_id, name, status, plus_one_of)
+    values (v_id, 'Jo Guest +1', 'Going', v_entry);
+  v_json := public.door_list_set_checkin(v_entry, true);
+  if (v_json ->> 'already')::boolean or v_json ->> 'checked_in_at' is null then
+    raise exception 'FAIL: door list check-in did not record';
+  end if;
+  v_json := public.door_list_set_checkin(v_entry, true);
+  if not (v_json ->> 'already')::boolean then
+    raise exception 'FAIL: repeat door list check-in not reported as already in';
+  end if;
+  perform pg_temp.ok('allow-listed owner builds a door list and checks a guest in once');
+
+  -- dave isn't invited: sees nothing, can't create lists or touch check-ins
+  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  if (select count(*) from public.door_lists) <> 0
+     or (select count(*) from public.door_list_guests) <> 0 then
+    raise exception 'FAIL: uninvited user read a door list';
+  end if;
+  begin
+    insert into public.door_lists (name) values ('Nope');
+    raise exception 'FAIL: non-allow-listed account created a door list' using errcode = 'assert_failure';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.door_list_set_checkin(v_entry, false);
+    raise exception 'FAIL: uninvited user changed a door list check-in' using errcode = 'assert_failure';
+  exception when no_data_found then null;
+  end;
+  perform pg_temp.ok('door lists are invisible to people who were not invited');
+
+  -- the owner invites dave by email: he can read, add and check in, but not
+  -- delete the list or invite anyone himself
+  perform pg_temp.impersonate('c0ffee00-0000-4000-8000-00000000d00e'::uuid, 'soooomuchcoffee@gmail.com');
+  insert into public.door_list_members (list_id, email) values (v_id, 'dave@test.dev');
+
+  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  if (select count(*) from public.door_list_guests where list_id = v_id) <> 2 then
+    raise exception 'FAIL: invited member cannot read the door list';
+  end if;
+  insert into public.door_list_guests (list_id, name, status) values (v_id, 'Walk In', 'Walk-in');
+  perform public.door_list_set_checkin(v_entry, false);
+  delete from public.door_lists where id = v_id;
+  begin
+    insert into public.door_list_members (list_id, email) values (v_id, 'carol@test.dev');
+    raise exception 'FAIL: member invited someone else' using errcode = 'assert_failure';
+  exception when insufficient_privilege then null;
+  end;
+  execute 'reset role';
+  if (select count(*) from public.door_lists where id = v_id) <> 1 then
+    raise exception 'FAIL: member deleted the door list';
+  end if;
+  if (select checked_in_at from public.door_list_guests where id = v_entry) is not null then
+    raise exception 'FAIL: member could not undo a check-in';
+  end if;
+  if (select count(*) from public.door_list_guests where list_id = v_id) <> 3 then
+    raise exception 'FAIL: member could not add a guest';
+  end if;
+  perform pg_temp.ok('invited member reads, adds and checks in but cannot delete or invite');
+
+  -- the shared list shows in dave's notifications until he opens it
+  perform pg_temp.impersonate(dave, 'dave@test.dev');
+  v_json := public.get_notifications();
+  if (v_json -> 'counts' ->> 'doorListInvite')::int <> 1
+     or v_json -> 'doorListInvites' -> 0 ->> 'list_id' <> v_id::text then
+    raise exception 'FAIL: door list invite missing from notifications: %', v_json -> 'doorListInvites';
+  end if;
+  perform public.door_list_mark_opened(v_id);
+  if (public.get_notifications() -> 'counts' ->> 'doorListInvite')::int <> 0 then
+    raise exception 'FAIL: opening the door list did not clear the notification';
+  end if;
+  perform pg_temp.ok('door list invite shows in notifications until opened');
+
+  -- a member can remove people; a host's plus-ones go with them
+  delete from public.door_list_guests where list_id = v_id and name = 'Jo Guest';
+  if (select count(*) from public.door_list_guests where list_id = v_id) <> 1 then
+    raise exception 'FAIL: removing a guest did not take their plus-one with them';
+  end if;
+  perform pg_temp.ok('member removes a guest and their plus-ones');
+
+  perform pg_temp.impersonate(carol, 'carol@test.dev');
+  if (select count(*) from public.door_list_guests) <> 0 then
+    raise exception 'FAIL: a non-member saw a shared door list';
+  end if;
+  perform pg_temp.ok('a shared door list stays hidden from everyone else');
+  execute 'reset role';
 
   raise notice '';
   raise notice 'ALL % CHECKS PASSED', currval('pg_temp.t_pass');

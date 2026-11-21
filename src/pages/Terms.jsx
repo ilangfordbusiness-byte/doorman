@@ -16,7 +16,7 @@ export default function Terms() {
     <div className="min-h-screen bg-background text-foreground">
       <div className="max-w-2xl mx-auto px-6 py-12">
         <a href="/" className="inline-flex items-center gap-2 mb-8 text-sm text-muted-foreground hover:text-foreground">
-          <img src="/logo.png" alt="" className="w-6 h-6 object-contain" />
+          <img src="/logo-256.png" alt="" className="w-6 h-6 object-contain" />
           DoorMan
         </a>
         <h1 className="font-heading font-extrabold text-3xl mb-2">Terms of Use</h1>

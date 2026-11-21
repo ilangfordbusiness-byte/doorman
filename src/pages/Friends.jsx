@@ -14,6 +14,8 @@ import FriendProfile from "../components/FriendProfile";
 import SuggestionProfile from "../components/SuggestionProfile";
 import FriendsSearch from "../components/FriendsSearch";
 import ActivityFeed from "../components/ActivityFeed";
+import DoorListInvitesSection from "../components/DoorListInvitesSection";
+import { useNotifications } from "@/hooks/useNotifications";
 
 const PAGE_SIZE = 50;
 
@@ -36,6 +38,8 @@ export default function Friends() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState("activity");
+  const { data: notifs } = useNotifications();
+  const doorListInvites = notifs?.doorListInvites ?? [];
   const { data: me } = useCurrentUser();
   const { data: fd, isLoading: loading } = useQuery({
     queryKey: ["friendsData"],
@@ -194,6 +198,7 @@ export default function Friends() {
         <LoadingSpinner />
       ) : (
         <>
+          {tab === "activity" && <DoorListInvitesSection invites={doorListInvites} />}
           {tab === "activity" && (
             <ActivityFeed
               sentSet={sentSet}

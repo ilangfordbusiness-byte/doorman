@@ -31,7 +31,7 @@ export default function Home() {
       {/* Header */}
       <div className="relative flex items-center justify-center">
         <img
-          src="/logo.png"
+          src="/logo-256.png"
           alt="DoorMan"
           className="w-8 h-8 object-contain absolute left-0"
         />

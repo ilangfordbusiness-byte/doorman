@@ -4,7 +4,9 @@
 // (cover_image, host_email, price, sender_name, ...) while the database
 // speaks the new ones (cover_image_url, host_id, price_minor, joins).
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from "./client";
-import { normalizePhone } from "@/lib/phone";
+// The phone library (libphonenumber, ~35 KB gzipped) loads only when a phone
+// number is actually written or matched, not on every page load.
+const normalizePhone = async (v) => (await import("@/lib/phone")).normalizePhone(v);
 import { appBaseUrl } from "@/lib/appUrl";
 import {
   isNative, openInAppBrowser, onBrowserFinished, appleAuthorize, NATIVE_AUTH_CALLBACK,
@@ -351,13 +353,97 @@ const ENTITIES = {
       ];
       for (const k of copy) if (k in obj) out[k] = obj[k];
       if (out.guest_email) out.guest_email = String(out.guest_email).toLowerCase();
-      if (out.guest_phone) out.guest_phone = normalizePhone(out.guest_phone);
+      if (out.guest_phone) out.guest_phone = await normalizePhone(out.guest_phone);
       if ("checked_in_by" in obj) out.checked_in_by = await uid();
       if (isCreate) {
         out.created_by = await uid();
         if (out.guest_email) out.guest_user_id = await resolveUserId(out.guest_email);
       }
       return out;
+    },
+  },
+
+  // Door lists: standalone Partiful check-in lists (allow-listed accounts
+  // only; enforced by RLS). One field name end-to-end, no legacy mapping.
+  DoorList: {
+    table: "door_lists",
+    select: "id, owner_id, name, source, created_at, updated_at",
+    toApp: (r) => ({ ...base(r), owner_id: r.owner_id, name: r.name, source: r.source }),
+    fromApp(obj) {
+      const out = {};
+      if ("name" in obj) out.name = String(obj.name || "").trim();
+      if ("source" in obj) out.source = obj.source;
+      return out;
+    },
+  },
+
+  DoorListGuest: {
+    table: "door_list_guests",
+    select: "id, list_id, name, status, plus_ones, plus_one_of, phone, email, note, checked_in_at, created_at, updated_at",
+    toApp: (r) => ({
+      ...base(r),
+      list_id: r.list_id,
+      name: r.name,
+      status: r.status,
+      plus_ones: r.plus_ones ?? 0,
+      plus_one_of: r.plus_one_of,
+      phone: r.phone,
+      email: r.email,
+      note: r.note,
+      checked_in_at: r.checked_in_at,
+    }),
+    fromApp(obj) {
+      const out = {};
+      for (const k of ["list_id", "name", "status", "note", "plus_one_of"]) if (k in obj) out[k] = obj[k];
+      if ("plus_ones" in obj) out.plus_ones = Math.max(0, Math.min(50, Number(obj.plus_ones) || 0));
+      // Display-only (never matched against accounts), so keep it as exported.
+      if ("phone" in obj) out.phone = obj.phone ? String(obj.phone).trim() : null;
+      if ("email" in obj) out.email = obj.email ? String(obj.email).toLowerCase() : null;
+      return out;
+    },
+    // Atomic check-in / undo. Resolves { checked_in_at, already } — already is
+    // true when another phone checked this guest in first.
+    async setCheckedIn(id, checkedIn) {
+      const { data, error } = await supabase.rpc("door_list_set_checkin", {
+        p_guest_id: id,
+        p_checked_in: !!checkedIn,
+      });
+      throwOn(error);
+      return data;
+    },
+    // Realtime can't filter DELETE events (they carry only the id), so the
+    // list subscription misses removals. This listens for deletes alone and
+    // hands back the id; callers ignore ids that aren't on their list.
+    subscribeDeletes(cb) {
+      const channel = supabase
+        .channel(`del-door_list_guests-${Math.random().toString(36).slice(2)}`)
+        .on("postgres_changes", { event: "DELETE", schema: "public", table: "door_list_guests" },
+          (payload) => { if (payload.old?.id) cb(payload.old.id); })
+        .subscribe();
+      return () => { supabase.removeChannel(channel); };
+    },
+  },
+
+  // People the owner invited to help run a door list (read, add, check in).
+  DoorListMember: {
+    table: "door_list_members",
+    select: "id, list_id, email, user_id, opened_at, created_at",
+    toApp: (r) => ({ ...base(r), list_id: r.list_id, email: r.email, user_id: r.user_id, opened_at: r.opened_at }),
+    fromApp(obj) {
+      const out = {};
+      if ("list_id" in obj) out.list_id = obj.list_id;
+      if ("email" in obj) out.email = String(obj.email || "").trim().toLowerCase();
+      return out;
+    },
+    // Owner-only: adds them and emails a link to the list.
+    async invite(listId, email) {
+      const { data } = await invokeEdge("inviteDoorListMember", { list_id: listId, email });
+      return data;
+    },
+    // Invitee opened the list: clears it from their notifications.
+    async markOpened(listId) {
+      const { error } = await supabase.rpc("door_list_mark_opened", { p_list_id: listId });
+      throwOn(error);
     },
   },
 
@@ -377,7 +463,7 @@ const ENTITIES = {
       const out = {};
       if ("event_id" in obj) out.event_id = obj.event_id;
       if ("staff_email" in obj) out.email = obj.staff_email ? String(obj.staff_email).toLowerCase() : null;
-      if ("staff_phone" in obj) out.phone = obj.staff_phone ? normalizePhone(obj.staff_phone) : null;
+      if ("staff_phone" in obj) out.phone = obj.staff_phone ? await normalizePhone(obj.staff_phone) : null;
       if ("staff_name" in obj) out.name = obj.staff_name;
       if ("role" in obj) out.role = obj.role;
       if (isCreate) {
@@ -388,7 +474,7 @@ const ENTITIES = {
     },
     async filterKey(key, value) {
       if (key === "staff_email") return ["email", String(value).toLowerCase()];
-      if (key === "staff_phone") return ["phone", normalizePhone(value)];
+      if (key === "staff_phone") return ["phone", await normalizePhone(value)];
       return [key, value];
     },
   },
@@ -1050,7 +1136,7 @@ const auth = {
     for (const k of ["booking_email", "music_link", "genres"]) {
       if (k in patch) patch[k] = String(patch[k] ?? "").trim() || null;
     }
-    if (patch.phone) patch.phone = normalizePhone(patch.phone);
+    if (patch.phone) patch.phone = await normalizePhone(patch.phone);
     if ("profile_picture" in fields) patch.avatar_url = fields.profile_picture;
     if (Object.keys(patch).length) {
       const { error } = await supabase.from("profiles").update(patch).eq("id", id);
@@ -1128,13 +1214,14 @@ const auth = {
   // steps). The avatar can't be set here — there's no session until the user
   // confirms their email — so it's collected on first sign-in by the gate.
   async signUp(email, password, fullName, extra = {}) {
+    const phone = extra.phone ? await normalizePhone(extra.phone) : undefined;
     const { data, error } = await supabase.auth.signUp({
       email: String(email).trim().toLowerCase(),
       password,
       options: {
         data: {
           full_name: fullName,
-          phone: extra.phone ? normalizePhone(extra.phone) : undefined,
+          phone,
           instagram: extra.instagram || undefined,
         },
         // Return to the page the user signed up from (e.g. an event page with
@@ -1464,6 +1551,22 @@ const admin = {
 const businesses = {
   // Public display fields (name, picture, description, instagram) — readable by
   // anyone via the business_public view (the base table is manager-only).
+  // A business's published, public events for its /b/:id page. Plain columns
+  // anon can read, so the page also works signed out (shared links).
+  async publicEvents(businessId) {
+    if (!businessId) return [];
+    const { data, error } = await supabase
+      .from("events")
+      .select("id, title, cover_image_url, date, start_time, status, is_public")
+      .eq("business_id", businessId).eq("status", "published").eq("is_public", true)
+      .order("date", { ascending: true });
+    throwOn(error);
+    return (data ?? []).map((e) => ({
+      id: e.id, title: e.title, cover_image: e.cover_image_url, date: e.date,
+      start_time: e.start_time ? String(e.start_time).slice(0, 5) : null,
+      status: e.status, is_public: e.is_public,
+    }));
+  },
   async getPublic(id) {
     if (!id) return null;
     const { data, error } = await supabase

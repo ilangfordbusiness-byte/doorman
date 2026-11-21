@@ -36,6 +36,9 @@ import { lineupStyle } from "@/lib/lineupStyles";
 import EventJoinActions from "../components/EventJoinActions";
 import moment from "moment";
 import { captureRef, getLinkDomain, discountLabel, promoterDiscountActive } from "@/lib/promoterRef";
+import { withPreviewVersion } from "@/lib/appUrl";
+import { SignedOutTopBar, SignupBar } from "@/components/SignedOutPreview";
+import { queryClientInstance } from "@/lib/query-client";
 import { loadPixel, trackPixel, captureMetaClick } from "@/lib/metaPixel";
 
 // Shared classes for the host dashboard action buttons so they line up as a uniform grid.
@@ -45,8 +48,16 @@ async function loadEvent(id, authed, inviteCode) {
   // Signed-out visitors get a read-only preview (see below); signed-in users
   // get the full page (guestlist, their pass, manager tools…).
   if (!authed) return loadEventPreview(id, inviteCode);
-  const me = await api.auth.me();
-  const events = await api.entities.Event.filter({ id });
+  // Everything here only needs the event id, so it's fetched in one parallel
+  // round instead of three in a row. The profile comes from the shared cache
+  // (seeded at sign-in) when it's there.
+  const [me, events, entries, staffList, tierList] = await Promise.all([
+    queryClientInstance.ensureQueryData({ queryKey: ["currentUser"], queryFn: () => api.auth.me() }),
+    api.entities.Event.filter({ id }),
+    api.entities.GuestlistEntry.filter({ event_id: id }),
+    api.entities.EventStaff.filter({ event_id: id }),
+    api.entities.TicketTier.filter({ event_id: id }).catch(() => []),
+  ]);
   if (!events.length) return { notFound: true };
   let evt = events[0];
 
@@ -56,11 +67,6 @@ async function loadEvent(id, authed, inviteCode) {
     evt = { ...evt, staff_code: code };
   }
 
-  const [entries, staffList, tierList] = await Promise.all([
-    api.entities.GuestlistEntry.filter({ event_id: id }),
-    api.entities.EventStaff.filter({ event_id: id }),
-    api.entities.TicketTier.filter({ event_id: id }).catch(() => []),
-  ]);
   // Door tiers are hidden from the public event page — they're sold only via
   // the scanner's door QR. RLS already hides them from everyone except this
   // event's managers, so drop them here too (a host must never see their own
@@ -203,12 +209,6 @@ export default function EventDetails() {
   const [accepting, setAccepting] = useState(false);
   const [publishing, setPublishing] = useState(false);
 
-  // Publishing a paid event needs payouts-enabled Stripe on the right account
-  // (the business's for a business event, else the host's) — same rule as create.
-  const { active: personalStripeActive } = useStripeStatus();
-  const { active: bizStripeActive } = useBusinessStripeStatus(event?.business_id);
-  const stripeActive = event?.business_id ? bizStripeActive : personalStripeActive;
-
   async function handlePublish() {
     if (event.is_paid && !stripeActive) {
       toast({
@@ -234,6 +234,14 @@ export default function EventDetails() {
   const acceptedCoHosts = coHosts.filter((c) => c.status === "accepted");
   const isCoHost = user && coHosts.some((c) => c.email === user.email && c.status === "accepted");
   const canManage = event?.can_manage || isHost || isCoHost;
+  // Publishing a paid event needs payouts-enabled Stripe on the right account
+  // (the business's for a business event, else the host's) — same rule as create.
+  // Only managers of a paid event use it, so nobody else pays for the
+  // edge-function round trips (they ran for every viewer, signed-out too).
+  const needsStripe = !!canManage && !!event?.is_paid;
+  const { active: personalStripeActive } = useStripeStatus(needsStripe && !event?.business_id);
+  const { active: bizStripeActive } = useBusinessStripeStatus(needsStripe ? event?.business_id : null);
+  const stripeActive = event?.business_id ? bizStripeActive : personalStripeActive;
   const myCoHostInvite = user ? coHosts.find((c) => c.email === user.email && c.status === "pending") : null;
   const hostId = event?.host_id;
   const { data: hostBlocked = false } = useQuery({
@@ -325,9 +333,11 @@ export default function EventDetails() {
     // A manager has the real invite_code; a signed-out previewer arrived with
     // it in the URL (?invite=) — use whichever we have for a private event.
     const code = event.invite_code || inviteCode;
-    const url = event.is_public
+    // Versioned by what the link card shows, so an edited event gets a fresh
+    // preview in chat apps instead of their cached one.
+    const url = withPreviewVersion(event.is_public
       ? `${getLinkDomain()}/event/${event.id}`
-      : `${getLinkDomain()}/invite/${code}`;
+      : `${getLinkDomain()}/invite/${code}`, event.title, event.cover_image, event.description);
     // Native share sheet in the iOS app, Web Share API elsewhere, clipboard
     // as the last resort (see shareUrl).
     const result = await shareUrl({ title: event.title, url });
@@ -362,21 +372,26 @@ export default function EventDetails() {
   const eventDate = moment(event.date);
   const sym = currencySymbol(event.currency);
 
+  const signedOut = authed === false;
+  const shareButton = (
+    <Button variant="ghost" size="icon" className="rounded-full bg-card/60 backdrop-blur-sm" onClick={handleShare} aria-label="Share">
+      {copied ? <Check className="w-5 h-5 text-emerald-400" /> : <Share2 className="w-5 h-5" />}
+    </Button>
+  );
+
   return (
-    <div className="max-w-lg mx-auto">
+    <div className={`max-w-lg mx-auto ${signedOut ? "pb-24" : ""}`}>
       {/* Cover — a floating card that tilts toward the pointer/finger (see EventCoverHero) */}
       <EventCoverHero
         event={event}
-        topBar={
+        topBar={signedOut ? <SignedOutTopBar extra={shareButton} /> : (
           <>
             <Button variant="ghost" size="icon" className="rounded-full bg-card/60 backdrop-blur-sm" onClick={() => navigate(-1)}>
               <ArrowLeft className="w-5 h-5" />
             </Button>
-            <Button variant="ghost" size="icon" className="rounded-full bg-card/60 backdrop-blur-sm" onClick={handleShare}>
-              {copied ? <Check className="w-5 h-5 text-emerald-400" /> : <Share2 className="w-5 h-5" />}
-            </Button>
+            {shareButton}
           </>
-        }
+        )}
       />
 
       <div className="px-4 pt-6 relative z-10 pb-8 space-y-5">
@@ -397,7 +412,11 @@ export default function EventDetails() {
           <div className="flex items-center gap-2 mt-2 flex-wrap">
             <button
               onClick={() =>
-                !user
+                // A business host's page is public (signed out too); a
+                // person's profile needs an account.
+                event.host_is_business && event.business_id
+                  ? navigate(`/b/${event.business_id}`)
+                  : !user
                   ? promptSignup()
                   : event.host_is_business && event.business_id
                   ? navigate(`/b/${event.business_id}`)
@@ -760,6 +779,10 @@ export default function EventDetails() {
             onBlocked={() => navigate("/guest")}
             className="pt-2"
           />
+        )}
+        {signedOut && (
+          <SignupBar picture={event.host_picture} name={event.host_name}
+            title={allSoldOut ? "Don't miss the next one" : event.is_paid ? "Get tickets on DoorMan" : "Join this event on DoorMan"} />
         )}
         {showHostModal && (
           <HostProfileModal

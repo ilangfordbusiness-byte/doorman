@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { getLinkDomain, setLinkDomain as persistLinkDomain, discountLabel, usesRemaining } from "@/lib/promoterRef";
+import { withPreviewVersion } from "@/lib/appUrl";
 
 export default function PromoterPanel() {
   const { id } = useParams();
@@ -128,7 +129,8 @@ export default function PromoterPanel() {
   }
 
   function copyLink(p) {
-    const link = `${linkDomain}/event/${id}?ref=${p.tracking_code}`;
+    const link = withPreviewVersion(`${linkDomain}/event/${id}?ref=${p.tracking_code}`,
+      event?.title, event?.cover_image, event?.description);
     navigator.clipboard.writeText(link);
     setCopiedCode(p.id);
     toast({ title: "Tracking link copied!" });

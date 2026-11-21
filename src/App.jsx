@@ -13,12 +13,6 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import UpdateRequiredGate from '@/components/UpdateRequiredGate';
 import Layout from './components/Layout';
 import ImpersonationBanner from './components/ImpersonationBanner';
-import Login from './pages/Login';
-import Privacy from './pages/Privacy';
-import Terms from './pages/Terms';
-import AuthConfirm from './pages/AuthConfirm';
-import Unsubscribe from './pages/Unsubscribe';
-import NativeReturn from './pages/NativeReturn';
 import { stashRefFromUrl } from '@/lib/promoterRef';
 
 // Capture a promoter ?ref= before the auth gate decides what to render, so
@@ -52,6 +46,16 @@ const BusinessPastEvents = lazy(() => import('./pages/business/BusinessPastEvent
 const EditBusinessAccount = lazy(() => import('./pages/business/EditBusinessAccount'));
 const BusinessInvite = lazy(() => import('./pages/business/BusinessInvite'));
 const Admin = lazy(() => import('./pages/Admin'));
+// Shown before/without a session (sign-in, legal pages, email links): loaded on
+// demand so signed-in visits never download them.
+const Login = lazy(() => import('./pages/Login'));
+const Privacy = lazy(() => import('./pages/Privacy'));
+const Terms = lazy(() => import('./pages/Terms'));
+const AuthConfirm = lazy(() => import('./pages/AuthConfirm'));
+const Unsubscribe = lazy(() => import('./pages/Unsubscribe'));
+const NativeReturn = lazy(() => import('./pages/NativeReturn'));
+const DoorLists = lazy(() => import('./pages/DoorLists'));
+const DoorListCheckIn = lazy(() => import('./pages/DoorListCheckIn'));
 
 const PageLoader = () => (
   <div className="fixed inset-0 flex items-center justify-center bg-background">
@@ -59,7 +63,7 @@ const PageLoader = () => (
       <div className="absolute inset-0 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
       <div className="absolute inset-0 flex items-center justify-center">
         <img
-          src="/logo.png"
+          src="/logo-256.png"
           alt="DoorMan"
           className="w-8 h-8 object-contain animate-pulse"
         />
@@ -84,22 +88,22 @@ const AuthenticatedApp = () => {
 
   // Public pages, reachable with no session (Google's consent screen links here).
   if (pathname === '/privacy') {
-    return <Privacy />;
+    return <Suspense fallback={<PageLoader />}><Privacy /></Suspense>;
   }
   if (pathname === '/terms') {
-    return <Terms />;
+    return <Suspense fallback={<PageLoader />}><Terms /></Suspense>;
   }
   // Auth email links land here with a token hash; there is no session yet.
   if (pathname === '/auth/confirm') {
-    return <AuthConfirm />;
+    return <Suspense fallback={<PageLoader />}><AuthConfirm /></Suspense>;
   }
   // The "Unsubscribe" link in every email lands here; the link carries its own token.
   if (pathname === '/unsubscribe') {
-    return <Unsubscribe />;
+    return <Suspense fallback={<PageLoader />}><Unsubscribe /></Suspense>;
   }
   // Stripe redirects the iOS app's browser sheet here; it hands back to the app.
   if (pathname === '/native/return') {
-    return <NativeReturn />;
+    return <Suspense fallback={<PageLoader />}><NativeReturn /></Suspense>;
   }
 
   // Show loading spinner while checking app public settings or auth
@@ -116,20 +120,22 @@ const AuthenticatedApp = () => {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
     } else if (authError.type === 'auth_required') {
-      // Logged-out visitors can PREVIEW a shared event and sign up only when
-      // they try to join. Only the bare event/invite pages open this way; every
-      // deeper or unrelated route still shows the sign-in screen.
-      if (/^\/(event|invite)\/[^/]+$/.test(pathname)) {
+      // Logged-out visitors can PREVIEW a shared event or business page and
+      // sign up only when they try to join. Only the bare event/invite/business
+      // pages open this way; every deeper or unrelated route still shows the
+      // sign-in screen.
+      if (/^\/(event|invite|b)\/[^/]+$/.test(pathname)) {
         return (
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/event/:id" element={<EventDetails />} />
               <Route path="/invite/:code" element={<InvitePage />} />
+              <Route path="/b/:id" element={<PublicBusiness />} />
             </Routes>
           </Suspense>
         );
       }
-      return <Login />;
+      return <Suspense fallback={<PageLoader />}><Login /></Suspense>;
     }
   }
 
@@ -159,6 +165,8 @@ const AuthenticatedApp = () => {
         <Route path="/dj/:id" element={<DjProfile />} />
         <Route path="/business/:id/invite" element={<BusinessInvite />} />
         <Route path="/admin" element={<Admin />} />
+        <Route path="/door-lists" element={<DoorLists />} />
+        <Route path="/door-lists/:id" element={<DoorListCheckIn />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
       <Route path="/pass/:id" element={<GuestPass />} />
