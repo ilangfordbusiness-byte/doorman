@@ -1,4 +1,5 @@
 import { api } from "@/api/data";
+import { minPaid } from "@/lib/fees";
 
 // The canonical share domain lives in appUrl.js (data.js needs it too and
 // cannot import this module, which imports data.js). Re-exported so existing
@@ -80,8 +81,6 @@ export async function getPromoterByCode(eventId, code) {
   }
 }
 
-export const MIN_PAID = 0.5;
-
 // Whether the promoter's auto-discount is currently available (configured and
 // not exhausted). max_uses = 0 means unlimited.
 export function promoterDiscountActive(promoter) {
@@ -95,14 +94,15 @@ export function promoterDiscountActive(promoter) {
 
 // Compute the promoter discount for a ticket price (major units), flooring the
 // paid amount at the platform minimum. Mirrors the server-side logic.
-export function computePromoterDiscount(price, promoter) {
+export function computePromoterDiscount(price, promoter, currency) {
+  const floor = minPaid(currency);
   if (!promoter) return { discount: 0, paid: price };
   const type = promoter.discount_type;
   const value = Number(promoter.discount_value || 0);
   if (!type || type === "none" || value <= 0) return { discount: 0, paid: price };
   let discount = type === "percent" ? price * (value / 100) : value;
   let paid = price - discount;
-  if (paid < MIN_PAID) paid = MIN_PAID;
+  if (paid < floor) paid = floor;
   if (paid > price) paid = price;
   discount = price - paid;
   if (discount < 0) discount = 0;

@@ -1,4 +1,4 @@
-import { feeLabel } from "@/lib/money";
+import { EVENT_CURRENCIES, feeLabel } from "@/lib/money";
 import TimeZoneSelect from "@/components/TimeZoneSelect";
 import { DEFAULT_TZ } from "@/lib/eventTime";
 import { useState, useEffect } from "react";
@@ -409,9 +409,7 @@ export default function EditEvent() {
               <div>
                 <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Currency</Label>
                 <select value={form.currency} onChange={(e) => updateForm("currency", e.target.value)} className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm">
-                  <option value="gbp">GBP (£)</option>
-                  <option value="eur">EUR (€)</option>
-                  <option value="usd">USD ($)</option>
+                  {EVENT_CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
                 </select>
               </div>
               <div>

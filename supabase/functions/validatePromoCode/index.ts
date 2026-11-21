@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
     const { data: event } = await svc.from('events').select('currency').eq('id', event_id).single();
     const cur = String(event?.currency || 'gbp').toLowerCase();
 
-    const { discount, paid } = applyDiscount(tier.price_minor, promo.discount_percent);
+    const { discount, paid } = applyDiscount(tier.price_minor, promo.discount_percent, cur);
 
     return json({
       valid: true,

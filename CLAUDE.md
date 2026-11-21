@@ -24,7 +24,8 @@ DoorMan is an events app for hosts, guests, promoters, and door staff:
 - **Admins** (super-admin only) manage users and events and can impersonate.
 
 Money flows through Stripe Connect. Ticket prices are stored in integer minor
-units (pence). The platform fee is 45p + 4% per paid ticket, either absorbed by
+units (pence). Events are priced in GBP, EUR, USD or AED. The platform fee is
+45p + 4% per paid ticket (2.00 AED + 4% for AED events), either absorbed by
 the host or passed on to the buyer per event (`fee_mode`).
 
 ## Architecture in one line

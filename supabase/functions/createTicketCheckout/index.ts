@@ -116,7 +116,7 @@ Deno.serve(async (req) => {
     // fee_mode decides who pays the fee: 'pass_on' adds it to the buyer's
     // total (displayed all-in in the app); 'absorb' deducts it from the host.
     const passOn = event.fee_mode === 'pass_on';
-    const feePerTicketMinor = computeFeeMinor(paid);
+    const feePerTicketMinor = computeFeeMinor(paid, currency);
     const feeMinor = feePerTicketMinor * qty;
     const orderFaceMinor = paid * qty;
     const orderPaidMinor = passOn ? orderFaceMinor + feeMinor : orderFaceMinor;

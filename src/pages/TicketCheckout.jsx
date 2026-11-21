@@ -13,8 +13,8 @@ import HomeButton from "@/components/HomeButton";
 import { Input } from "@/components/ui/input";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useToast } from "@/components/ui/use-toast";
-import { getStoredRef, captureRef, getLinkDomain, getPromoterByCode, computePromoterDiscount, promoterDiscountActive, discountLabel, usesRemaining, MIN_PAID } from "@/lib/promoterRef";
-import { bookingFee } from "@/lib/fees";
+import { getStoredRef, captureRef, getLinkDomain, getPromoterByCode, computePromoterDiscount, promoterDiscountActive, discountLabel, usesRemaining } from "@/lib/promoterRef";
+import { bookingFee, minPaid } from "@/lib/fees";
 import CheckoutSuccess from "@/components/checkout/CheckoutSuccess";
 import CheckoutCancelled from "@/components/checkout/CheckoutCancelled";
 import { loadPixel, trackPixel, metaMatchKeys } from "@/lib/metaPixel";
@@ -215,17 +215,17 @@ export default function TicketCheckout() {
   const tier = tiers.find((t) => t.id === selected);
   const unit = tier ? Number(tier.price) : 0;
   const discActive = promoterDiscountActive(promoter);
-  const promoterDiscount = discActive ? computePromoterDiscount(unit, promoter).discount : 0;
+  const promoterDiscount = discActive ? computePromoterDiscount(unit, promoter, cur).discount : 0;
   const promoDiscount = promo ? unit * (promo.discount_percent / 100) : 0;
   let total = unit - promoterDiscount - promoDiscount;
-  if (total < MIN_PAID) total = MIN_PAID;
+  if (total < minPaid(cur)) total = minPaid(cur);
   if (total > unit) total = unit;
   const discExhausted = !discActive && promoter && promoter.discount_type && promoter.discount_type !== "none" && Number(promoter.discount_value || 0) > 0;
   // Tickets are shown at the host's set (face) price while browsing; under
   // pass_on the booking fee is added as its own line in the summary below (the
   // server recomputes it on the discounted face value).
   const passOn = event.fee_mode === "pass_on";
-  const fee = passOn ? bookingFee(total) : 0;
+  const fee = passOn ? bookingFee(total, cur) : 0;
   const totalDue = total + fee;
 
   return (
@@ -278,7 +278,7 @@ export default function TicketCheckout() {
                   {discActive ? (
                     <>
                       <p className="text-xs text-muted-foreground line-through">{sym}{Number(t.price).toFixed(2)}</p>
-                      <p className="text-sm font-bold text-emerald-400">{sym}{computePromoterDiscount(Number(t.price), promoter).paid.toFixed(2)}</p>
+                      <p className="text-sm font-bold text-emerald-400">{sym}{computePromoterDiscount(Number(t.price), promoter, cur).paid.toFixed(2)}</p>
                     </>
                   ) : (
                     <p className="text-sm font-bold">{sym}{Number(t.price).toFixed(2)}</p>

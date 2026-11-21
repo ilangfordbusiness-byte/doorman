@@ -56,10 +56,27 @@ function countryFromPhone(phone: unknown): string | null {
   }
   return best ? best[1] : null;
 }
+// Countries a connected account can be in. Checkout uses destination charges
+// from a UK platform, and Stripe only moves those funds to accounts in the
+// UK, EEA, Switzerland, the US and Canada (docs.stripe.com/connect/
+// cross-border-payouts). An account anywhere else could onboard but never be
+// paid, and its country can't be changed, so we refuse to create it.
+// Mirrored in src/lib/money.js (PAYOUT_COUNTRIES).
+const PAYOUT_COUNTRIES = new Set([
+  'GB', 'CH', 'US', 'CA',
+  'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU',
+  'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES',
+  'SE', 'IS', 'LI', 'NO',
+]);
 function resolveCountry(requested: unknown, phone: unknown): string {
   const code = String(requested ?? '').trim().toUpperCase();
-  if (/^[A-Z]{2}$/.test(code)) return code;
-  return countryFromPhone(phone) ?? 'GB';
+  const country = /^[A-Z]{2}$/.test(code) ? code : (countryFromPhone(phone) ?? 'GB');
+  if (!PAYOUT_COUNTRIES.has(country)) {
+    throw Object.assign(new Error(
+      "We can't pay out to a bank account in that country yet. Payouts go to bank accounts in the UK, the EEA, Switzerland, the US and Canada. Choose the country of a bank account you hold there.",
+    ), { code: 'payout_country_unsupported' });
+  }
+  return country;
 }
 
 // The two account facts we persist beside stripe_account_id.

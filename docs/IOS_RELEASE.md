@@ -61,7 +61,7 @@ account owner · ⏱ typical time.
 1. ☐ App Store Connect → My Apps → **+** → New App: iOS, name `DoorMan`, primary language English (U.K.), bundle ID `com.thedoorman.app`, SKU `doorman-ios`, full access.
 2. ☐ App Information: categories, content rights, age rating questionnaire (answers in `listing.md`).
 3. ☐ App Privacy: answers in `listing.md` (tracking: Yes for the data types in the table). Publish the answers.
-4. ☐ Pricing and Availability: Free; territories UK (add US later).
+4. ☐ Pricing and Availability: Free; territories UK and United Arab Emirates (add US later).
 5. ☐ Version 1.0 → iOS App: upload the screenshots from `docs/app-store/screenshots/` to the 6.9" slot (add the scanner shot from a phone if you have one); promotional text, description, keywords, support URL, marketing URL, copyright, version `1.0`.
 6. ☐ App Review Information: sign-in required, review account from B6, contact details, the reviewer notes from `listing.md`.
 7. ☐ Version Release: **Manually release this version**.
