@@ -1,12 +1,21 @@
 // Currency helpers shared by pages. Money is integer minor units everywhere
 // except display (see docs/STANDARDS.md); the fee maths lives in fees.js.
 import { countryFromValue } from "@/lib/phone";
-import { FEE_FIXED_MINOR, FEE_PERCENT } from "@/lib/fees";
+import { feeFixedMinor, FEE_PERCENT } from "@/lib/fees";
 
-export const CURRENCY_SYMBOL = { gbp: "£", eur: "€", usd: "$" };
+// Currencies an event can be priced in, in picker order.
+export const EVENT_CURRENCIES = [
+  { code: "gbp", label: "GBP (£)" },
+  { code: "eur", label: "EUR (€)" },
+  { code: "usd", label: "USD ($)" },
+  { code: "aed", label: "AED" },
+];
 
-// "£" / "€" / "$" for a currency code; "" for anything unknown, never a
-// hardcoded pound sign.
+// AED has no single-character symbol in common use: "AED 20.00".
+export const CURRENCY_SYMBOL = { gbp: "£", eur: "€", usd: "$", aed: "AED " };
+
+// "£" / "€" / "$" / "AED " for a currency code; "" for anything unknown,
+// never a hardcoded pound sign.
 export function currencySymbol(code) {
   return CURRENCY_SYMBOL[String(code || "gbp").toLowerCase()] || "";
 }
@@ -23,12 +32,13 @@ export function formatMoney(minor, code) {
 }
 
 // The platform fee as copy: "45p + 4% per ticket", "45¢ + 4% per ticket",
-// "€0.45 + 4% per ticket".
+// "€0.45 + 4% per ticket", "AED 2.00 + 4% per ticket".
 export function feeLabel(code) {
   const c = String(code || "gbp").toLowerCase();
-  const fixed = c === "gbp" ? `${FEE_FIXED_MINOR}p`
-    : c === "usd" ? `${FEE_FIXED_MINOR}¢`
-    : `${currencySymbol(c)}${(FEE_FIXED_MINOR / 100).toFixed(2)}`;
+  const fixedMinor = feeFixedMinor(c);
+  const fixed = c === "gbp" ? `${fixedMinor}p`
+    : c === "usd" ? `${fixedMinor}¢`
+    : `${currencySymbol(c)}${(fixedMinor / 100).toFixed(2)}`;
   return `${fixed} + ${Math.round(FEE_PERCENT * 100)}% per ticket`;
 }
 
@@ -42,6 +52,7 @@ export function defaultCurrencyForCountry(country) {
   const c = String(country || "").toUpperCase();
   if (c === "US" || c === "CA") return "usd";
   if (EURO_COUNTRIES.has(c)) return "eur";
+  if (c === "AE") return "aed";
   return "gbp";
 }
 
@@ -50,6 +61,22 @@ export function defaultCurrencyForCountry(country) {
 // converted), otherwise inferred from their phone's country, else GBP.
 export function defaultCurrencyForUser(user) {
   const stripeCur = String(user?.stripe_default_currency || "").toLowerCase();
-  if (["gbp", "eur", "usd"].includes(stripeCur)) return stripeCur;
+  if (EVENT_CURRENCIES.some((c) => c.code === stripeCur)) return stripeCur;
   return defaultCurrencyForCountry(countryFromValue(user?.phone));
+}
+
+// Countries a host's Stripe account can be in. Checkout uses destination
+// charges from a UK platform, and Stripe only moves those funds to accounts in
+// the UK, EEA, Switzerland, the US and Canada. The server enforces this
+// (PAYOUT_COUNTRIES in supabase/functions/stripeConnect); this copy only keeps
+// unsupported countries out of the picker.
+const PAYOUT_COUNTRIES = new Set([
+  "GB", "CH", "US", "CA",
+  "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU",
+  "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES",
+  "SE", "IS", "LI", "NO",
+]);
+
+export function isPayoutCountry(country) {
+  return PAYOUT_COUNTRIES.has(String(country || "").toUpperCase());
 }

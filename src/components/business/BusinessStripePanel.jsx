@@ -7,8 +7,7 @@ import { CreditCard, Wallet, ExternalLink, CheckCircle2, AlertCircle, Loader2, U
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { DEFAULT_COUNTRY, countryFromValue } from "@/lib/phone";
-import { CountryPicker } from "@/components/StripeConnectPanel";
+import { CountryPicker, defaultPayoutCountry } from "@/components/StripeConnectPanel";
 
 function inIframe() {
   try { return window.self !== window.top; } catch { return true; }
@@ -33,7 +32,7 @@ export default function BusinessStripePanel({ business }) {
   const { data: me } = useCurrentUser();
   const myPhone = /** @type {{ phone?: string } | undefined} */ (me)?.phone;
   const [country, setCountry] = useState(null);
-  const accountCountry = country ?? countryFromValue(myPhone) ?? DEFAULT_COUNTRY;
+  const accountCountry = country ?? defaultPayoutCountry(myPhone);
 
   async function load() {
     if (!business?.id) return;

@@ -289,7 +289,7 @@ export default function TicketingPanel({ eventId, paid, currency, stripeActive =
               )}
               <p className="text-xs text-muted-foreground">
                 {sym}{Number(t.price).toFixed(2)}
-                {feeMode === "pass_on" && Number(t.price) > 0 && ` (+ ${sym}${bookingFee(t.price).toFixed(2)} booking fee at checkout)`}
+                {feeMode === "pass_on" && Number(t.price) > 0 && ` (+ ${sym}${bookingFee(t.price, currency).toFixed(2)} booking fee at checkout)`}
                 {" · "}{tierRemaining(t)} left{Number(t.reserved || 0) > 0 ? ` · ${t.reserved} in checkout` : ""}
                 {t.sales_status !== "open" && <span className="text-destructive"> · Sold out</span>}
                 {scheduled && <span className="text-amber-400"> · On sale {formatReleaseAt(t.release_at)}</span>}

@@ -10,7 +10,10 @@
 import { hasAutomationSecret, json, serviceClient } from '../_shared/db.ts';
 import { eventEnded } from '../_shared/eventTime.ts';
 
-const THRESHOLD_MINOR = 1000; // 10 major units of the row's currency (£10 / €10 / $10)
+// Smallest commission total worth a transfer, in the row's currency:
+// £10 / €10 / $10, and 50 AED (about the same value).
+const THRESHOLD_MINOR: Record<string, number> = { aed: 5000 };
+const THRESHOLD_FALLBACK_MINOR = 1000;
 
 Deno.serve(async (req) => {
   try {
@@ -66,7 +69,7 @@ Deno.serve(async (req) => {
 
     let paid = 0, failed = 0, belowThreshold = 0;
     for (const g of groups.values()) {
-      if (g.amount < THRESHOLD_MINOR) { belowThreshold++; continue; }
+      if (g.amount < (THRESHOLD_MINOR[String(g.currency || 'gbp').toLowerCase()] ?? THRESHOLD_FALLBACK_MINOR)) { belowThreshold++; continue; }
 
       // Payout row first, then the transfer keyed on it — a crash or retry can
       // never double-pay (Stripe dedupes on the idempotency key).

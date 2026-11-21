@@ -1,4 +1,4 @@
-import { currencySymbol } from "@/lib/money";
+import { currencySymbol, isPayoutCountry } from "@/lib/money";
 import { useState, useEffect } from "react";
 import { api } from "@/api/data";
 import { isNative, openInAppBrowser, onBrowserFinished } from "@/lib/native";
@@ -14,14 +14,22 @@ function inIframe() {
   try { return window.self !== window.top; } catch { return true; }
 }
 
+// The country to preselect: the host's phone country when Stripe can pay out
+// there, otherwise the UK. Shared with the business panel.
+export function defaultPayoutCountry(phone) {
+  const fromPhone = countryFromValue(phone);
+  return isPayoutCountry(fromPhone) ? fromPhone : DEFAULT_COUNTRY;
+}
+
 // Country of the Stripe account about to be created. Shared with the business
-// panel; exported so both stay identical.
+// panel; exported so both stay identical. Only countries Stripe can pay out to
+// from our UK platform are listed (see isPayoutCountry).
 export function CountryPicker({ value, onChange, disabled }) {
   return (
     <div className="flex items-center justify-between gap-3 bg-secondary/40 rounded-xl border border-border/50 px-3 py-2">
       <div className="min-w-0">
         <p className="text-xs font-semibold">Account country</p>
-        <p className="text-[10px] text-muted-foreground leading-snug">Where your bank is. Stripe can't change this later.</p>
+        <p className="text-[10px] text-muted-foreground leading-snug">Where your bank is: UK, Europe, US or Canada. Stripe can't change this later.</p>
       </div>
       <select
         value={value}
@@ -30,7 +38,7 @@ export function CountryPicker({ value, onChange, disabled }) {
         aria-label="Stripe account country"
         className="h-9 shrink-0 max-w-[11rem] rounded-md border border-input bg-transparent px-2 text-sm"
       >
-        {COUNTRIES.map((c) => (
+        {COUNTRIES.filter((c) => isPayoutCountry(c.code)).map((c) => (
           <option key={c.code} value={c.code}>{c.flag} {c.name}</option>
         ))}
       </select>
@@ -58,7 +66,7 @@ export default function StripeConnectPanel() {
   const { data: me } = useCurrentUser();
   const myPhone = /** @type {{ phone?: string } | undefined} */ (me)?.phone;
   const [country, setCountry] = useState(null);
-  const accountCountry = country ?? countryFromValue(myPhone) ?? DEFAULT_COUNTRY;
+  const accountCountry = country ?? defaultPayoutCountry(myPhone);
 
   async function load() {
     setLoading(true);

@@ -4,35 +4,50 @@
 import { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { appOrigin, emailFooter, escapeHtml, formatEventDateLong, formatTimeRange, sendEmail } from './email.ts';
 
-// Platform cut per ticket sold: 45p + 4% of the (post-discount) ticket price.
-export const PLATFORM_FEE_FIXED_MINOR = 45; // 0.45 in minor units
+// Platform cut per ticket sold: a fixed part + 4% of the (post-discount)
+// ticket price. The fixed part is per currency, in that currency's minor
+// units: 45p / 45c / 45¢, and 2.00 AED (0.45 AED would be about 9p).
+// Mirrored in src/lib/fees.js; change both together.
+export const PLATFORM_FEE_FIXED_MINOR: Record<string, number> = { gbp: 45, eur: 45, usd: 45, aed: 200 };
+const PLATFORM_FEE_FIXED_FALLBACK_MINOR = 45;
 export const PLATFORM_FEE_PERCENT = 0.04; // 4%
-export const MIN_PAID_MINOR = 50; // lowest price a discount can bring a ticket down to
+
+// Lowest price a discount can bring a ticket down to, per currency.
+const MIN_PAID_MINOR: Record<string, number> = { gbp: 50, eur: 50, usd: 50, aed: 200 };
+const MIN_PAID_FALLBACK_MINOR = 50;
+export function minPaidMinor(currency: unknown): number {
+  return MIN_PAID_MINOR[currencyCode(currency)] ?? MIN_PAID_FALLBACK_MINOR;
+}
 
 // Stripe's minimum charge, in minor units of the charge currency
 // (docs.stripe.com/currencies, "Minimum charge amount by currency").
-export const STRIPE_MIN_CHARGE_MINOR: Record<string, number> = { gbp: 30, usd: 50, eur: 50 };
-const STRIPE_MIN_CHARGE_FALLBACK_MINOR = 50; // the common value; events only offer the three above
+export const STRIPE_MIN_CHARGE_MINOR: Record<string, number> = { gbp: 30, usd: 50, eur: 50, aed: 200 };
+const STRIPE_MIN_CHARGE_FALLBACK_MINOR = 50; // the common value; events only offer the four above
+
+function currencyCode(currency: unknown): string {
+  return String(currency || 'gbp').toLowerCase();
+}
 
 export function toMajor(minor: number): number {
   return Number(minor) / 100;
 }
 
-export function computeFeeMinor(paidMinor: number): number {
-  return PLATFORM_FEE_FIXED_MINOR + Math.round(PLATFORM_FEE_PERCENT * paidMinor);
+export function computeFeeMinor(paidMinor: number, currency: unknown): number {
+  const fixed = PLATFORM_FEE_FIXED_MINOR[currencyCode(currency)] ?? PLATFORM_FEE_FIXED_FALLBACK_MINOR;
+  return fixed + Math.round(PLATFORM_FEE_PERCENT * paidMinor);
 }
 
 // The lowest tier price that can actually be sold, per ticket: the charge must
 // meet Stripe's minimum and the platform fee must stay below the charge, or
 // Stripe rejects the application fee. 'absorb' charges the price itself;
 // 'pass_on' adds the fee on top, so its charge is price + fee. Results today:
-// absorb 48 GBP, 50 USD/EUR; pass_on 1 GBP, 5 USD/EUR. Any other fee_mode is
+// absorb 48 GBP, 50 USD/EUR, 209 AED; pass_on 1 GBP, 5 USD/EUR, 1 AED. Any other fee_mode is
 // treated as absorb, the same way createTicketCheckout reads it.
 export function minTierPriceMinor(feeMode: unknown, currency: unknown): number {
-  const code = String(currency || 'gbp').toLowerCase();
+  const code = currencyCode(currency);
   const stripeMin = STRIPE_MIN_CHARGE_MINOR[code] ?? STRIPE_MIN_CHARGE_FALLBACK_MINOR;
   for (let price = 1; ; price++) {
-    const fee = computeFeeMinor(price);
+    const fee = computeFeeMinor(price, code);
     const charge = feeMode === 'pass_on' ? price + fee : price;
     if (fee < charge && charge >= stripeMin) return price;
   }
@@ -40,14 +55,14 @@ export function minTierPriceMinor(feeMode: unknown, currency: unknown): number {
 
 // Fits the per-ticket discounts under the floor, trimming the promo portion
 // first (the promoter discount is the primary, auto-applied one). The floor is
-// MIN_PAID_MINOR, which the app also quotes (lib/promoterRef.js), or the tier
+// minPaidMinor, which the app also quotes (lib/promoterRef.js), or the tier
 // minimum if that is ever higher. A tier already at or below the floor gets no
 // discount, so `paid` can never drop under minTierPriceMinor for a sellable tier.
 export function capDiscountsMinor(
   unitMinor: number, promoterDiscountMinor: number, promoDiscountMinor: number,
   feeMode: unknown, currency: unknown,
 ) {
-  const floor = Math.max(MIN_PAID_MINOR, minTierPriceMinor(feeMode, currency));
+  const floor = Math.max(minPaidMinor(currency), minTierPriceMinor(feeMode, currency));
   const cap = Math.max(0, unitMinor - floor);
   const promoter = Math.min(promoterDiscountMinor, cap);
   const promo = Math.min(promoDiscountMinor, cap - promoter);
@@ -87,16 +102,18 @@ export function computePromoterDiscountMinor(unitMinor: number, promoter: any): 
   return 0;
 }
 
-export function applyDiscount(unitMinor: number, discountPercent: number) {
+export function applyDiscount(unitMinor: number, discountPercent: number, currency: unknown) {
   const discount = Math.round(unitMinor * (Number(discountPercent) / 100));
+  const floor = minPaidMinor(currency);
   let paid = unitMinor - discount;
   if (paid < 0) paid = 0;
-  if (paid < MIN_PAID_MINOR) paid = MIN_PAID_MINOR;
+  if (paid < floor) paid = floor;
   return { discount, paid };
 }
 
 export function currencySymbol(code: string): string {
-  const map: Record<string, string> = { gbp: '£', eur: '€', usd: '$' };
+  // AED has no single-character symbol in common use: "AED 20.00".
+  const map: Record<string, string> = { gbp: '£', eur: '€', usd: '$', aed: 'AED ' };
   return map[String(code).toLowerCase()] || '';
 }
 

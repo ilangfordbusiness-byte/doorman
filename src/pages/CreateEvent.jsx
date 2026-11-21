@@ -18,7 +18,7 @@ import { useStripeStatus } from "@/hooks/useStripeStatus";
 import TierPriceWarning from "@/components/TierPriceWarning";
 import { useBusinessStripeStatus } from "@/hooks/useBusinessStripeStatus";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { currencySymbol, defaultCurrencyForUser, feeLabel } from "@/lib/money";
+import { EVENT_CURRENCIES, currencySymbol, defaultCurrencyForUser, feeLabel } from "@/lib/money";
 import { tierPriceProblem } from "@/lib/fees";
 import TimeZoneSelect from "@/components/TimeZoneSelect";
 import { browserZone } from "@/lib/eventTime";
@@ -556,9 +556,7 @@ export default function CreateEvent({ business = null }) {
               <div className="flex items-center justify-between">
                 <Label className="text-xs text-muted-foreground uppercase tracking-wider">Currency</Label>
                 <select value={form.currency} onChange={(e) => updateForm("currency", e.target.value)} className="h-9 w-32 rounded-md border border-input bg-transparent px-3 text-sm">
-                  <option value="gbp">GBP (£)</option>
-                  <option value="eur">EUR (€)</option>
-                  <option value="usd">USD ($)</option>
+                  {EVENT_CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
                 </select>
               </div>
               <div>
