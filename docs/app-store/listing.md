@@ -10,7 +10,7 @@ submission; update alongside the app. Field limits are App Store Connect's.
 | Name (30) | `DoorMan – Events & Tickets` (plain `DoorMan` is taken on the App Store; the home-screen name stays `DoorMan`) |
 | Company name | `DoorMan.app Ltd` (seller line shows `DOORMAN.APP LTD`; cannot be changed) |
 | App Store Connect app ID | `6821447175` |
-| Subtitle (30) | `Guestlists, passes & the door` |
+| Subtitle (30) | `Guestlist, QR pass & check-in` (was `Guestlists, passes & the door`; see Search keywords below) |
 | Bundle ID | `com.thedoorman.app` |
 | SKU | `doorman-ios` |
 | Primary language | English (U.K.) |
@@ -67,8 +67,34 @@ Sign in with Apple, Google or email. Delete your account at any time from your p
 ## Keywords (100, comma-separated, no spaces after commas)
 
 ```
-guestlist,tickets,event,party,door,check-in,QR,promoter,nightlife,host,RSVP,invite
+guest,list,ticketing,party,promoter,nightlife,club,host,RSVP,invite,scanner,venue,bouncer,door,rave
 ```
+
+99 of 100 characters.
+
+### Search keywords: how the fields work
+
+The App Store indexes the words in the name, the subtitle and the keyword
+field of a localization together, and matches searches against any
+combination of them. So:
+
+- Don't repeat a word from the name or subtitle in the keyword field. It adds
+  nothing and uses characters. The 1.0 field repeated `tickets`, `event`,
+  `guestlist`, `door`, `QR` and `check-in`, which already appear (or now
+  appear) in the name and subtitle.
+- Split phrases into single words. `guest` and `list` match "guest list" and
+  also other searches with either word.
+- Use the full 100 characters. The 1.0 field used 82.
+- Never use a competitor's name or another app's trademark: App Review
+  rejects that.
+- The subtitle counts for more than the keyword field. `the` and `&` match
+  nothing, and "door" on its own is a weak search, so the 1.0 subtitle carried
+  one useful term (`guestlist`). The new one carries four: `guestlist`, `QR`,
+  `pass` and `check-in`.
+
+Change the subtitle and keyword field only with a new app version (they are
+locked while a version is live). The promotional text can change at any time
+but is not indexed for search.
 
 ## What's New (first version)
 
