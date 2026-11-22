@@ -7,7 +7,7 @@ import CreateEvent from "@/pages/CreateEvent";
 import BusinessStripePanel from "@/components/business/BusinessStripePanel";
 import EventCard from "@/components/EventCard";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { Plus, ArrowLeft, History } from "lucide-react";
+import { Plus, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function BusinessCreateEvent() {
@@ -24,15 +24,10 @@ export default function BusinessCreateEvent() {
   if (!business) return <LoadingSpinner fullScreen />;
 
   if (view === "create") {
+    // CreateEvent has its own top bar; its X returns here to the list.
     return (
-      <div>
-        <div className="flex items-center gap-3 mb-4">
-          <Button variant="ghost" size="icon" className="rounded-full" onClick={() => setView("list")}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <h1 className="font-heading font-bold text-xl">Create Event</h1>
-        </div>
-        <CreateEvent business={business} />
+      <div className="-mx-4 -mt-4">
+        <CreateEvent business={business} onClose={() => setView("list")} />
       </div>
     );
   }
