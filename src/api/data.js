@@ -1321,11 +1321,12 @@ const functions = {
   async invoke(name, body = {}) {
     switch (name) {
       case "getHomeDashboard": {
-        const d = await rpc("get_home_dashboard");
-        if (d && Array.isArray(d.friendsGoing)) {
-          d.friendsGoing = d.friendsGoing.filter((f) => !isDeletedEmail(f?.email));
-        }
-        return d;
+        const res = await rpc("get_home_dashboard");
+        const d = res.data;
+        const live = (list) => (Array.isArray(list) ? list.filter((f) => !isDeletedEmail(f?.email)) : list);
+        if (d) d.friendsGoing = live(d.friendsGoing);
+        if (d?.suggested) d.suggested.friendsGoing = live(d.suggested.friendsGoing);
+        return res;
       }
       case "getGuestDashboard":
         return rpc("get_guest_dashboard");

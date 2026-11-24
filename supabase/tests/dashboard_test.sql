@@ -40,6 +40,10 @@ declare
   v_promoter uuid;
   v_tomorrow date := (now() at time zone 'Europe/London')::date + 1;
   v_far uuid;
+  v_sug uuid;
+  v_sug2 uuid;
+  v_sug_entry uuid;
+  v_dave_denied uuid;
   r jsonb;
   v_count int;
 begin
@@ -106,6 +110,81 @@ begin
   r := public.get_home_dashboard();
   if not (r ->> 'isHosting')::boolean then raise exception 'FAIL: alice should be hosting'; end if;
   perform pg_temp.ok('home: host sees isHosting=true');
+  if r -> 'suggested' is distinct from 'null'::jsonb then raise exception 'FAIL: host with a plan got a suggestion: %', r; end if;
+  perform pg_temp.ok('home: no suggestion when you already have a plan');
+
+  -- ---- home suggestion (no plans) ----
+  -- carol hosts two public events; the soonest is suggested to dave (no plans),
+  -- with his friend bob going, the cheapest open non-door tier as the price.
+  execute 'reset role';
+  insert into public.events (host_id, title, date, start_time, status, is_public, is_paid)
+    values (carol, 'Soon Party', v_tomorrow, '21:00', 'published', true, true)
+    returning id into v_sug;
+  insert into public.events (host_id, title, date, start_time, status, is_public)
+    values (carol, 'Later Rave', v_tomorrow + 3, '21:00', 'published', true)
+    returning id into v_sug2;
+  insert into public.events (host_id, title, date, start_time, status, is_public)
+    values (carol, 'Draft Thing', v_tomorrow, '18:00', 'draft', true);
+  insert into public.events (host_id, title, date, start_time, status, is_public, discoverable)
+    values (carol, 'Private Unlisted', v_tomorrow, '18:00', 'published', false, false);
+  insert into public.ticket_tiers (event_id, name, price_minor, quantity) values
+    (v_sug, 'Early', 1500, 50), (v_sug, 'Standard', 2000, 50);
+  insert into public.ticket_tiers (event_id, name, price_minor, quantity, sales_status) values
+    (v_sug, 'Gone', 1000, 50, 'sold_out');
+  insert into public.ticket_tiers (event_id, name, price_minor, quantity, door_only) values
+    (v_sug, 'Door', 500, 50, true);
+  insert into public.guestlist_entries (event_id, guest_user_id, guest_email, status, source, created_by)
+    values (v_sug, bob, 'bob@dash.dev', 'approved', 'manual', carol)
+    returning id into v_sug_entry;
+
+  perform pg_temp.impersonate(dave, 'dave@dash.dev');
+  r := public.get_home_dashboard();
+  if r -> 'event' is distinct from 'null'::jsonb then raise exception 'FAIL: dave should have no plan: %', r; end if;
+  if r -> 'suggested' -> 'event' ->> 'id' is distinct from v_sug::text then
+    raise exception 'FAIL: dave suggestion should be the soonest listed event: %', r -> 'suggested';
+  end if;
+  perform pg_temp.ok('home: no plans -> soonest published Discover event suggested');
+  if (r -> 'suggested' ->> 'fromPriceMinor')::int is distinct from 1500 then
+    raise exception 'FAIL: fromPriceMinor %, want 1500 (open, non-door)', r -> 'suggested' ->> 'fromPriceMinor';
+  end if;
+  perform pg_temp.ok('home: suggestion price ignores sold-out and door tiers');
+  if (r -> 'suggested' ->> 'attendeeCount')::int is distinct from 1
+     or jsonb_array_length(r -> 'suggested' -> 'friendsGoing') is distinct from 1
+     or r -> 'suggested' -> 'friendsGoing' -> 0 ->> 'email' is distinct from 'bob@dash.dev' then
+    raise exception 'FAIL: suggestion social wrong: %', r -> 'suggested';
+  end if;
+  perform pg_temp.ok('home: suggestion carries attendee count and friends going');
+  if (r -> 'suggested' -> 'event') ? 'invite_code' or (r -> 'suggested' -> 'event') ? 'host_notes' then
+    raise exception 'FAIL: protected fields in suggestion: %', r -> 'suggested';
+  end if;
+  perform pg_temp.ok('home: suggestion has no protected event fields');
+
+  -- Turned away from the soonest one: the next is suggested instead.
+  execute 'reset role';
+  insert into public.guestlist_entries (event_id, guest_user_id, guest_email, status, source, created_by)
+    values (v_sug, dave, 'dave@dash.dev', 'denied', 'manual', carol)
+    returning id into v_dave_denied;
+  perform pg_temp.impersonate(dave, 'dave@dash.dev');
+  r := public.get_home_dashboard();
+  if r -> 'suggested' -> 'event' ->> 'id' is distinct from v_sug2::text
+     or r -> 'suggested' -> 'fromPriceMinor' is distinct from 'null'::jsonb then
+    raise exception 'FAIL: denied event should be skipped: %', r -> 'suggested';
+  end if;
+  perform pg_temp.ok('home: events you were turned away from are not suggested');
+
+  -- Blocked host: nothing of theirs is suggested.
+  execute 'reset role';
+  insert into public.user_blocks (blocker_id, blocked_id) values (dave, carol);
+  perform pg_temp.impersonate(dave, 'dave@dash.dev');
+  r := public.get_home_dashboard();
+  if r -> 'suggested' is distinct from 'null'::jsonb then raise exception 'FAIL: blocked host suggested: %', r -> 'suggested'; end if;
+  perform pg_temp.ok('home: events from hosts you blocked are not suggested');
+
+  -- Tidy up so the later checks see the original fixtures.
+  execute 'reset role';
+  delete from public.user_blocks where blocker_id = dave and blocked_id = carol;
+  delete from public.events where host_id = carol;
+  perform pg_temp.impersonate(alice, 'alice@dash.dev');
 
   -- ---- per-event time zone ----
   -- An event dated "today" in a zone 12h behind UTC is upcoming on its own

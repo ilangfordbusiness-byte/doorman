@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Compass, Plus, Heart, User, Mail, UserPlus, Crown, Building2, ArrowLeftRight, ListChecks, Check, ChevronRight,
+  Compass, Plus, Heart, User, Mail, UserPlus, Crown, Building2, ArrowLeftRight, ListChecks, Check, ChevronRight, Sparkles,
 } from "lucide-react";
 import { api } from "@/api/data";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -9,9 +9,10 @@ import { useNotifications } from "@/hooks/useNotifications";
 import Avatar from "@/components/Avatar";
 import { coverStyleFor } from "@/lib/eventCover";
 import { time12 } from "@/lib/eventDates";
+import { formatMoney } from "@/lib/money";
 
-// Home: deliberately simple. A greeting, your next night out (or a nudge to
-// find one), four big doors (Find a party, Host an event, Friends, Account),
+// Home: deliberately simple. A greeting, your next night out (or, with no
+// plans, the soonest event on Discover "Picked for you"), four big doors (Find a party, Host an event, Friends, Account),
 // and a "Needs you" list of anything waiting on you.
 
 function greeting() {
@@ -54,11 +55,43 @@ function DoorManMark() {
   );
 }
 
-// The moving light outline used on the plan cards.
-function CometBorder() {
+// The moving light outline used on the plan cards (blue/purple for your own
+// plans, gold/pink for a suggestion).
+function CometBorder({ from = "#22d3ee", to = "#c084fc" }) {
   return (
     <div aria-hidden className="absolute inset-[-60%] animate-spin [animation-duration:4s] motion-reduce:animate-none"
-      style={{ background: "conic-gradient(from 0deg, transparent 0 72%, #22d3ee 86%, #c084fc 95%, transparent 100%)" }} />
+      style={{ background: `conic-gradient(from 0deg, transparent 0 72%, ${from} 86%, ${to} 95%, transparent 100%)` }} />
+  );
+}
+
+// "Ella, Sam +3" from a friends-going list.
+function friendNames(friends) {
+  const names = friends.slice(0, 2).map((f) => String(f.name || "").split(" ")[0]).filter(Boolean);
+  const extra = friends.length - names.length;
+  return names.length ? `${names.join(", ")}${extra > 0 ? ` +${extra}` : ""}` : "";
+}
+
+function Faces({ friends, max = 3 }) {
+  if (!friends.length) return null;
+  return (
+    <div className="flex -space-x-2 flex-shrink-0">
+      {friends.slice(0, max).map((f) => (
+        <Avatar key={f.email || f.name} src={f.picture} name={f.name || "?"} size="w-7 h-7" textClass="text-[10px]" className="border-2 border-black" />
+      ))}
+    </div>
+  );
+}
+
+function CoverArt({ event }) {
+  const coverStyle = coverStyleFor(event.cover_image);
+  const coverImg = event.cover_image && !event.cover_image.startsWith("__cover__") ? event.cover_image : null;
+  return (
+    <>
+      {coverImg
+        ? <img src={coverImg} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        : <div className="absolute inset-0 bg-gradient-to-br from-violet-700 to-slate-900" style={coverStyle || undefined} />}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/30 to-transparent" />
+    </>
   );
 }
 
@@ -77,6 +110,7 @@ export default function Home() {
   const isHosting = data?.isHosting ?? false;
   const friendsGoing = data?.friendsGoing ?? [];
   const attendeeCount = data?.attendeeCount ?? 0;
+  const suggested = data?.suggested ?? null;
   const firstName = user?.full_name?.split(" ")[0] || "there";
   const c = notifs?.counts ?? {};
 
@@ -109,13 +143,17 @@ export default function Home() {
 
       {/* Your next night out */}
       <div className="relative px-4 mt-6">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground mb-2.5 px-1">
-          {event && isHosting ? "You're hosting" : "Your next night out"}
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground mb-2.5 px-1 flex items-center gap-1.5">
+          {event && isHosting ? "You're hosting" : !event && suggested?.event ? (
+            <><Sparkles className="w-3.5 h-3.5 text-amber-300" /> Picked for you</>
+          ) : "Your next night out"}
         </p>
         {isLoading ? (
           <div className="aspect-[4/5] rounded-[28px] bg-secondary/40 border border-border/60 animate-pulse" />
         ) : event ? (
           <PlanCard event={event} isHosting={isHosting} friendsGoing={friendsGoing} attendeeCount={attendeeCount} />
+        ) : suggested?.event ? (
+          <SuggestedCard suggested={suggested} />
         ) : (
           <Link to="/guest?tab=discover" className="block relative rounded-[28px] p-[2px] overflow-hidden active:scale-[0.99] transition-transform">
             <div className="absolute inset-0 rounded-[28px] bg-white/[0.08]" />
@@ -168,22 +206,17 @@ export default function Home() {
 }
 
 function PlanCard({ event, isHosting, friendsGoing, attendeeCount }) {
-  const coverStyle = coverStyleFor(event.cover_image);
-  const coverImg = event.cover_image && !event.cover_image.startsWith("__cover__") ? event.cover_image : null;
   const meta = [time12(event.start_time), event.venue_name].filter(Boolean).join(" · ");
-  const faces = friendsGoing.slice(0, 3);
-  const names = friendsGoing.slice(0, 2).map((f) => String(f.name || "").split(" ")[0]).filter(Boolean);
-  const extra = friendsGoing.length - names.length;
+  const names = friendNames(friendsGoing);
   const social = isHosting
     ? `${attendeeCount} going`
-    : names.length ? `${names.join(", ")}${extra > 0 ? ` +${extra} friend${extra === 1 ? "" : "s"}` : ""}` : attendeeCount ? `${attendeeCount} going` : "";
+    : names ? `${names}${friendsGoing.length > 2 ? ` friend${friendsGoing.length === 3 ? "" : "s"}` : ""}` : attendeeCount ? `${attendeeCount} going` : "";
 
   return (
     <Link to={isHosting ? `/event/${event.id}` : `/pass/${event.id}`} className="block relative rounded-[28px] p-[2px] overflow-hidden active:scale-[0.99] transition-transform">
       <CometBorder />
-      <div className="relative rounded-[26px] overflow-hidden aspect-[4/5] bg-card" style={!coverImg && coverStyle ? coverStyle : undefined}>
-        {coverImg && <img src={coverImg} alt="" className="absolute inset-0 w-full h-full object-cover" />}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/30 to-transparent" />
+      <div className="relative rounded-[26px] overflow-hidden aspect-[4/5] bg-card">
+        <CoverArt event={event} />
         <div className="absolute top-4 left-4 flex items-center gap-2">
           <span className="rounded-full bg-white text-black text-xs font-bold px-3 py-1">{whenLabel(event.date)}</span>
           <span className="rounded-full bg-black/50 backdrop-blur text-xs font-semibold text-white px-3 py-1 border border-white/15">
@@ -195,13 +228,7 @@ function PlanCard({ event, isHosting, friendsGoing, attendeeCount }) {
           {meta && <p className="text-sm text-white/70 mt-1 truncate">{meta}</p>}
           <div className="mt-4 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
-              {!isHosting && faces.length > 0 && (
-                <div className="flex -space-x-2 flex-shrink-0">
-                  {faces.map((f) => (
-                    <Avatar key={f.email || f.name} src={f.picture} name={f.name || "?"} size="w-7 h-7" textClass="text-[10px]" className="border-2 border-black" />
-                  ))}
-                </div>
-              )}
+              {!isHosting && <Faces friends={friendsGoing} />}
               {social && <span className="text-xs text-white/75 truncate">{social}</span>}
             </div>
             <span className="rounded-full bg-white text-black text-[13px] font-bold px-4 py-2 flex-shrink-0">
@@ -211,6 +238,52 @@ function PlanCard({ event, isHosting, friendsGoing, attendeeCount }) {
         </div>
       </div>
     </Link>
+  );
+}
+
+// No ticket and not hosting: the soonest upcoming event on Discover, with a
+// way out to everything else that's on.
+function SuggestedCard({ suggested }) {
+  const { event, fromPriceMinor } = suggested;
+  const friends = suggested.friendsGoing ?? [];
+  const count = suggested.attendeeCount ?? 0;
+  const meta = [time12(event.start_time), event.venue_name].filter(Boolean).join(" · ");
+  const names = friendNames(friends);
+  const social = names ? `${names} going` : count ? `${count} going` : "";
+  const price = !event.is_paid ? "Free"
+    : fromPriceMinor != null ? `From ${formatMoney(fromPriceMinor, event.currency).replace(/\.00$/, "")}` : null;
+  const cta = event.is_paid ? "Get tickets" : event.is_public ? "Get on the list" : "Request to join";
+
+  return (
+    <>
+      <Link to={`/event/${event.id}`} className="block relative rounded-[28px] p-[2px] overflow-hidden active:scale-[0.99] transition-transform">
+        <CometBorder from="#fbbf24" to="#f472b6" />
+        <div className="relative rounded-[26px] overflow-hidden aspect-[4/5] bg-card">
+          <CoverArt event={event} />
+          <div className="absolute top-4 inset-x-4 flex items-center justify-between gap-2">
+            <span className="rounded-full bg-white text-black text-xs font-bold px-3 py-1">{whenLabel(event.date)}</span>
+            {price && (
+              <span className="rounded-full bg-black/50 backdrop-blur text-xs font-semibold text-white px-3 py-1 border border-white/15 flex-shrink-0">{price}</span>
+            )}
+          </div>
+          <div className="absolute bottom-0 inset-x-0 p-5">
+            <h2 className="font-heading font-bold text-[28px] leading-tight text-white line-clamp-2">{event.title}</h2>
+            {meta && <p className="text-sm text-white/70 mt-1 truncate">{meta}</p>}
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <Faces friends={friends} max={2} />
+                {social && <span className="text-xs text-white/75 truncate">{social}</span>}
+              </div>
+              <span className="rounded-full bg-white text-black text-[13px] font-bold px-4 py-2 flex-shrink-0">{cta}</span>
+            </div>
+          </div>
+        </div>
+      </Link>
+      <Link to="/guest?tab=discover" className="mt-2.5 flex items-center justify-center gap-1 text-[13px] text-muted-foreground">
+        Not your thing? <span className="text-foreground font-semibold">See what else is on</span>
+        <ChevronRight className="w-3.5 h-3.5" />
+      </Link>
+    </>
   );
 }
 
