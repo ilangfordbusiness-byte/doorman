@@ -30,9 +30,16 @@ function esc(s) {
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+// Card images must stay small: WhatsApp drops a link's picture above ~300 KB,
+// and uploaded covers can be several hundred KB. Supabase Storage images are
+// served through its resize endpoint (800px wide, aspect kept, ~100-150 KB);
+// the fallback is a 600px logo (79 KB) instead of the 1.3 MB original.
 function absImage(src) {
-  if (!src) return `${DOMAIN}/logo.png`;
-  return /^https?:\/\//i.test(src) ? src : `${DOMAIN}${src.startsWith("/") ? "" : "/"}${src}`;
+  // No picture, or a preset gradient cover ("__cover__<id>", not an image).
+  if (!src || String(src).startsWith("__cover__")) return `${DOMAIN}/og-logo.png`;
+  const url = /^https?:\/\//i.test(src) ? src : `${DOMAIN}${src.startsWith("/") ? "" : "/"}${src}`;
+  const m = url.match(/^(https:\/\/[^/]+\.supabase\.co)\/storage\/v1\/object\/public\/([^?#]+)/);
+  return m ? `${m[1]}/storage/v1/render/image/public/${m[2]}?width=800&quality=70` : url;
 }
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
