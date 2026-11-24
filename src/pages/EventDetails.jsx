@@ -16,8 +16,8 @@ import { tierSoldOut, tierScheduled, nextTierRelease, formatReleaseAt } from "@/
 import { useStripeStatus } from "@/hooks/useStripeStatus";
 import { useBusinessStripeStatus } from "@/hooks/useBusinessStripeStatus";
 import {
-  ArrowLeft, Calendar, Clock, MapPin, Shirt, Users, Share2,
-  QrCode, Edit, Check, Plus, X, BarChart3, Megaphone, Instagram, ClipboardList, Disc3, ChevronRight
+  ArrowLeft, Calendar, Clock, MapPin, Shirt, Share2,
+  QrCode, Check, Instagram, Disc3, ChevronRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -28,9 +28,6 @@ import UserAvatar from "../components/UserAvatar";
 import Avatar from "../components/Avatar";
 import HostProfileModal from "../components/HostProfileModal";
 import SafetyActions from "../components/SafetyActions";
-import CoHostsSection from "../components/CoHostsSection";
-import UserEmailField from "../components/UserEmailField";
-import LineupSection from "../components/LineupSection";
 import FitText from "../components/FitText";
 import { lineupStyle } from "@/lib/lineupStyles";
 import EventJoinActions from "../components/EventJoinActions";
@@ -39,10 +36,8 @@ import { captureRef, getLinkDomain, discountLabel, promoterDiscountActive } from
 import { withPreviewVersion } from "@/lib/appUrl";
 import { SignedOutTopBar, SignupBar } from "@/components/SignedOutPreview";
 import { queryClientInstance } from "@/lib/query-client";
+import HostEventView from "@/components/HostEventView";
 import { loadPixel, trackPixel, captureMetaClick } from "@/lib/metaPixel";
-
-// Shared classes for the host dashboard action buttons so they line up as a uniform grid.
-const HOST_ACTION_BUTTON = "w-full h-12 rounded-xl gap-2 font-semibold";
 
 async function loadEvent(id, authed, inviteCode) {
   // Signed-out visitors get a read-only preview (see below); signed-in users
@@ -92,6 +87,7 @@ async function loadEvent(id, authed, inviteCode) {
       invited: entries.filter((e) => e.status === "invited").length,
       approved: entries.filter((e) => ["approved", "checked_in"].includes(e.status)).length,
       checked_in: entries.filter((e) => e.status === "checked_in").length,
+      requested: entries.filter((e) => e.status === "requested").length,
     },
     staff: staffList,
     tiers: publicTiers,
@@ -185,7 +181,7 @@ export default function EventDetails() {
   // sign up, then straight back to this event.
   const promptSignup = () => api.auth.redirectToLogin(window.location.href);
   const myEntry = data?.myEntry ?? null;
-  const stats = data?.stats ?? { invited: 0, approved: 0, checked_in: 0, total: 0 };
+  const stats = data?.stats ?? { invited: 0, approved: 0, checked_in: 0, total: 0, requested: 0 };
   const staff = data?.staff ?? [];
   const tiers = data?.tiers ?? [];
   // Nothing buyable right now → the CTA says why. A scheduled tier is not
@@ -202,6 +198,8 @@ export default function EventDetails() {
     : null;
 
   const [copied, setCopied] = useState(false);
+  // Managers land on the host view; this shows them the public page instead.
+  const [guestView, setGuestView] = useState(false);
   const [newStaffEmail, setNewStaffEmail] = useState("");
   const [addingStaff, setAddingStaff] = useState(false);
   const [refStatus, setRefStatus] = useState(null);
@@ -371,6 +369,20 @@ export default function EventDetails() {
 
   const eventDate = moment(event.date);
   const sym = currencySymbol(event.currency);
+
+  if (canManage && !guestView) {
+    return (
+      <HostEventView
+        event={event} id={id} user={user} stats={stats} staff={staff}
+        isHost={isHost} isCoHost={isCoHost} stripeActive={stripeActive}
+        publishing={publishing} onPublish={handlePublish} onShare={handleShare} copied={copied}
+        newStaffEmail={newStaffEmail} setNewStaffEmail={setNewStaffEmail} addingStaff={addingStaff}
+        onAddStaff={handleAddStaff} onRemoveStaff={handleRemoveStaff}
+        onGuestView={() => { setGuestView(true); window.scrollTo(0, 0); }}
+        onUpdated={() => queryClient.invalidateQueries(["event", id])}
+      />
+    );
+  }
 
   const signedOut = authed === false;
   const shareButton = (
@@ -601,139 +613,24 @@ export default function EventDetails() {
           </a>
         )}
 
-        {/* Host Dashboard */}
+        {/* Managers previewing the public page: a way back to the host view. */}
         {canManage && (
-          <div className="space-y-4">
-            <h2 className="font-heading font-bold text-lg">{isHost || event?.host_is_business ? "Event Dashboard" : "Co-Host Dashboard"}</h2>
-
-            {event.status === "draft" && (
-              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
-                <p className="text-sm font-semibold mb-1">This event is a draft</p>
-                <p className="text-xs text-muted-foreground mb-3">
-                  Only you can see it. Publish it to go live — {event.is_public ? "it'll be public and show in Discover." : "it'll be private, shareable by link."} You can switch between private and public any time in Edit.
-                </p>
-                {event.is_paid && !stripeActive && (
-                  <p className="text-xs text-amber-300/90 mb-3">Paid event: connect Stripe under Payouts &amp; Earnings before publishing.</p>
-                )}
-                <Button className="w-full h-11 rounded-xl gap-2 font-semibold" disabled={publishing} onClick={handlePublish}>
-                  {publishing ? "Publishing…" : <>Publish event</>}
-                </Button>
-              </div>
-            )}
-            <div className="grid grid-cols-4 gap-2">
-              <StatCard label="Total" value={stats.total} />
-              <StatCard label="Invited" value={stats.invited} color="text-blue-400" />
-              <StatCard label="Approved" value={stats.approved} color="text-emerald-400" />
-              <StatCard label="Checked In" value={stats.checked_in} color="text-accent" />
-            </div>
-            {event.capacity && (
-              <div className="bg-secondary/50 rounded-xl p-3 border border-border/50">
-                <div className="flex justify-between text-xs text-muted-foreground mb-2">
-                  <span>Capacity</span>
-                  <span>{stats.approved} / {event.capacity}</span>
-                </div>
-                <div className="h-2 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-primary rounded-full transition-all"
-                    style={{ width: `${Math.min(100, (stats.approved / event.capacity) * 100)}%` }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Host actions: one uniform grid so every button shares the same width, height and spacing */}
-            <div className="grid grid-cols-2 gap-3">
-              <Link to={`/event/${id}/edit`} state={{ from: "event" }} className="min-w-0">
-                <Button variant="outline" className={HOST_ACTION_BUTTON}>
-                  <Edit className="w-4 h-4" /> Edit Event
-                </Button>
-              </Link>
-              <Link to={`/event/${id}/guestlist`} className="min-w-0">
-                <Button variant="outline" className={HOST_ACTION_BUTTON}>
-                  <Users className="w-4 h-4" /> Guestlist
-                </Button>
-              </Link>
-              <Link to={`/event/${id}/door`} className="min-w-0">
-                <Button variant="outline" className={HOST_ACTION_BUTTON}>
-                  <ClipboardList className="w-4 h-4" /> Door
-                </Button>
-              </Link>
-              <Button variant="outline" className={HOST_ACTION_BUTTON} onClick={handleShare}>
-                <Share2 className="w-4 h-4" /> Share
-              </Button>
-              {event.is_paid && (
-                <>
-                  <Link to={`/event/${id}/analytics`} className="min-w-0">
-                    <Button variant="outline" className={HOST_ACTION_BUTTON}>
-                      <BarChart3 className="w-4 h-4" /> Analytics
-                    </Button>
-                  </Link>
-                  <Link to={`/event/${id}/promoters`} className="min-w-0">
-                    <Button variant="outline" className={HOST_ACTION_BUTTON}>
-                      <Megaphone className="w-4 h-4" /> Promoters
-                    </Button>
-                  </Link>
-                </>
-              )}
-            </div>
-
-            {/* Co-Hosts */}
-            <CoHostsSection event={event} onUpdated={() => queryClient.invalidateQueries(["event", id])} />
-            <LineupSection event={event} onUpdated={() => queryClient.invalidateQueries(["event", id])} />
-
-            {/* Staff Management */}
-            <div>
-              <h3 className="font-heading font-semibold text-sm mb-3">Door Staff</h3>
-              {event.staff_code && (
-                <div className="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 mb-3">
-                  <div>
-                    <p className="text-[10px] text-emerald-400 uppercase tracking-widest font-semibold mb-0.5">Staff Entry Code</p>
-                    <p className="text-3xl font-bold font-heading tracking-[0.3em] text-foreground">{event.staff_code}</p>
-                  </div>
-                  <p className="text-xs text-muted-foreground text-right max-w-[100px] leading-tight">Share with doormen to let them join</p>
-                </div>
-              )}
-              {staff.length > 0 && (
-                <div className="space-y-2 mb-3">
-                  {staff.map((s) => (
-                    <div key={s.id} className="flex items-center justify-between bg-secondary/50 rounded-xl px-3 py-2.5 border border-border/50">
-                      <div>
-                        <p className="text-sm font-medium">{s.staff_email}</p>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{s.role}</p>
-                      </div>
-                      <button onClick={() => handleRemoveStaff(s.id)} className="text-muted-foreground hover:text-destructive transition-colors">
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className="flex gap-2">
-                <UserEmailField
-                  value={newStaffEmail}
-                  onChange={setNewStaffEmail}
-                  onPick={(em) => handleAddStaff(em)}
-                  onEnter={() => handleAddStaff()}
-                  exclude={staff.map((s) => s.staff_email)}
-                  placeholder="Add doorman by name, email or phone…"
-                  className="w-full h-10 px-3 text-sm bg-secondary/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                />
-                <Button size="sm" className="h-10 rounded-xl" onClick={() => handleAddStaff()} disabled={addingStaff}>
-                  <Plus className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
+          <div className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 flex justify-center pointer-events-none">
+            <button type="button" onClick={() => { setGuestView(false); window.scrollTo(0, 0); }}
+              className="pointer-events-auto inline-flex items-center gap-2 h-11 px-5 rounded-full bg-foreground text-background text-sm font-semibold shadow-xl shadow-black/50">
+              <ArrowLeft className="w-4 h-4" /> Back to host view
+            </button>
           </div>
         )}
 
         {/* Chat — visible to host and approved/checked-in guests */}
-        {(canManage || (myEntry && ["approved", "invited", "checked_in"].includes(myEntry.status))) && (
+        {!canManage && myEntry && ["approved", "invited", "checked_in"].includes(myEntry.status) && (
           <EventChat eventId={id} user={user} canPost={isHost || isCoHost}
             hostIsBusiness={event.host_is_business} businessName={event.host_name} businessPicture={event.host_picture} />
         )}
 
-        {/* Guest Actions */}
-        {!canManage && (
+        {/* Guest Actions (managers previewing see the ticket list only) */}
+        {(!canManage || guestView) && (
           <div className="space-y-3">
             {event.is_paid && (
               <div className="bg-secondary/40 rounded-2xl p-4 border border-border/50">
@@ -758,8 +655,8 @@ export default function EventDetails() {
                 </div>
               </div>
             )}
-            <EventJoinActions event={event} me={user} myEntry={myEntry} soldOut={allSoldOut} onSaleFrom={onSaleFrom} onChanged={() => queryClient.invalidateQueries(["event", id])} />
-            {event.visibility !== "none" && (myEntry || event.is_paid) && (
+            {!canManage && <EventJoinActions event={event} me={user} myEntry={myEntry} soldOut={allSoldOut} onSaleFrom={onSaleFrom} onChanged={() => queryClient.invalidateQueries(["event", id])} />}
+            {!canManage && event.visibility !== "none" && (myEntry || event.is_paid) && (
               <WhoIsGoing
                 eventId={id}
                 myEmail={user?.email}
@@ -805,15 +702,6 @@ function DetailChip({ icon, label, value }) {
         <span className="text-[10px] uppercase tracking-wider">{label}</span>
       </div>
       <p className="text-sm font-medium text-foreground break-words">{value}</p>
-    </div>
-  );
-}
-
-function StatCard({ label, value, color = "text-foreground" }) {
-  return (
-    <div className="bg-secondary/50 rounded-xl p-3 border border-border/50 text-center">
-      <p className={`text-xl font-bold font-heading ${color}`}>{value}</p>
-      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</p>
     </div>
   );
 }
