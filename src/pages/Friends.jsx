@@ -37,7 +37,11 @@ async function loadFriendsData(me) {
 export default function Friends() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState("activity");
+  // ?tab=requests opens straight on requests (linked from Home's "Needs you").
+  const [tab, setTab] = useState(() => {
+    const t = new URLSearchParams(window.location.search).get("tab");
+    return ["activity", "search", "suggestions", "requests", "friends"].includes(t) ? t : "activity";
+  });
   const { data: notifs } = useNotifications();
   const doorListInvites = notifs?.doorListInvites ?? [];
   const { data: me } = useCurrentUser();
