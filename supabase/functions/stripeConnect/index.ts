@@ -292,8 +292,12 @@ Deno.serve(async (req) => {
     }
 
     // ---- Business accounts (payouts to owner's personal or separate account) ----
-    // A business is manageable by its owner OR any accepted member (members have
-    // full owner-parity access, including payouts).
+    // Any accepted member can SEE the business's payout status (they create its
+    // events, and paid events need it). Only the OWNER can change payouts:
+    // switch mode, onboard a Stripe account, or open its dashboard.
+    // In 'personal' mode payouts go to the OWNER's personal Stripe (see
+    // _shared/connect.ts resolvePayoutAccount), so status reads the owner's
+    // account, never the caller's.
     async function loadOwnedBusiness(businessId: string | undefined) {
       if (!businessId) return null;
       const { data: b } = await svc.from('business_accounts')
@@ -348,9 +352,21 @@ Deno.serve(async (req) => {
     const businessMode = (b: { stripe_mode: string }) =>
       b.stripe_mode === 'personal' ? 'personal' : 'business';
 
+    const OWNER_ONLY = 'Only the business account owner can change payout settings.';
+
+    // The profile whose personal Stripe a 'personal'-mode business pays out to.
+    async function businessOwner(business: { owner_id: string }) {
+      if (business.owner_id === user.id) return user;
+      const { data } = await svc.from('profiles')
+        .select('id, full_name, stripe_account_id, stripe_onboarding_status, stripe_account_country, stripe_default_currency')
+        .eq('id', business.owner_id).maybeSingle();
+      return data;
+    }
+
     if (action === 'business_set_mode') {
       const business = await loadOwnedBusiness(body.business_id);
       if (!business) return json({ error: 'Business account not found' }, 403);
+      if (business.owner_id !== user.id) return json({ error: OWNER_ONLY }, 403);
       const mode = body.mode === 'personal' ? 'personal' : 'business';
       await svc.from('business_accounts').update({ stripe_mode: mode }).eq('id', business.id);
       return json({ ok: true, mode });
@@ -360,9 +376,12 @@ Deno.serve(async (req) => {
       const business = await loadOwnedBusiness(body.business_id);
       if (!business) return json({ error: 'Business account not found' }, 403);
       const mode = businessMode(business);
-      const acctId = mode === 'personal' ? user.stripe_account_id : business.stripe_account_id;
+      const isOwner = business.owner_id === user.id;
+      const owner = await businessOwner(business);
+      const acctId = mode === 'personal' ? owner?.stripe_account_id ?? null : business.stripe_account_id;
       const account = await accountStatus(acctId);
-      if (account && !('error' in account)) {
+      // Only the owner's own view writes the cached status back.
+      if (isOwner && account && !('error' in account)) {
         const status = account.charges_enabled && account.payouts_enabled
           ? 'active' : (account.details_submitted ? 'restricted' : 'pending');
         const facts = {
@@ -381,12 +400,17 @@ Deno.serve(async (req) => {
           }
         }
       }
-      return json({ mode, account, balances: await computeBusinessBalances(business.id) });
+      return json({
+        mode, account, balances: await computeBusinessBalances(business.id),
+        can_manage_payouts: isOwner,
+        owner_name: owner?.full_name ?? null,
+      });
     }
 
     if (action === 'business_onboard') {
       const business = await loadOwnedBusiness(body.business_id);
       if (!business) return json({ error: 'Business account not found' }, 403);
+      if (business.owner_id !== user.id) return json({ error: OWNER_ONLY }, 403);
       const mode = businessMode(business);
       try {
         if (mode === 'personal') {
@@ -424,6 +448,7 @@ Deno.serve(async (req) => {
     if (action === 'business_dashboard_link') {
       const business = await loadOwnedBusiness(body.business_id);
       if (!business) return json({ error: 'Business account not found' }, 403);
+      if (business.owner_id !== user.id) return json({ error: OWNER_ONLY }, 403);
       const mode = businessMode(business);
       const acctId = mode === 'personal' ? user.stripe_account_id : business.stripe_account_id;
       if (!acctId) return json({ error: 'No Stripe account connected' }, 400);

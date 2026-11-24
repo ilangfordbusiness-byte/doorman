@@ -28,6 +28,9 @@ export default function BusinessStripePanel({ business }) {
   const [mode, setMode] = useState(null);
   const [account, setAccount] = useState(null);
   const [balances, setBalances] = useState([]);
+  // Only the business owner changes payouts; team members see status only.
+  const [canManage, setCanManage] = useState(false);
+  const [ownerName, setOwnerName] = useState(null);
   // See StripeConnectPanel: the account's country is fixed at creation.
   const { data: me } = useCurrentUser();
   const myPhone = /** @type {{ phone?: string } | undefined} */ (me)?.phone;
@@ -42,6 +45,8 @@ export default function BusinessStripePanel({ business }) {
       setMode(res.data?.mode || "business");
       setAccount(res.data?.account || null);
       setBalances(res.data?.balances || []);
+      setCanManage(!!res.data?.can_manage_payouts);
+      setOwnerName(res.data?.owner_name || null);
     } catch (e) {
       console.error("business stripe status failed", e);
     }
@@ -113,9 +118,12 @@ export default function BusinessStripePanel({ business }) {
       <h3 className="font-heading font-semibold text-sm flex items-center gap-2 mb-1">
         <CreditCard className="w-4 h-4" /> Business Payouts
       </h3>
-      <p className="text-xs text-muted-foreground mb-3">Choose where this business's ticket payouts go.</p>
+      <p className="text-xs text-muted-foreground mb-3">
+        {canManage ? "Choose where this business's ticket payouts go." : `Payouts are managed by ${ownerName || "the account owner"}.`}
+      </p>
 
-      {/* Mode selector */}
+      {/* Mode selector (owner only) */}
+      {canManage && (
       <div className="grid grid-cols-2 gap-2 mb-4">
         <button
           onClick={() => mode !== "personal" && switchMode("personal")}
@@ -140,12 +148,20 @@ export default function BusinessStripePanel({ business }) {
           </div>
         </button>
       </div>
+      )}
 
       <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-mono mb-3">
-        {mode === "personal" ? "Payouts to your personal Stripe" : "Payouts to a separate business Stripe"}
+        {mode === "personal"
+          ? (canManage ? "Payouts to your personal Stripe" : `Payouts to ${ownerName ? `${ownerName}'s` : "the owner's"} Stripe`)
+          : "Payouts to a separate business Stripe"}
       </p>
 
-      {!connected ? (
+      {!connected && !canManage ? (
+        <div className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400">
+          <AlertCircle className="w-4 h-4" />
+          <span className="flex-1">Payouts aren&apos;t set up yet. Ask {ownerName || "the account owner"} to connect Stripe before selling tickets.</span>
+        </div>
+      ) : !connected ? (
         <div>
           <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
             {mode === "personal"
@@ -167,7 +183,11 @@ export default function BusinessStripePanel({ business }) {
         <div className="space-y-3">
           <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg border ${active ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400" : "border-amber-500/30 bg-amber-500/10 text-amber-400"}`}>
             {active ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-            <span className="flex-1">{active ? "Stripe account active — payouts enabled" : "Finish setup in Stripe to enable payouts"}</span>
+            <span className="flex-1">
+              {active ? "Stripe account active — payouts enabled"
+                : canManage ? "Finish setup in Stripe to enable payouts"
+                : `${ownerName || "The account owner"} needs to finish Stripe setup to enable payouts`}
+            </span>
           </div>
 
           {balances.length === 0 && <p className="text-xs text-muted-foreground">No earnings recorded yet. Earnings appear here once tickets are sold.</p>}
@@ -185,9 +205,11 @@ export default function BusinessStripePanel({ business }) {
             );
           })}
 
-          <Button variant="outline" className="w-full rounded-xl gap-2" disabled={busy} onClick={handleDashboard}>
-            <ExternalLink className="w-4 h-4" /> Manage Payouts & Bank Details
-          </Button>
+          {canManage && (
+            <Button variant="outline" className="w-full rounded-xl gap-2" disabled={busy} onClick={handleDashboard}>
+              <ExternalLink className="w-4 h-4" /> Manage Payouts & Bank Details
+            </Button>
+          )}
         </div>
       )}
     </div>
