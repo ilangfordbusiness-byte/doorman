@@ -28,6 +28,13 @@ async function downscaleToFile(file, maxSide = 1600, quality = 0.9) {
   }
 }
 
+// Downscale and upload a picked cover photo; resolves to its public URL.
+export async function uploadCoverPhoto(file) {
+  const scaled = await downscaleToFile(file);
+  const { file_url } = await api.integrations.Core.UploadFile({ file: scaled });
+  return file_url;
+}
+
 // Upload control for event cover photos. The host's full photo is kept (just
 // downscaled) — nothing is cropped, so portrait or landscape both show in full
 // on the event page. Pass null to clear.
@@ -39,9 +46,7 @@ export default function CoverPhotoUpload({ value, onChange }) {
     if (!file) return;
     setUploading(true);
     try {
-      const scaled = await downscaleToFile(file);
-      const { file_url } = await api.integrations.Core.UploadFile({ file: scaled });
-      onChange(file_url);
+      onChange(await uploadCoverPhoto(file));
     } catch (e) {
       console.error(e);
     } finally {
