@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from "react";
-import { Link } from "react-router-dom";
 import moment from "moment";
 import { api } from "@/api/data";
 import { Search, Sparkles, History, ChevronLeft } from "lucide-react";
@@ -67,11 +66,8 @@ export default function DiscoverEvents() {
         </div>
       ) : (
         <div className="space-y-3">
-          {list.map((event) => (
-            <Link key={event.id} to={`/invite/${event.invite_code}`}>
-              <EventCard event={event} />
-            </Link>
-          ))}
+          {/* EventCard is itself the link to /event/:id. */}
+          {list.map((event) => <EventCard key={event.id} event={event} />)}
         </div>
       )}
 
