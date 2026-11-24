@@ -1,3 +1,5 @@
+import { longDateTime } from "@/lib/eventDates";
+
 // Ticket-tier availability as the buyer sees it. A tier's seats are either
 // sold, held by a checkout that is still in progress (`reserved`), or free;
 // only the free ones can be bought right now.
@@ -33,17 +35,9 @@ export function nextTierRelease(tiers) {
   return best === null ? null : new Date(best);
 }
 
-// "Fri 3 Oct, 18:00" in the viewer's own zone.
+// "Friday 3 October, 6pm" in the viewer's own zone (weekday in full).
 export function formatReleaseAt(at) {
-  const d = at instanceof Date ? at : new Date(at);
-  if (!Number.isFinite(d.getTime())) return "";
-  try {
-    return new Intl.DateTimeFormat(undefined, {
-      weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
-    }).format(d);
-  } catch {
-    return d.toLocaleString();
-  }
+  return longDateTime(at);
 }
 
 // <input type="datetime-local"> value ("YYYY-MM-DDTHH:MM", browser-local time)
