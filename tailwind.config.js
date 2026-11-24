@@ -122,6 +122,24 @@ module.exports = {
   				'50%': {
   					transform: 'scale(1.45) translate(-3%, 2%)'
   				}
+  			},
+  			'logo-sway': {
+  				'0%, 100%': {
+  					transform: 'rotate(-6deg) scale(1.6)'
+  				},
+  				'50%': {
+  					transform: 'rotate(6deg) scale(1.6)'
+  				}
+  			},
+  			'glow-pulse': {
+  				'0%, 100%': {
+  					opacity: '0.55',
+  					transform: 'scale(0.95)'
+  				},
+  				'50%': {
+  					opacity: '1',
+  					transform: 'scale(1.08)'
+  				}
   			}
   		},
   		animation: {
@@ -131,7 +149,9 @@ module.exports = {
   			'shine': 'shine 3.5s ease-in-out infinite',
   			'shimmer': 'shimmer 1.3s linear infinite',
   			'float': 'float 3.4s ease-in-out infinite',
-  			'drift': 'drift 18s ease-in-out infinite'
+  			'drift': 'drift 18s ease-in-out infinite',
+  			'logo-sway': 'logo-sway 4s ease-in-out infinite',
+  			'glow-pulse': 'glow-pulse 2.8s ease-in-out infinite'
   		}
   	}
   },
