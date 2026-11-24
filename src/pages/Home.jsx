@@ -34,6 +34,26 @@ function whenLabel(date) {
   return d.toLocaleDateString("en-GB", opts).toUpperCase();
 }
 
+// The DoorMan keyhole, top right: it floats and sways, a soft glow pulses
+// behind it, and a streak of light runs along the keyhole's own lines (a
+// spinning gradient masked to the logo's shape). Decorative only.
+function DoorManMark() {
+  const mask = { WebkitMask: "url(/logo-256.png) center / contain no-repeat", mask: "url(/logo-256.png) center / contain no-repeat" };
+  return (
+    <div aria-hidden className="relative w-14 h-14 flex-shrink-0 animate-float motion-reduce:animate-none">
+      <div className="absolute -inset-2 rounded-full pointer-events-none animate-glow-pulse motion-reduce:animate-none"
+        style={{ background: "radial-gradient(closest-side, rgba(192,132,252,.45), rgba(34,211,238,.2), transparent)" }} />
+      <div className="relative w-14 h-14 animate-logo-sway motion-reduce:animate-none motion-reduce:scale-150">
+        <img src="/logo-256.png" alt="" className="absolute inset-0 w-full h-full object-contain" />
+        <div className="absolute inset-0 overflow-hidden" style={mask}>
+          <div className="absolute inset-[-60%] animate-spin [animation-duration:2.6s] motion-reduce:hidden"
+            style={{ background: "conic-gradient(from 0deg, transparent 0 62%, #ffffff 78%, #67e8f9 86%, #f0abfc 93%, transparent 100%)" }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // The moving light outline used on the plan cards.
 function CometBorder() {
   return (
@@ -68,7 +88,6 @@ export default function Home() {
     { n: c.businessInvite, to: "/profile", icon: Building2, tone: "bg-sky-500/15 text-sky-300", one: "business invite", sub: "Join a team" },
     { n: c.doorListInvite, to: "/friends", icon: ListChecks, tone: "bg-violet-500/15 text-violet-300", one: "door list shared with you", many: "door lists shared with you", sub: "Help check guests in" },
   ].filter((x) => x.n > 0);
-  const waiting = needs.reduce((s, x) => s + x.n, 0);
   const accountBadge = (c.coHost || 0) + (c.businessInvite || 0);
 
   return (
@@ -85,14 +104,7 @@ export default function Home() {
           <p className="text-[13px] text-muted-foreground">{greeting()}</p>
           <h1 className="font-heading font-bold text-[34px] leading-none tracking-tight truncate">{firstName}</h1>
         </div>
-        <Link to="/profile" className="relative flex-shrink-0" aria-label="Your profile">
-          <Avatar src={user?.profile_picture} name={user?.full_name || "?"} size="w-12 h-12" textClass="text-base" className="border-2 border-white/80" />
-          {waiting > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-rose-500 border-2 border-background text-[9px] font-bold text-white grid place-items-center">
-              {waiting > 9 ? "9+" : waiting}
-            </span>
-          )}
-        </Link>
+        <DoorManMark />
       </div>
 
       {/* Your next night out */}
