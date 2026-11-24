@@ -44,6 +44,7 @@ declare
   v_sug2 uuid;
   v_sug_entry uuid;
   v_dave_denied uuid;
+  v_biz uuid := 'b12b12b1-0000-4000-8000-00000000b12b';
   r jsonb;
   v_count int;
 begin
@@ -171,6 +172,40 @@ begin
     raise exception 'FAIL: denied event should be skipped: %', r -> 'suggested';
   end if;
   perform pg_temp.ok('home: events you were turned away from are not suggested');
+
+  -- Accepted co-host of the next one: it's dave's plan (hosting), not a suggestion.
+  execute 'reset role';
+  insert into public.event_co_hosts (event_id, email, user_id, status)
+    values (v_sug2, 'dave@dash.dev', dave, 'accepted');
+  perform pg_temp.impersonate(dave, 'dave@dash.dev');
+  r := public.get_home_dashboard();
+  if r -> 'event' ->> 'id' is distinct from v_sug2::text
+     or (r ->> 'isHosting')::boolean is distinct from true
+     or r -> 'suggested' is distinct from 'null'::jsonb then
+    raise exception 'FAIL: co-host should be hosting, not suggested: %', r;
+  end if;
+  perform pg_temp.ok('home: an accepted co-host is hosting, never suggested their own event');
+  execute 'reset role';
+  delete from public.event_co_hosts where event_id = v_sug2 and email = 'dave@dash.dev';
+
+  -- Business team member: the business's event is their plan (hosting).
+  insert into public.business_accounts (id, owner_id, business_email, business_name)
+    values (v_biz, carol, 'carol@dash.dev', 'Carol Co');
+  insert into public.business_members (business_id, email, user_id, status)
+    values (v_biz, 'dave@dash.dev', dave, 'accepted');
+  update public.events set business_id = v_biz where id = v_sug2;
+  perform pg_temp.impersonate(dave, 'dave@dash.dev');
+  r := public.get_home_dashboard();
+  if r -> 'event' ->> 'id' is distinct from v_sug2::text
+     or (r ->> 'isHosting')::boolean is distinct from true then
+    raise exception 'FAIL: business team member should be hosting: %', r;
+  end if;
+  perform pg_temp.ok('home: a business team member is hosting the business''s event');
+  execute 'reset role';
+  update public.events set business_id = null where id = v_sug2;
+  delete from public.business_members where business_id = v_biz;
+  delete from public.business_accounts where id = v_biz;
+  perform pg_temp.impersonate(dave, 'dave@dash.dev');
 
   -- Blocked host: nothing of theirs is suggested.
   execute 'reset role';
