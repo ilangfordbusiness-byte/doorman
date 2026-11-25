@@ -1,6 +1,6 @@
 import { timeSuffix } from "@/lib/eventTime";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { api } from "@/api/data";
 import { isOwnEntry } from "@/lib/ownEntry";
 import { QRCodeSVG } from "qrcode.react";
@@ -22,6 +22,7 @@ const WALLET_ENABLED = import.meta.env.VITE_APPLE_WALLET_ENABLED !== "false";
 export default function GuestPass() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const routerLocation = useLocation();
   const [event, setEvent] = useState(null);
   const [entries, setEntries] = useState([]);
   const [entryIndex, setEntryIndex] = useState(0);
@@ -326,13 +327,19 @@ export default function GuestPass() {
   const isCheckedIn = entry.status === "checked_in";
   const isDenied = entry.status === "denied" || entry.status === "revoked";
   const hasMultiple = entries.length > 1;
+  // Back always lands on this event's page. Opened from that page: step back
+  // to it (keeps its scroll). From anywhere else (Home, checkout, a link):
+  // swap the pass for the event page, so the next back goes where they came from.
+  const goBack = () => (routerLocation.state?.fromEvent === id
+    ? navigate(-1)
+    : navigate(`/event/${id}`, { replace: true }));
   const ticketLabel = entry.notes || entry.guest_name || "Ticket";
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <div className="px-4 pt-4 pb-2 flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="rounded-full" onClick={() => (window.history.state?.idx > 0 ? navigate(-1) : navigate(`/event/${id}`))}>
+        <Button variant="ghost" size="icon" className="rounded-full" onClick={goBack} aria-label="Back to event">
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <h1 className="font-heading font-bold text-lg">Your Pass</h1>

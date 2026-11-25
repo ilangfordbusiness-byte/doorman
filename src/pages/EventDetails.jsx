@@ -534,7 +534,7 @@ export default function EventDetails() {
         {/* Your pass / status */}
         {myEntry && myEntry.status !== "denied" && (
           ["approved", "invited", "checked_in"].includes(myEntry.status) ? (
-            <Link to={`/pass/${id}`} className="block relative rounded-[22px] p-[2px] overflow-hidden active:scale-[0.99] transition-transform">
+            <Link to={`/pass/${id}`} state={{ fromEvent: id }} className="block relative rounded-[22px] p-[2px] overflow-hidden active:scale-[0.99] transition-transform">
               <div className="absolute inset-0" style={{ background: "conic-gradient(from 0deg, #fde68a, #f9a8d4, #f0abfc, #c084fc, #a5b4fc, #67e8f9, #fde68a)" }} />
               <div className="relative rounded-[20px] bg-card p-4 flex items-center gap-4">
                 <div className="w-16 h-16 rounded-xl bg-white grid place-items-center flex-shrink-0"><QrCode className="w-10 h-10 text-black" /></div>
@@ -757,7 +757,7 @@ export default function EventDetails() {
                 )}
               </div>
               {bar.action && (bar.action.to ? (
-                <Link to={bar.action.to} className="h-12 px-6 rounded-xl bg-white text-black font-heading font-bold text-base grid place-items-center flex-shrink-0">
+                <Link to={bar.action.to} state={{ fromEvent: id }} className="h-12 px-6 rounded-xl bg-white text-black font-heading font-bold text-base grid place-items-center flex-shrink-0">
                   {bar.action.label}
                 </Link>
               ) : (
